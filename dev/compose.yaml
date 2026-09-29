@@ -1,0 +1,98 @@
+# Throwaway databases for developing and testing Rowsmith.
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core
+#   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, MongoDB, BigQuery emulator
+# Nothing but Rowsmith is published, and only on 127.0.0.1.
+name: rowsmith-dev
+
+networks:
+  dev: {}
+  private:
+    internal: true   # only the bastion can reach this network
+
+volumes:
+  rowsmith-data: {}
+
+services:
+  rowsmith:
+    image: debian:bookworm-slim
+    command: ["/app/rowsmith"]
+    working_dir: /app
+    volumes:
+      - ../.bin:/app:ro
+      - rowsmith-data:/data
+    environment:
+      ROWSMITH_DATA_DIR: /data
+      ROWSMITH_INSECURE_COOKIES: "true"
+      ROWSMITH_LOG_LEVEL: debug
+    ports: ["127.0.0.1:18080:8080"]
+    networks: [dev]
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
+      MYSQL_DATABASE: shop
+    volumes: ["./seed/mysql.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
+    networks: [dev]
+
+  mariadb:
+    image: mariadb:11.8
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
+      MARIADB_DATABASE: shop
+    volumes: ["./seed/mysql.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
+    networks: [dev]
+
+  postgis:
+    image: postgis/postgis:latest
+    environment:
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
+      POSTGRES_DB: city
+    volumes: ["./seed/postgis.sql:/docker-entrypoint-initdb.d/20-seed.sql:ro"]
+    networks: [dev]
+
+  bastion:
+    build: ./bastion
+    environment:
+      SSH_PASSWORD: ${DEV_SSH_PASSWORD}
+      SSH_AUTHORIZED_KEY: ${DEV_SSH_PUBKEY:-}
+    networks: [dev, private]
+
+  private-pg:
+    image: postgis/postgis:latest
+    environment:
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
+      POSTGRES_DB: vault
+    networks: [private]
+
+  mssql:
+    profiles: [full]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DEV_DB_PASSWORD}Aa1!
+      MSSQL_PID: Developer
+    networks: [dev]
+
+  oracle:
+    profiles: [full]
+    image: gvenzl/oracle-free:23-slim-faststart
+    environment:
+      ORACLE_PASSWORD: ${DEV_DB_PASSWORD}
+      APP_USER: shop
+      APP_USER_PASSWORD: ${DEV_DB_PASSWORD}
+    networks: [dev]
+
+  mongo:
+    profiles: [full]
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
+    networks: [dev]
+
+  bigquery:
+    profiles: [full]
+    image: ghcr.io/goccy/bigquery-emulator:latest
+    command: ["--project=rowsmith-dev", "--dataset=analytics"]
+    networks: [dev]

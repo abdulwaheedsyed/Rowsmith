@@ -1,0 +1,21 @@
+# Build output
+/.bin/
+/web/node_modules/
+/web/dist/
+/internal/web/dist/*
+!/internal/web/dist/.keep
+
+# Local secrets and data
+.env
+*.env
+/data/
+*.db
+*.db-wal
+*.db-shm
+master.key
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
