@@ -14,6 +14,11 @@ class Client:
         self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
         self.csrf = ""
     def req(self, method, path, body=None, expect=None, raw=False):
+        out = self._req(method, path, body, expect, raw)
+        if method == "POST" and path == "/api/connections" and isinstance(out[1], dict) and "id" in out[1]:
+            created.add(out[1]["id"])
+        return out
+    def _req(self, method, path, body=None, expect=None, raw=False):
         data = json.dumps(body).encode() if body is not None else None
         r = urllib.request.Request(BASE + path, data=data, method=method)
         r.add_header("Content-Type", "application/json")
@@ -38,6 +43,8 @@ def stream(c, cid, sql, **kw):
     code, text = c.req("POST", f"/api/c/{cid}/query", {"sql": sql, "tab": "smoke", **kw}, raw=True)
     if code != 200: return code, text
     return code, [json.loads(l) for l in text.splitlines() if l.strip()]
+
+created = set()
 
 def main():
     c = Client()
@@ -165,6 +172,42 @@ def main():
     code, ev = stream(c, vid, "CREATE TABLE IF NOT EXISTS secrets (id int); INSERT INTO secrets VALUES (1)", database="vault", confirm=True)
     assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev; ok("production connection: confirmed DDL ran through the tunnel")
 
+    # MongoDB
+    _, cv = c.req("POST", "/api/connections", {"name": f"Docs (Mongo) {time.time_ns()}", "driver": "mongodb", "environment": "development",
+        "params": {"mode": "fields", "host": "mongo", "user": "root", "authSource": "admin", "database": "shop", "tls": "disable"},
+        "secrets": {"password": PW}}, 201)
+    mid = cv["id"]
+    _, dbs = c.req("GET", f"/api/c/{mid}/databases", expect=200); ok("mongo databases: " + ", ".join(d["name"] for d in dbs))
+    _, objs = c.req("GET", f"/api/c/{mid}/objects?db=shop", expect=200); ok("mongo collections: " + ", ".join(f"{o['name']}({o['kind']},{o.get('rows')})" for o in objs))
+    _, t = c.req("GET", f"/api/c/{mid}/describe?db=shop&name=customers", expect=200)
+    ok("mongo inferred fields: " + ", ".join(f"{col['name']}:{col['type']}" for col in t["columns"]))
+    _, res = c.req("POST", f"/api/c/{mid}/browse", {"ref": {"database": "shop", "name": "customers"}, "limit": 3,
+        "filters": [{"column": "tier", "op": "=", "value": "pro"}], "sort": [{"column": "signupAt", "desc": True}]}, 200)
+    names = [x["name"] for x in res["columns"]]; row = dict(zip(names, res["rows"][0]))
+    assert "$oid" in row["_id"] and "$geo" in json.dumps(row), row
+    ok(f"mongo browse: {len(res['rows'])} rows, _id={row['_id']}, {res['sql'][:60]}")
+    _, n = c.req("POST", f"/api/c/{mid}/count", {"ref": {"database": "shop", "name": "orders"}, "where": "{ status: 'paid', total: { $gt: NumberDecimal('500') } }"}, 200)
+    ok(f"mongo count with shell-syntax filter: {n['rows']}")
+    c.req("POST", f"/api/c/{mid}/edit", {"ref": {"database": "shop", "name": "customers"}, "edits": [{"op": "update", "key": {"_id": row["_id"]}, "values": {"tier": "enterprise", "tags": "['vip']"}}]}, 200)
+    _, res2 = c.req("POST", f"/api/c/{mid}/browse", {"ref": {"database": "shop", "name": "customers"}, "limit": 1, "filters": [{"column": "_id", "op": "=", "value": row["_id"]}]}, 200)
+    r2 = dict(zip([x["name"] for x in res2["columns"]], res2["rows"][0]))
+    assert r2["tier"] == "enterprise" and r2["tags"] == ["vip"], r2; ok("mongo edit by _id kept types (array stays array)")
+    code, ev = stream(c, mid, "db.orders.aggregate([{ $group: { _id: '$status', n: { $sum: 1 }, revenue: { $sum: '$total' } } }, { $sort: { n: -1 } }])\nshow collections\ndb.customers.find({ tier: 'pro' }, { email: 1 }).sort({ email: 1 }).limit(3)\ndb.orders.countDocuments({ status: 'refunded' })", database="shop")
+    ends = [e for e in ev if e["t"] == "stmtEnd"]; errs = [e["error"] for e in ends if e.get("error")]
+    assert len(ends) == 4 and not errs, (ends, errs)
+    ok(f"mongo console: {len(ends)} statements, {sum(len(e['rows']) for e in ev if e['t']=='rows')} rows")
+    code, body = stream(c, mid, "db.orders.deleteMany({})", database="shop")
+    assert code == 409, body; ok("mongo deleteMany({}) requires confirmation")
+    code, ev = stream(c, mid, "db.orders.find({ status: ", database="shop")
+    err = next(e for e in ev if e["t"] == "stmtEnd")["error"]; ok(f"mongo parse error surfaced: {err['message'][:60]}")
+    code, ev = stream(c, mid, "db.orders.find({}).limit(2)\ndb.orders.countDocuments({})", database="shop", mode="statement", cursor=5)
+    assert len([e for e in ev if e["t"] == "stmt"]) == 1, ev; ok("mongo run-statement-at-cursor")
+    _, plan = c.req("POST", f"/api/c/{mid}/explain", {"database": "shop", "sql": "db.orders.find({ status: 'paid' }).sort({ placedAt: -1 })", "analyze": True}, 200)
+    ok(f"mongo explain: {plan['root']['operation']} → {[ch['operation'] for ch in plan['root'].get('children', [])]} totals {plan.get('totals')}")
+    _, pl = c.req("GET", f"/api/c/{mid}/processes", expect=200); ok(f"mongo currentOp {len(pl['rows'])} ops")
+    _, an = c.req("POST", f"/api/c/{mid}/analyze", {"sql": "db.a.find({})\ndb.a.drop()"}, 200)
+    ok("mongo analyze markers: " + str([(s["line"], s["kind"], s["danger"]["level"]) for s in an["statements"]]))
+
     # viewer with read-only share
     _, u = c.req("POST", "/api/users", {"name": "Vic Viewer", "email": VIEWER, "role": "viewer", "password": "Quiet-Lantern-Harbor-31"}, 201)
     c.req("PUT", f"/api/connections/{conns['mysql']}/shares", {"shares": [{"userId": u["id"], "access": "write"}]}, 200)
@@ -184,6 +227,12 @@ def main():
     _, audit = c.req("GET", "/api/audit?limit=200", expect=200)
     ok(f"audit log has {len(audit)} entries, e.g. {sorted({a['action'] for a in audit})[:8]}")
     _, hist = c.req("GET", "/api/history?limit=5", expect=200); ok(f"history: {len(hist)} recent entries")
+    # Leave the workspace as we found it.
+    _, mine = c.req("GET", "/api/connections", expect=200)
+    for x in mine:
+        if x["id"] in created:
+            c.req("DELETE", f"/api/connections/{x['id']}")
+    ok(f"cleaned up {len(created)} test connections")
     print("\nALL SMOKE TESTS PASSED")
 
 if __name__ == "__main__":

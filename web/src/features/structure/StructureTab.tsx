@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { KeyRound, Link2, Table2, TerminalSquare, Copy, CornerDownRight, CornerUpLeft, Zap, ShieldCheck, Hash, Sparkles, FileCode2 } from "lucide-react";
 import { get, qs } from "../../lib/api";
-import { useDescribe, useDriver, qualified } from "../../lib/queries";
+import { useDescribe, useDriver } from "../../lib/queries";
 import type { Tab } from "../../lib/store";
 import { toast } from "../../lib/store";
 import type { Connection, ForeignKey } from "../../lib/types";
@@ -9,6 +9,7 @@ import { bytes, int } from "../../lib/format";
 import { Alert, Button, Spinner, Tip } from "../../components/ui";
 import { SqlEditor } from "../query/SqlEditor";
 import { newQueryTab, openObject } from "../workspace/actions";
+import { sampleQuery } from "../navigator/Navigator";
 import "./structure.css";
 
 export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
@@ -35,16 +36,16 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
           <div className="eyebrow">{t.kind.replace("_", " ")}{ref.schema ? ` · ${ref.schema}` : ref.database ? ` · ${ref.database}` : ""}</div>
           <h1 className="structure__title display truncate">{ref.name}</h1>
           <div className="structure__facts">
-            {t.rowEstimate !== undefined && <span><b className="tnum">{int(t.rowEstimate)}</b> rows (est.)</span>}
+            {t.rowEstimate !== undefined && <span><b className="tnum">{int(t.rowEstimate)}</b> {drv?.caps.documents ? "documents" : "rows"} (est.)</span>}
             {t.size !== undefined && <span><b>{bytes(t.size)}</b> on disk</span>}
-            <span><b className="tnum">{t.columns.length}</b> columns</span>
+            <span><b className="tnum">{t.columns.length}</b> {drv?.caps.documents ? "fields seen in a sample" : "columns"}</span>
             {opts.map(([k, v]) => <span key={k} className="mono">{k.replace("_", " ")}: {v}</span>)}
           </div>
           {t.comment && <p className="structure__comment">{t.comment}</p>}
         </div>
         <div className="row gap-3">
           <Button onClick={() => openObject(conn, ref, "browse")}><Table2 /> Data</Button>
-          <Button onClick={() => newQueryTab(conn, { sql: `SELECT ${t.columns.slice(0, 12).map((c) => c.name).join(", ")}\nFROM ${qualified(ref, q)}\n${drv?.dialect === "mssql" ? "" : "LIMIT 100"}`, database: ref.database, schema: ref.schema })}>
+          <Button onClick={() => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: ref.database, schema: ref.schema })}>
             <TerminalSquare /> Query
           </Button>
         </div>
@@ -167,7 +168,7 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
             <Button size="sm" variant="ghost" onClick={() => newQueryTab(conn, { sql: t.ddl!, database: ref.database, schema: ref.schema, title: `DDL ${ref.name}` })}><FileCode2 /> Open in editor</Button>
           </div>
           <div className="ddlbox">
-            <SqlEditor value={t.ddl} onChange={() => {}} readOnly dialect={drv?.dialect} driverId={conn.driver} />
+            <SqlEditor value={t.ddl} onChange={() => {}} readOnly dialect={drv?.dialect} driverId={conn.driver} language={drv?.caps.documents ? "mongo" : "sql"} />
           </div>
         </section>
       )}

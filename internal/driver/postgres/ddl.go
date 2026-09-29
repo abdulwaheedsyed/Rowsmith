@@ -1,0 +1,400 @@
+package postgres
+
+import (
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+
+	"rowsmith/internal/driver"
+)
+
+// DDL generation (driver.DDLGenerator, driver.SchemaDDL). PostgreSQL cannot
+// reorder columns, so column order in an edited definition is ignored.
+
+func refName(r driver.ObjectRef) string {
+	s := r.Schema
+	if s == "" {
+		s = "public"
+	}
+	return qualify(s, r.Name)
+}
+
+func colDef(col driver.Column) (string, error) {
+	if strings.TrimSpace(col.Name) == "" {
+		return "", errors.New("every column needs a name")
+	}
+	if strings.TrimSpace(col.Type) == "" {
+		return "", fmt.Errorf("column %s needs a type", col.Name)
+	}
+	s := quote(col.Name) + " " + col.Type
+	if col.Collation != "" {
+		s += " COLLATE " + quote(col.Collation)
+	}
+	switch {
+	case col.Generated != "":
+		s += " GENERATED ALWAYS AS (" + col.Generated + ") STORED"
+	case col.Default != nil && strings.HasPrefix(*col.Default, "GENERATED "):
+		s += " " + *col.Default
+	case col.Default != nil && *col.Default != "":
+		s += " DEFAULT " + *col.Default
+	}
+	if !col.Nullable {
+		s += " NOT NULL"
+	}
+	return s, nil
+}
+
+func quoteCols(cols []string) string {
+	out := make([]string, len(cols))
+	for i, c := range cols {
+		if strings.HasPrefix(c, "(") {
+			out[i] = c
+		} else {
+			out[i] = quote(c)
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
+func fkClause(fk driver.ForeignKey, defaultSchema string) string {
+	rs := fk.RefTable.Schema
+	if rs == "" {
+		rs = defaultSchema
+	}
+	s := "CONSTRAINT " + quote(fk.Name) + " FOREIGN KEY (" + quoteCols(fk.Columns) + ") REFERENCES " + qualify(rs, fk.RefTable.Name) + " (" + quoteCols(fk.RefColumns) + ")"
+	if r := strings.ToUpper(fk.OnDelete); r != "" && r != "NO ACTION" {
+		s += " ON DELETE " + r
+	}
+	if r := strings.ToUpper(fk.OnUpdate); r != "" && r != "NO ACTION" {
+		s += " ON UPDATE " + r
+	}
+	return s
+}
+
+func indexStmt(table driver.ObjectRef, ix driver.Index) string {
+	s := "CREATE "
+	if ix.Unique {
+		s += "UNIQUE "
+	}
+	s += "INDEX " + quote(ix.Name) + " ON " + refName(table)
+	if ix.Type != "" && ix.Type != "btree" {
+		s += " USING " + ix.Type
+	}
+	cols := make([]string, len(ix.Columns))
+	for i, c := range ix.Columns {
+		if strings.HasPrefix(c, "(") || strings.ContainsAny(c, "( ") {
+			cols[i] = c
+		} else {
+			cols[i] = quote(c)
+		}
+		if i < len(ix.Desc) && ix.Desc[i] {
+			cols[i] += " DESC"
+		}
+	}
+	s += " (" + strings.Join(cols, ", ") + ")"
+	if ix.Where != "" {
+		s += " WHERE " + ix.Where
+	}
+	return s
+}
+
+func (c *conn) CreateTableSQL(def driver.TableDef) ([]string, error) {
+	if def.Ref.Name == "" {
+		return nil, errors.New("give the table a name")
+	}
+	if len(def.Columns) == 0 {
+		return nil, errors.New("a table needs at least one column")
+	}
+	schema := def.Ref.Schema
+	if schema == "" {
+		schema = "public"
+	}
+	var lines []string
+	for _, col := range def.Columns {
+		d, err := colDef(col.Column)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, d)
+	}
+	if len(def.PrimaryKey) > 0 {
+		lines = append(lines, "PRIMARY KEY ("+quoteCols(def.PrimaryKey)+")")
+	}
+	for _, fk := range def.ForeignKeys {
+		lines = append(lines, fkClause(fk, schema))
+	}
+	for _, ch := range def.Checks {
+		lines = append(lines, "CONSTRAINT "+quote(ch.Name)+" CHECK ("+ch.Expression+")")
+	}
+	out := []string{"CREATE TABLE " + refName(def.Ref) + " (\n  " + strings.Join(lines, ",\n  ") + "\n)"}
+	for _, ix := range def.Indexes {
+		if !ix.Primary {
+			out = append(out, indexStmt(def.Ref, ix))
+		}
+	}
+	if def.Comment != "" {
+		out = append(out, "COMMENT ON TABLE "+refName(def.Ref)+" IS "+literal(def.Comment))
+	}
+	for _, col := range def.Columns {
+		if col.Comment != "" {
+			out = append(out, "COMMENT ON COLUMN "+refName(def.Ref)+"."+quote(col.Name)+" IS "+literal(col.Comment))
+		}
+	}
+	return out, nil
+}
+
+func (c *conn) AlterTableSQL(from *driver.Table, to driver.TableDef) ([]string, error) {
+	if from == nil {
+		return nil, errors.New("current table definition is missing")
+	}
+	schema := from.Ref.Schema
+	if schema == "" {
+		schema = "public"
+	}
+	target := refName(from.Ref)
+	alter := func(clause string) string { return "ALTER TABLE " + target + " " + clause }
+	var out []string
+
+	current := map[string]driver.Column{}
+	for _, col := range from.Columns {
+		current[col.Name] = col
+	}
+	kept := map[string]bool{}
+	for _, col := range to.Columns {
+		if col.OriginalName != "" {
+			kept[col.OriginalName] = true
+		}
+	}
+
+	// Constraints that depend on columns go first.
+	toFK := map[string]driver.ForeignKey{}
+	for _, fk := range to.ForeignKeys {
+		toFK[fk.Name] = fk
+	}
+	for _, fk := range from.ForeignKeys {
+		if n, ok := toFK[fk.Name]; !ok || fkClause(n, schema) != fkClause(fk, schema) {
+			out = append(out, alter("DROP CONSTRAINT "+quote(fk.Name)))
+		}
+	}
+	toCk := map[string]string{}
+	for _, ch := range to.Checks {
+		toCk[ch.Name] = ch.Expression
+	}
+	for _, ch := range from.Checks {
+		if e, ok := toCk[ch.Name]; !ok || e != ch.Expression {
+			out = append(out, alter("DROP CONSTRAINT "+quote(ch.Name)))
+		}
+	}
+	pkChanged := !slices.Equal(from.PrimaryKey, to.PrimaryKey)
+	if pkChanged && len(from.PrimaryKey) > 0 {
+		for _, ix := range from.Indexes {
+			if ix.Primary {
+				out = append(out, alter("DROP CONSTRAINT "+quote(ix.Name)))
+			}
+		}
+	}
+	toIx := map[string]driver.Index{}
+	for _, ix := range to.Indexes {
+		if !ix.Primary {
+			toIx[ix.Name] = ix
+		}
+	}
+	fromIx := map[string]driver.Index{}
+	for _, ix := range from.Indexes {
+		if ix.Primary {
+			continue
+		}
+		fromIx[ix.Name] = ix
+		if n, ok := toIx[ix.Name]; !ok || indexStmt(from.Ref, n) != indexStmt(from.Ref, ix) {
+			out = append(out, "DROP INDEX "+qualify(schema, ix.Name))
+		}
+	}
+
+	for _, col := range from.Columns {
+		if !kept[col.Name] {
+			out = append(out, alter("DROP COLUMN "+quote(col.Name)))
+		}
+	}
+	for _, col := range to.Columns {
+		if col.OriginalName == "" {
+			d, err := colDef(col.Column)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, alter("ADD COLUMN "+d))
+			if col.Comment != "" {
+				out = append(out, "COMMENT ON COLUMN "+target+"."+quote(col.Name)+" IS "+literal(col.Comment))
+			}
+			continue
+		}
+		old, ok := current[col.OriginalName]
+		if !ok {
+			return nil, fmt.Errorf("column %s no longer exists; reload the structure", col.OriginalName)
+		}
+		name := old.Name
+		if col.Name != old.Name {
+			out = append(out, alter("RENAME COLUMN "+quote(old.Name)+" TO "+quote(col.Name)))
+			name = col.Name
+		}
+		qn := quote(name)
+		if !strings.EqualFold(col.Type, old.Type) {
+			out = append(out, alter("ALTER COLUMN "+qn+" TYPE "+col.Type+" USING "+qn+"::"+col.Type))
+		}
+		if col.Nullable != old.Nullable {
+			if col.Nullable {
+				out = append(out, alter("ALTER COLUMN "+qn+" DROP NOT NULL"))
+			} else {
+				out = append(out, alter("ALTER COLUMN "+qn+" SET NOT NULL"))
+			}
+		}
+		oldDef, newDef := deref(old.Default), deref(col.Default)
+		if oldDef != newDef && col.Generated == "" {
+			switch {
+			case strings.HasPrefix(newDef, "GENERATED ") || strings.HasPrefix(oldDef, "GENERATED "):
+				if strings.HasPrefix(oldDef, "GENERATED ") {
+					out = append(out, alter("ALTER COLUMN "+qn+" DROP IDENTITY IF EXISTS"))
+				}
+				if strings.HasPrefix(newDef, "GENERATED ") {
+					out = append(out, alter("ALTER COLUMN "+qn+" ADD "+newDef))
+				} else if newDef != "" {
+					out = append(out, alter("ALTER COLUMN "+qn+" SET DEFAULT "+newDef))
+				}
+			case newDef == "":
+				out = append(out, alter("ALTER COLUMN "+qn+" DROP DEFAULT"))
+			default:
+				out = append(out, alter("ALTER COLUMN "+qn+" SET DEFAULT "+newDef))
+			}
+		}
+		if col.Comment != old.Comment {
+			out = append(out, "COMMENT ON COLUMN "+target+"."+qn+" IS "+nullableLiteral(col.Comment))
+		}
+	}
+
+	if pkChanged && len(to.PrimaryKey) > 0 {
+		out = append(out, alter("ADD PRIMARY KEY ("+quoteCols(to.PrimaryKey)+")"))
+	}
+	for _, ix := range to.Indexes {
+		if ix.Primary {
+			continue
+		}
+		if old, ok := fromIx[ix.Name]; !ok || indexStmt(from.Ref, old) != indexStmt(from.Ref, ix) {
+			out = append(out, indexStmt(from.Ref, ix))
+		}
+	}
+	fromFK := map[string]driver.ForeignKey{}
+	for _, fk := range from.ForeignKeys {
+		fromFK[fk.Name] = fk
+	}
+	for _, fk := range to.ForeignKeys {
+		if old, ok := fromFK[fk.Name]; !ok || fkClause(old, schema) != fkClause(fk, schema) {
+			out = append(out, alter("ADD "+fkClause(fk, schema)))
+		}
+	}
+	fromCk := map[string]string{}
+	for _, ch := range from.Checks {
+		fromCk[ch.Name] = ch.Expression
+	}
+	for _, ch := range to.Checks {
+		if e, ok := fromCk[ch.Name]; !ok || e != ch.Expression {
+			out = append(out, alter("ADD CONSTRAINT "+quote(ch.Name)+" CHECK ("+ch.Expression+")"))
+		}
+	}
+	if to.Comment != from.Comment {
+		out = append(out, "COMMENT ON TABLE "+target+" IS "+nullableLiteral(to.Comment))
+	}
+	if to.Ref.Name != "" && to.Ref.Name != from.Ref.Name {
+		out = append(out, alter("RENAME TO "+quote(to.Ref.Name)))
+	}
+	return out, nil
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func nullableLiteral(s string) string {
+	if s == "" {
+		return "NULL"
+	}
+	return literal(s)
+}
+
+var pgDropKeyword = map[string]string{
+	"table": "TABLE", "partitioned_table": "TABLE", "view": "VIEW", "materialized_view": "MATERIALIZED VIEW",
+	"foreign_table": "FOREIGN TABLE", "sequence": "SEQUENCE", "function": "FUNCTION", "procedure": "PROCEDURE",
+	"type": "TYPE", "extension": "EXTENSION",
+}
+
+func (c *conn) DropObjectSQL(ref driver.ObjectRef, cascade bool) ([]string, error) {
+	kw, ok := pgDropKeyword[ref.Kind]
+	if !ok {
+		return nil, fmt.Errorf("cannot drop objects of kind %q", ref.Kind)
+	}
+	name := refName(ref)
+	if ref.Kind == "extension" {
+		name = quote(ref.Name)
+	}
+	s := "DROP " + kw + " " + name
+	if cascade {
+		s += " CASCADE"
+	}
+	return []string{s}, nil
+}
+
+func (c *conn) TruncateSQL(ref driver.ObjectRef) ([]string, error) {
+	return []string{"TRUNCATE TABLE " + refName(ref)}, nil
+}
+
+func (c *conn) RenameObjectSQL(ref driver.ObjectRef, newName string) ([]string, error) {
+	if strings.TrimSpace(newName) == "" {
+		return nil, errors.New("enter a new name")
+	}
+	kw, ok := pgDropKeyword[ref.Kind]
+	if !ok || ref.Kind == "extension" {
+		return nil, fmt.Errorf("renaming a %s is not supported", ref.Kind)
+	}
+	return []string{"ALTER " + kw + " " + refName(ref) + " RENAME TO " + quote(newName)}, nil
+}
+
+func (c *conn) CreateDatabaseSQL(name string, opts map[string]string) ([]string, error) {
+	if strings.TrimSpace(name) == "" {
+		return nil, errors.New("enter a database name")
+	}
+	s := "CREATE DATABASE " + quote(name)
+	if o := opts["owner"]; o != "" {
+		s += " OWNER " + quote(o)
+	}
+	if e := opts["encoding"]; e != "" {
+		s += " ENCODING " + literal(e)
+	}
+	if t := opts["template"]; t != "" {
+		s += " TEMPLATE " + quote(t)
+	}
+	return []string{s}, nil
+}
+
+func (c *conn) DropDatabaseSQL(name string) ([]string, error) {
+	if strings.TrimSpace(name) == "" {
+		return nil, errors.New("choose a database")
+	}
+	return []string{"DROP DATABASE " + quote(name)}, nil
+}
+
+func (c *conn) CreateSchemaSQL(_ string, name string) ([]string, error) {
+	if strings.TrimSpace(name) == "" {
+		return nil, errors.New("enter a schema name")
+	}
+	return []string{"CREATE SCHEMA " + quote(name)}, nil
+}
+
+func (c *conn) DropSchemaSQL(_ string, name string, cascade bool) ([]string, error) {
+	s := "DROP SCHEMA " + quote(name)
+	if cascade {
+		s += " CASCADE"
+	}
+	return []string{s}, nil
+}

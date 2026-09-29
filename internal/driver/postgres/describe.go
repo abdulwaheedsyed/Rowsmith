@@ -174,6 +174,7 @@ func finishColumn(col *driver.Column, typname, typtype, category, baseType strin
 	}
 	if generated == "s" {
 		col.Generated = def.String
+		col.GeneratedStored = true
 	} else if def.Valid {
 		d := def.String
 		col.Default = &d

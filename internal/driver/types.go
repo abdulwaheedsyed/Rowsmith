@@ -136,38 +136,39 @@ type Object struct {
 }
 
 type Column struct {
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`     // full declared type, e.g. varchar(255)
-	BaseType      string   `json:"baseType"` // lowercased base, e.g. varchar
-	Kind          ValueKind `json:"kind"`
-	Nullable      bool     `json:"nullable"`
-	Default       *string  `json:"default,omitempty"`
-	AutoIncrement bool     `json:"autoIncrement,omitempty"`
-	Generated     string   `json:"generated,omitempty"` // expression for computed columns
-	PrimaryKey    bool     `json:"primaryKey,omitempty"`
-	Comment       string   `json:"comment,omitempty"`
-	Collation     string   `json:"collation,omitempty"`
-	Enum          []string `json:"enum,omitempty"`
-	Unsigned      bool     `json:"unsigned,omitempty"`
-	Length        *int64   `json:"length,omitempty"`
-	Precision     *int64   `json:"precision,omitempty"`
-	Scale         *int64   `json:"scale,omitempty"`
-	SRID          int      `json:"srid,omitempty"`
-	GeometryType  string   `json:"geometryType,omitempty"`
-	OnUpdate      string   `json:"onUpdate,omitempty"`
+	Name            string    `json:"name"`
+	Type            string    `json:"type"`     // full declared type, e.g. varchar(255)
+	BaseType        string    `json:"baseType"` // lowercased base, e.g. varchar
+	Kind            ValueKind `json:"kind"`
+	Nullable        bool      `json:"nullable"`
+	Default         *string   `json:"default,omitempty"`
+	AutoIncrement   bool      `json:"autoIncrement,omitempty"`
+	Generated       string    `json:"generated,omitempty"` // expression for computed columns
+	GeneratedStored bool      `json:"generatedStored,omitempty"`
+	PrimaryKey      bool      `json:"primaryKey,omitempty"`
+	Comment         string    `json:"comment,omitempty"`
+	Collation       string    `json:"collation,omitempty"`
+	Enum            []string  `json:"enum,omitempty"`
+	Unsigned        bool      `json:"unsigned,omitempty"`
+	Length          *int64    `json:"length,omitempty"`
+	Precision       *int64    `json:"precision,omitempty"`
+	Scale           *int64    `json:"scale,omitempty"`
+	SRID            int       `json:"srid,omitempty"`
+	GeometryType    string    `json:"geometryType,omitempty"`
+	OnUpdate        string    `json:"onUpdate,omitempty"`
 }
 
 type Index struct {
-	Name      string   `json:"name"`
-	Columns   []string `json:"columns"`
-	Unique    bool     `json:"unique"`
-	Primary   bool     `json:"primary"`
-	Type      string   `json:"type,omitempty"` // btree, hash, gist, fulltext, spatial...
-	Where     string   `json:"where,omitempty"`
-	Lengths   []int    `json:"lengths,omitempty"`
-	Desc      []bool   `json:"desc,omitempty"`
-	Comment   string   `json:"comment,omitempty"`
-	Definition string  `json:"definition,omitempty"`
+	Name       string   `json:"name"`
+	Columns    []string `json:"columns"`
+	Unique     bool     `json:"unique"`
+	Primary    bool     `json:"primary"`
+	Type       string   `json:"type,omitempty"` // btree, hash, gist, fulltext, spatial...
+	Where      string   `json:"where,omitempty"`
+	Lengths    []int    `json:"lengths,omitempty"`
+	Desc       []bool   `json:"desc,omitempty"`
+	Comment    string   `json:"comment,omitempty"`
+	Definition string   `json:"definition,omitempty"`
 }
 
 type ForeignKey struct {
@@ -203,7 +204,7 @@ type Table struct {
 	Checks      []Check           `json:"checks"`
 	Triggers    []Trigger         `json:"triggers"`
 	PrimaryKey  []string          `json:"primaryKey"`
-	RowKey      []string          `json:"rowKey"` // columns that identify a row for editing
+	RowKey      []string          `json:"rowKey"`               // columns that identify a row for editing
 	RowKeyKind  string            `json:"rowKeyKind,omitempty"` // "primary", "unique", "rowid", "ctid", "_id"
 	Comment     string            `json:"comment,omitempty"`
 	Options     map[string]string `json:"options,omitempty"` // engine, collation, tablespace...
@@ -338,28 +339,28 @@ type EditResult struct {
 // ---- execution ---------------------------------------------------------------
 
 type ExecOptions struct {
-	MaxRows         int  // per result set; further rows are counted but not sent
-	StopOnError     bool //
-	ReadOnly        bool // reject statements that are not read-only
-	DryRun          bool // engines with CostEstimate: estimate only
-	MaxBytesBilled  int64
-	Params          []any
+	MaxRows        int  // per result set; further rows are counted but not sent
+	StopOnError    bool //
+	ReadOnly       bool // reject statements that are not read-only
+	DryRun         bool // engines with CostEstimate: estimate only
+	MaxBytesBilled int64
+	Params         []any
 }
 
 type StatementInfo struct {
-	Index int    `json:"index"`
-	SQL   string `json:"sql"`
-	Line  int    `json:"line"` // 1-based line of the statement within the script
+	Index int           `json:"index"`
+	SQL   string        `json:"sql"`
+	Line  int           `json:"line"` // 1-based line of the statement within the script
 	Kind  StatementKind `json:"kind"`
 }
 
 type ResultSummary struct {
-	RowCount     int64    `json:"rowCount"`
-	RowsAffected *int64   `json:"rowsAffected,omitempty"`
-	Truncated    bool     `json:"truncated"`
-	DurationMS   float64  `json:"durationMs"`
-	BytesProcessed *int64 `json:"bytesProcessed,omitempty"`
-	CacheHit     *bool    `json:"cacheHit,omitempty"`
+	RowCount       int64   `json:"rowCount"`
+	RowsAffected   *int64  `json:"rowsAffected,omitempty"`
+	Truncated      bool    `json:"truncated"`
+	DurationMS     float64 `json:"durationMs"`
+	BytesProcessed *int64  `json:"bytesProcessed,omitempty"`
+	CacheHit       *bool   `json:"cacheHit,omitempty"`
 }
 
 // Sink receives streamed execution output. Engines call BeginStatement once
@@ -400,13 +401,13 @@ type Plan struct {
 // ---- dump --------------------------------------------------------------------
 
 type DumpRequest struct {
-	Scope      Scope       `json:"scope"`
-	Objects    []ObjectRef `json:"objects"` // empty = whole scope
-	Structure  bool        `json:"structure"`
-	Data       bool        `json:"data"`
-	DropFirst  bool        `json:"dropFirst"`
-	IfNotExists bool       `json:"ifNotExists"`
-	BatchSize  int         `json:"batchSize"` // rows per INSERT
+	Scope       Scope       `json:"scope"`
+	Objects     []ObjectRef `json:"objects"` // empty = whole scope
+	Structure   bool        `json:"structure"`
+	Data        bool        `json:"data"`
+	DropFirst   bool        `json:"dropFirst"`
+	IfNotExists bool        `json:"ifNotExists"`
+	BatchSize   int         `json:"batchSize"` // rows per INSERT
 }
 
 type DumpWriter interface {

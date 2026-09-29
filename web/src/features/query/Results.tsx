@@ -40,6 +40,16 @@ export function Results({ run, conn }: { run: RunState; conn: Connection }) {
     if (failed && run.status !== "running") setPane({ kind: "messages" });
   }, [run.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const found = pane.kind === "set" ? sets.find((s) => s.stmt === pane.stmt && s.set === pane.set) : undefined;
+  // Document stores add a trailing "…" column for fields outside the inferred
+  // set; drop it when no document needed it.
+  const current = useMemo(() => {
+    if (!found) return undefined;
+    const i = found.rs.columns.findIndex((c) => c.name === "…");
+    if (i < 0 || found.rs.rows.some((r) => r[i] !== null && r[i] !== undefined)) return found;
+    return { ...found, rs: { ...found.rs, columns: found.rs.columns.filter((_, j) => j !== i), rows: found.rs.rows.map((r) => r.filter((_, j) => j !== i)) } };
+  }, [found]);
+
   if (run.status === "idle" && !run.stmts.length && !run.plan && !run.planLoading && !run.planError) {
     return (
       <div className="results results--empty">
@@ -55,7 +65,7 @@ export function Results({ run, conn }: { run: RunState; conn: Connection }) {
     );
   }
 
-  const current = pane.kind === "set" ? sets.find((s) => s.stmt === pane.stmt && s.set === pane.set) : undefined;
+
   const errors = run.stmts.filter((s) => s.error).length;
   const notices = run.stmts.reduce((n, s) => n + s.notices.length, 0);
   const gridCols: GridColumn[] = current ? current.rs.columns.map((c) => ({ name: c.name, type: c.type.toLowerCase(), kind: c.kind, nullable: c.nullable })) : [];

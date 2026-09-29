@@ -298,9 +298,9 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
           <input className="input" placeholder="Search rows" value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} aria-label="Search rows" />
           {searchDraft && <button className="browse__clear" aria-label="Clear search" onClick={() => { setSearchDraft(""); patchState({ search: "" }); }}><X /></button>}
         </label>
-        {drv?.caps.sql && (
-          <Tip label="Raw WHERE condition">
-            <Button size="sm" variant={showWhere ? "default" : "ghost"} icon onClick={() => setShowWhere(!showWhere)} aria-label="WHERE condition"><Code2 /></Button>
+        {(drv?.caps.sql || drv?.caps.documents) && (
+          <Tip label={drv?.caps.documents ? "Query filter (shell syntax)" : "Raw WHERE condition"}>
+            <Button size="sm" variant={showWhere ? "default" : "ghost"} icon onClick={() => setShowWhere(!showWhere)} aria-label="Raw condition"><Code2 /></Button>
           </Tip>
         )}
         <ColumnsMenu cols={cols} hidden={st.hidden} onChange={(hidden) => patchState({ hidden })} />
@@ -333,8 +333,9 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
       </div>
       {showWhere && (
         <form className="browse__where" onSubmit={(e) => { e.preventDefault(); patchState({ where: whereDraft }); }}>
-          <span className="mono browse__where-kw">WHERE</span>
-          <input className="input input--mono" value={whereDraft} onChange={(e) => setWhereDraft(e.target.value)} placeholder="total > 100 AND status = 'paid'" spellCheck={false} />
+          <span className="mono browse__where-kw">{drv?.caps.documents ? "FILTER" : "WHERE"}</span>
+          <input className="input input--mono" value={whereDraft} onChange={(e) => setWhereDraft(e.target.value)}
+            placeholder={drv?.caps.documents ? "{ status: 'paid', total: { $gt: 100 } }" : "total > 100 AND status = 'paid'"} spellCheck={false} />
           <Button size="sm" type="submit">Apply</Button>
           {st.where && <Button size="sm" variant="ghost" onClick={() => { setWhereDraft(""); patchState({ where: "" }); }}>Clear</Button>}
         </form>

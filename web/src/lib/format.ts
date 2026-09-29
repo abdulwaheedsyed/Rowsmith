@@ -79,6 +79,11 @@ export function cellText(v: Cell): string {
   if ("$text" in o) return o.$text;
   if ("$bin" in o) return "0x" + b64ToHex(o.$bin);
   if ("$geo" in o) return o.wkt ?? JSON.stringify(o.$geo);
+  if ("$oid" in o) return o.$oid;
+  if ("$date" in o) return o.$date;
+  if ("$numberDecimal" in o) return o.$numberDecimal;
+  if ("$numberLong" in o) return o.$numberLong;
+  if ("$uuid" in o) return o.$uuid;
   return JSON.stringify(o);
 }
 

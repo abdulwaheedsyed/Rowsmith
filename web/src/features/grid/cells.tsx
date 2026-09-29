@@ -19,9 +19,19 @@ function fmtCoord(n: unknown) {
   return typeof n === "number" ? n.toFixed(5).replace(/0+$/, "").replace(/\.$/, "") : String(n);
 }
 
+// Compact preview that also collapses Extended JSON wrappers inside documents.
 function jsonPreview(v: unknown, max = 160): string {
   try {
-    const s = typeof v === "string" ? v : JSON.stringify(v);
+    const s = typeof v === "string" ? v : JSON.stringify(v, (_k, x) => {
+      if (x && typeof x === "object" && !Array.isArray(x)) {
+        if ("$oid" in x) return `ObjectId(${x.$oid})`;
+        if ("$date" in x) return x.$date;
+        if ("$numberDecimal" in x) return Number(x.$numberDecimal);
+        if ("$numberLong" in x) return x.$numberLong;
+        if ("$geo" in x) return x.$geo;
+      }
+      return x;
+    });
     return s.length > max ? s.slice(0, max) + "…" : s;
   } catch {
     return String(v);
@@ -44,6 +54,11 @@ export function CellView({ value, kind }: { value: Cell; kind: ValueKind }) {
   }
   if (Array.isArray(value)) return <span className="c-json">{jsonPreview(value)}</span>;
   const o = value as Record<string, any>;
+  if ("$oid" in o) return <span className="c-oid">{o.$oid}</span>;
+  if ("$date" in o) return <span className="c-date">{String(o.$date).replace("T", " ").replace(/\.000Z$|Z$/, "")}</span>;
+  if ("$numberDecimal" in o) return <span className="c-num">{o.$numberDecimal}</span>;
+  if ("$numberLong" in o) return <span className="c-num">{o.$numberLong}</span>;
+  if ("$uuid" in o) return <span className="c-uuid">{o.$uuid}</span>;
   if ("$bin" in o) {
     const mime: string | undefined = o.mime;
     const label = mime ? mime.split("/")[1]?.toUpperCase() : "binary";
@@ -88,6 +103,8 @@ export function cellChars(value: Cell): number {
   if (typeof value === "boolean") return 5;
   if (Array.isArray(value)) return 30;
   const o = value as Record<string, any>;
+  if ("$oid" in o) return 24;
+  if ("$date" in o) return 20;
   if ("$bin" in o) return 16;
   if ("$geo" in o) return 26;
   if ("$text" in o) return 60;

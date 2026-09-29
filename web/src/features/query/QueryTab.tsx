@@ -51,7 +51,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
 
   // Statement analysis for gutter markers (debounced, server-side splitter).
   useEffect(() => {
-    if (!drv?.caps.sql || !sql.trim()) {
+    if (!drv || !sql.trim()) {
       setMarks([]);
       return;
     }
@@ -64,7 +64,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [sql, conn.id, drv?.caps.sql]);
+  }, [sql, conn.id, drv]);
 
   useEffect(() => {
     if (!active) return;
@@ -301,9 +301,11 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
             <Button size="sm" variant="ghost" onClick={() => explain(false)}><ListTree /> Explain</Button>
           </Tip>
         )}
-        <Tip label={<>Format SQL <Kbd>⇧⌥F</Kbd></>}>
-          <Button size="sm" variant="ghost" icon onClick={format} aria-label="Format SQL"><Wand2 /></Button>
-        </Tip>
+        {drv?.caps.sql && (
+          <Tip label={<>Format SQL <Kbd>⇧⌥F</Kbd></>}>
+            <Button size="sm" variant="ghost" icon onClick={format} aria-label="Format SQL"><Wand2 /></Button>
+          </Tip>
+        )}
         <Tip label={<>Save query <Kbd>{modKey()}S</Kbd></>}>
           <Button size="sm" variant="ghost" icon onClick={() => setSaveOpen(true)} aria-label="Save query"><Save /></Button>
         </Tip>
@@ -352,6 +354,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
           marks={marks}
           errorLine={errorLine}
           handleRef={editor}
+          placeholder={drv?.dialect === "mongodb" ? "db.orders.find({ status: \"paid\" }).sort({ placedAt: -1 }).limit(20)   ⌘↵ runs the statement at the cursor" : undefined}
         />
       </div>
       <div className="query__split" role="separator" aria-orientation="horizontal" onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} />

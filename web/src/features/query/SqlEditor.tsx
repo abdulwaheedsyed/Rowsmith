@@ -7,6 +7,8 @@ import {
 import { defaultKeymap, history, historyKeymap, indentWithTab, toggleComment } from "@codemirror/commands";
 import { sql, MySQL, MariaSQL, PostgreSQL, MSSQL, PLSQL, SQLite, StandardSQL, type SQLDialect } from "@codemirror/lang-sql";
 import { json } from "@codemirror/lang-json";
+import { javascript } from "@codemirror/lang-javascript";
+import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
 import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
@@ -144,7 +146,7 @@ interface Props {
   onChange(v: string): void;
   dialect?: string;
   driverId?: string;
-  language?: "sql" | "json";
+  language?: "sql" | "json" | "mongo";
   catalog?: CatalogTable[];
   defaultSchema?: string;
   onRun?(mode: "statement" | "all"): void;
@@ -248,8 +250,46 @@ export function SqlEditor(props: Props) {
   return <div className="sqleditor" ref={host} />;
 }
 
+const MONGO_METHODS = ["find", "findOne", "aggregate", "countDocuments", "estimatedDocumentCount", "distinct", "insertOne", "insertMany",
+  "updateOne", "updateMany", "replaceOne", "deleteOne", "deleteMany", "findOneAndUpdate", "findOneAndReplace", "findOneAndDelete",
+  "createIndex", "dropIndex", "dropIndexes", "getIndexes", "drop", "renameCollection", "stats"];
+const MONGO_DB = ["getCollection", "runCommand", "adminCommand", "getCollectionNames", "getCollectionInfos", "createCollection",
+  "createView", "dropDatabase", "stats", "serverStatus", "currentOp", "killOp", "version", "aggregate"];
+const MONGO_CURSOR = ["sort", "limit", "skip", "project", "hint", "count", "explain", "collation", "maxTimeMS", "toArray"];
+
+function mongoCompletions(catalog: CatalogTable[] | undefined) {
+  return (ctx: CompletionContext): CompletionResult | null => {
+    const before = ctx.state.sliceDoc(Math.max(0, ctx.pos - 200), ctx.pos);
+    let m = before.match(/\bdb\.(\w*)$/);
+    if (m) {
+      const from = ctx.pos - m[1].length;
+      return {
+        from,
+        options: [
+          ...(catalog ?? []).filter((t) => /^[A-Za-z_$][\w$]*$/.test(t.name)).map((t) => ({ label: t.name, type: "class", detail: t.kind })),
+          ...MONGO_DB.map((f) => ({ label: f, type: "function", apply: f + "(" })),
+        ],
+      };
+    }
+    m = before.match(/\bdb\.(?:\w+|getCollection\([^)]*\))\.(\w*)$/);
+    if (m) return { from: ctx.pos - m[1].length, options: MONGO_METHODS.map((f) => ({ label: f, type: "method", apply: f + "(" })) };
+    m = before.match(/\)\s*\.(\w*)$/);
+    if (m) return { from: ctx.pos - m[1].length, options: MONGO_CURSOR.map((f) => ({ label: f, type: "method", apply: f + "(" })) };
+    m = before.match(/[{,]\s*(\$?\w*)$/);
+    if (m && m[1].startsWith("$")) {
+      const ops = ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$exists", "$regex", "$and", "$or", "$not", "$elemMatch", "$size",
+        "$match", "$group", "$project", "$sort", "$limit", "$skip", "$lookup", "$unwind", "$addFields", "$count", "$facet", "$sum", "$avg", "$min", "$max", "$push", "$set", "$unset", "$inc"];
+      return { from: ctx.pos - m[1].length, options: ops.map((o) => ({ label: o, type: "keyword" })) };
+    }
+    return null;
+  };
+}
+
 function language(p: Props): Extension {
   if (p.language === "json") return json();
+  if (p.language === "mongo" || p.dialect === "mongodb") {
+    return [javascript(), javascript().language.data.of({ autocomplete: mongoCompletions(p.catalog) })];
+  }
   const schema: Record<string, string[]> = {};
   for (const t of p.catalog ?? []) {
     const cols = t.columns.map((c) => c.name);

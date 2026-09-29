@@ -130,7 +130,26 @@ func (s *Server) wsQuery(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 
 	script := req.SQL
 	var stmts []sqlsplit.Statement
-	if info.Caps.SQL {
+	if sp, ok := drv.(driver.ScriptSplitter); ok && !info.Caps.SQL {
+		// A script that does not parse still goes to the session, which
+		// reports the syntax error (with its line) like any other failure.
+		parsed, _ := sp.SplitScript(req.SQL)
+		for _, p := range parsed {
+			stmts = append(stmts, sqlsplit.Statement{SQL: p.SQL, Start: p.Start, End: p.End, Line: p.Line, Kind: p.Kind, Danger: p.Danger})
+		}
+		if req.Mode == "statement" {
+			if st, ok := statementAt(stmts, req.Cursor); ok {
+				script, stmts = st.SQL, []sqlsplit.Statement{st}
+			}
+		}
+		if !readOnly {
+			if pending := needsConfirmation(stmts, c.Environment); len(pending) > 0 && !req.Confirm {
+				writeErrDetail(w, 409, "confirm_required", "these statements need confirmation", map[string]any{
+					"environment": c.Environment, "statements": pending})
+				return
+			}
+		}
+	} else if info.Caps.SQL {
 		if req.Mode == "statement" {
 			st, ok := sqlsplit.StatementAt(req.SQL, dialect, req.Cursor)
 			if !ok {
@@ -254,6 +273,25 @@ func (s *Server) wsCloseConsole(w http.ResponseWriter, r *http.Request, rc *reqC
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
+func statementAt(stmts []sqlsplit.Statement, cursor int) (sqlsplit.Statement, bool) {
+	best := -1
+	for i, st := range stmts {
+		if cursor >= st.Start && cursor <= st.End {
+			return st, true
+		}
+		if st.Start <= cursor {
+			best = i
+		}
+	}
+	if best < 0 {
+		if len(stmts) == 0 {
+			return sqlsplit.Statement{}, false
+		}
+		best = 0
+	}
+	return stmts[best], true
+}
+
 // wsAnalyze splits and classifies a script without running it: the editor
 // uses it for statement boundaries, gutter markers and safety hints.
 func (s *Server) wsAnalyze(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -267,6 +305,16 @@ func (s *Server) wsAnalyze(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 		return
 	}
 	drv, ok := driver.Get(c.Driver)
+	if ok {
+		if sp, isSplitter := drv.(driver.ScriptSplitter); isSplitter && !drv.Info().Caps.SQL {
+			parsed, err := sp.SplitScript(req.SQL)
+			if err != nil || parsed == nil {
+				parsed = []driver.ScriptStatement{}
+			}
+			writeJSON(w, 200, map[string]any{"statements": parsed})
+			return
+		}
+	}
 	if !ok || !drv.Info().Caps.SQL {
 		writeJSON(w, 200, map[string]any{"statements": []any{}})
 		return

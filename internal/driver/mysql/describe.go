@@ -113,6 +113,7 @@ func (c *conn) describeColumns(ctx context.Context, t *driver.Table) error {
 		}
 		if genExpr.String != "" && (strings.Contains(ex, "generated") || strings.Contains(ex, "virtual") || strings.Contains(ex, "stored") || strings.Contains(ex, "persistent")) {
 			col.Generated = genExpr.String
+			col.GeneratedStored = strings.Contains(ex, "stored") || strings.Contains(ex, "persistent")
 		}
 		if def.Valid && col.Generated == "" {
 			d := c.normalizeDefault(def.String, ex, col.Kind)

@@ -205,7 +205,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                             {browsable && <CItem icon={<Columns3 />} onSelect={() => openObject(conn, ref, "structure")}>Structure</CItem>}
                             {!browsable && <CItem icon={<FileCode2 />} onSelect={() => openObject(conn, ref, "definition")}>Show definition</CItem>}
                             {browsable && (
-                              <CItem icon={<TerminalSquare />} onSelect={() => newQueryTab(conn, { sql: `SELECT *\nFROM ${qualified(ref, q)}\n${drv?.dialect === "mssql" ? "" : "LIMIT 100"}`.trim(), database: scope.database, schema: scope.schema })}>
+                              <CItem icon={<TerminalSquare />} onSelect={() => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: scope.database, schema: scope.schema })}>
                                 Query in new tab
                               </CItem>
                             )}
@@ -233,6 +233,13 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
       {ddl && <DDLDialog conn={conn} action={ddl.action} target={ddl.ref} onClose={() => setDdl(null)} onDone={refresh} />}
     </div>
   );
+}
+
+export function sampleQuery(dialect: string | undefined, ref: ObjectRef, q: string) {
+  if (dialect === "mongodb") return `db.getCollection(${JSON.stringify(ref.name)}).find({}).limit(100)`;
+  if (dialect === "mssql") return `SELECT TOP (100) *\nFROM ${qualified(ref, q)}`;
+  if (dialect === "plsql") return `SELECT *\nFROM ${qualified(ref, q)}\nFETCH FIRST 100 ROWS ONLY`;
+  return `SELECT *\nFROM ${qualified(ref, q)}\nLIMIT 100`;
 }
 
 function CItem({ icon, children, onSelect, danger }: { icon: React.ReactNode; children: React.ReactNode; onSelect(): void; danger?: boolean }) {

@@ -166,6 +166,23 @@ type Classifier interface {
 	Classify(statement string) StatementKind
 }
 
+// ScriptStatement is one statement of a console script.
+type ScriptStatement struct {
+	SQL    string        `json:"sql"`
+	Start  int           `json:"start"` // byte offsets within the script
+	End    int           `json:"end"`
+	Line   int           `json:"line"`
+	Kind   StatementKind `json:"kind"`
+	Danger Danger        `json:"danger"`
+}
+
+// ScriptSplitter is implemented by drivers whose console language is not
+// SQL (e.g. the MongoDB shell); the API uses it for "run statement at
+// cursor", editor markers and confirmation prompts.
+type ScriptSplitter interface {
+	SplitScript(script string) ([]ScriptStatement, error)
+}
+
 // ---- registry --------------------------------------------------------------
 
 var (

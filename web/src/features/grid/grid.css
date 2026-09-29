@@ -282,6 +282,11 @@
   font-size: 11.5px;
   color: var(--text-2);
 }
+.c-oid {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--syn-function);
+}
 .c-uuid {
   font-family: var(--font-mono);
   font-size: 11.5px;
