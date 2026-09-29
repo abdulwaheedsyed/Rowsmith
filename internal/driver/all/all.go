@@ -4,4 +4,5 @@ package all
 import (
 	_ "rowsmith/internal/driver/mysql"
 	_ "rowsmith/internal/driver/postgres"
+	_ "rowsmith/internal/driver/sqlite"
 )
