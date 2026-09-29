@@ -1,0 +1,261 @@
+/*
+ * Rowsmith design tokens.
+ *
+ * Base: blued steel (dark) / bright steel (light). One interactive accent:
+ * straw gold. The temper scale — the oxide colors steel passes through as it
+ * heats — is reserved for encoding heat: time and cost. Never decoration.
+ */
+
+:root {
+  --font-display: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Temper scale: cool (fast/cheap) → hot (slow/expensive) */
+  --temper-0: #ebc76a; /* pale straw */
+  --temper-1: #d9a553; /* dark straw */
+  --temper-2: #c4803f; /* bronze */
+  --temper-3: #93508a; /* plum */
+  --temper-4: #5752c4; /* peacock */
+  --temper-5: #3d7ad4; /* blue */
+  --temper-6: #8db7ee; /* pale blue */
+  --temper-gradient: linear-gradient(90deg, var(--temper-0), var(--temper-2) 35%, var(--temper-3) 62%, var(--temper-4) 80%, var(--temper-5));
+
+  /* Environments follow convention, not brand: production is always red. */
+  --env-production: #f0555b;
+  --env-staging: #e7913a;
+  --env-development: #4c9aff;
+  --env-local: #8793a6;
+
+  --fs-2xs: 10.5px;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-md: 13.5px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 24px;
+  --fs-3xl: 34px;
+  --fs-4xl: 48px;
+
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 12px;
+  --sp-6: 16px;
+  --sp-7: 20px;
+  --sp-8: 24px;
+  --sp-9: 32px;
+  --sp-10: 48px;
+
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 7px;
+  --r-lg: 11px;
+  --r-pill: 999px;
+
+  --h-control: 30px;
+  --h-control-sm: 24px;
+  --h-row: 28px;
+  --h-topbar: 46px;
+  --h-status: 26px;
+  --w-rail: 58px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 110ms;
+  --t-med: 180ms;
+}
+
+/* Dark: blued steel (default) */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0f17;
+  --sunken: #080b11;
+  --surface: #111723;
+  --raised: #182030;
+  --overlay: #1b2436;
+  --hover: rgba(200, 214, 240, 0.055);
+  --active: rgba(200, 214, 240, 0.09);
+
+  --line: #253047;
+  --line-soft: #1a2234;
+  --line-strong: #36445f;
+
+  --text: #e7ebf2;
+  --text-2: #bac3d2;
+  --muted: #8793a6;
+  --faint: #5a667c;
+
+  --accent: #e8b84a;
+  --accent-hover: #f3c862;
+  --accent-ink: #1c1405;
+  --accent-text: #f0c766;
+  --accent-soft: rgba(232, 184, 74, 0.13);
+  --accent-line: rgba(232, 184, 74, 0.45);
+
+  --danger: #f0555b;
+  --danger-text: #ff8a8e;
+  --danger-soft: rgba(240, 85, 91, 0.13);
+  --success: #45c08a;
+  --success-soft: rgba(69, 192, 138, 0.13);
+  --warn: #e7913a;
+  --warn-soft: rgba(231, 145, 58, 0.14);
+  --info: #6aa8ff;
+  --info-soft: rgba(106, 168, 255, 0.13);
+
+  --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.25);
+  --scrim: rgba(4, 6, 10, 0.62);
+
+  --grid-alt: rgba(255, 255, 255, 0.016);
+  --grid-hover: rgba(200, 214, 240, 0.045);
+  --grid-sel: rgba(232, 184, 74, 0.14);
+  --grid-sel-line: rgba(232, 184, 74, 0.7);
+  --grid-dirty: rgba(231, 145, 58, 0.16);
+  --grid-new: rgba(69, 192, 138, 0.12);
+  --grid-deleted: rgba(240, 85, 91, 0.12);
+
+  --cell-number: #a9c8f5;
+  --cell-date: #c7b4e6;
+  --cell-bool-true: #7fd6ac;
+  --cell-bool-false: #8793a6;
+  --cell-null: #5a667c;
+
+  --syn-keyword: #e8b84a;
+  --syn-string: #e0a370;
+  --syn-number: #8db7ee;
+  --syn-comment: #5f6b82;
+  --syn-function: #d99bd2;
+  --syn-type: #aaa6f6;
+  --syn-operator: #bac3d2;
+  --syn-variable: #e7ebf2;
+  --syn-punct: #8793a6;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #edf0f5;
+    --sunken: #e3e7ee;
+    --surface: #ffffff;
+    --raised: #f6f8fb;
+    --overlay: #ffffff;
+    --hover: rgba(17, 23, 34, 0.045);
+    --active: rgba(17, 23, 34, 0.08);
+    --line: #d4dbe6;
+    --line-soft: #e6eaf1;
+    --line-strong: #b9c3d3;
+    --text: #111722;
+    --text-2: #2c3749;
+    --muted: #5b6679;
+    --faint: #8b95a7;
+    --accent: #e0ae3c;
+    --accent-hover: #d49f2a;
+    --accent-ink: #1c1405;
+    --accent-text: #8a5a00;
+    --accent-soft: rgba(224, 174, 60, 0.18);
+    --accent-line: rgba(176, 125, 20, 0.5);
+    --danger: #d93a41;
+    --danger-text: #b3242b;
+    --danger-soft: rgba(217, 58, 65, 0.1);
+    --success: #1f9d64;
+    --success-soft: rgba(31, 157, 100, 0.11);
+    --warn: #c46d12;
+    --warn-soft: rgba(196, 109, 18, 0.12);
+    --info: #2b6fd6;
+    --info-soft: rgba(43, 111, 214, 0.1);
+    --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    --shadow-pop: 0 18px 48px rgba(22, 32, 52, 0.18), 0 2px 6px rgba(22, 32, 52, 0.08);
+    --shadow-card: 0 1px 2px rgba(22, 32, 52, 0.06);
+    --scrim: rgba(18, 24, 36, 0.38);
+    --grid-alt: rgba(17, 23, 34, 0.018);
+    --grid-hover: rgba(17, 23, 34, 0.035);
+    --grid-sel: rgba(224, 174, 60, 0.2);
+    --grid-sel-line: rgba(176, 125, 20, 0.8);
+    --grid-dirty: rgba(231, 145, 58, 0.18);
+    --grid-new: rgba(31, 157, 100, 0.12);
+    --grid-deleted: rgba(217, 58, 65, 0.1);
+    --cell-number: #2459a8;
+    --cell-date: #6a45a3;
+    --cell-bool-true: #1f8a58;
+    --cell-bool-false: #8b95a7;
+    --cell-null: #9aa3b3;
+    --syn-keyword: #9a6400;
+    --syn-string: #a14f1b;
+    --syn-number: #2459a8;
+    --syn-comment: #8b95a7;
+    --syn-function: #8a3f84;
+    --syn-type: #4b45b8;
+    --syn-operator: #3c4758;
+    --syn-variable: #111722;
+    --syn-punct: #6b7689;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #edf0f5;
+  --sunken: #e3e7ee;
+  --surface: #ffffff;
+  --raised: #f6f8fb;
+  --overlay: #ffffff;
+  --hover: rgba(17, 23, 34, 0.045);
+  --active: rgba(17, 23, 34, 0.08);
+  --line: #d4dbe6;
+  --line-soft: #e6eaf1;
+  --line-strong: #b9c3d3;
+  --text: #111722;
+  --text-2: #2c3749;
+  --muted: #5b6679;
+  --faint: #8b95a7;
+  --accent: #e0ae3c;
+  --accent-hover: #d49f2a;
+  --accent-ink: #1c1405;
+  --accent-text: #8a5a00;
+  --accent-soft: rgba(224, 174, 60, 0.18);
+  --accent-line: rgba(176, 125, 20, 0.5);
+  --danger: #d93a41;
+  --danger-text: #b3242b;
+  --danger-soft: rgba(217, 58, 65, 0.1);
+  --success: #1f9d64;
+  --success-soft: rgba(31, 157, 100, 0.11);
+  --warn: #c46d12;
+  --warn-soft: rgba(196, 109, 18, 0.12);
+  --info: #2b6fd6;
+  --info-soft: rgba(43, 111, 214, 0.1);
+  --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-pop: 0 18px 48px rgba(22, 32, 52, 0.18), 0 2px 6px rgba(22, 32, 52, 0.08);
+  --shadow-card: 0 1px 2px rgba(22, 32, 52, 0.06);
+  --scrim: rgba(18, 24, 36, 0.38);
+  --grid-alt: rgba(17, 23, 34, 0.018);
+  --grid-hover: rgba(17, 23, 34, 0.035);
+  --grid-sel: rgba(224, 174, 60, 0.2);
+  --grid-sel-line: rgba(176, 125, 20, 0.8);
+  --grid-dirty: rgba(231, 145, 58, 0.18);
+  --grid-new: rgba(31, 157, 100, 0.12);
+  --grid-deleted: rgba(217, 58, 65, 0.1);
+  --cell-number: #2459a8;
+  --cell-date: #6a45a3;
+  --cell-bool-true: #1f8a58;
+  --cell-bool-false: #8b95a7;
+  --cell-null: #9aa3b3;
+  --syn-keyword: #9a6400;
+  --syn-string: #a14f1b;
+  --syn-number: #2459a8;
+  --syn-comment: #8b95a7;
+  --syn-function: #8a3f84;
+  --syn-type: #4b45b8;
+  --syn-operator: #3c4758;
+  --syn-variable: #111722;
+  --syn-punct: #6b7689;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --h-control: 40px;
+    --h-control-sm: 34px;
+    --h-row: 40px;
+  }
+}

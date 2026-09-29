@@ -174,6 +174,7 @@ func (s *Server) wsQuery(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 		stop = *req.StopOnError
 	}
 	sink := newSink(w)
+	_ = sink.emit(map[string]any{"t": "start", "console": con.ID})
 	started := time.Now()
 	runErr := con.Run(ctx, script, driver.ExecOptions{MaxRows: maxRows, StopOnError: stop, ReadOnly: readOnly}, sink)
 	dur := time.Since(started)

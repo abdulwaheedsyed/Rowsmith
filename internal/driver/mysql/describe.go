@@ -38,6 +38,9 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 		t.Kind = "view"
 	} else {
 		t.Comment = comment.String
+		if nrows.Valid && nrows.Int64 == 0 && size.Valid && size.Int64 > 16384 {
+			nrows.Valid = false // stale InnoDB statistics
+		}
 		t.RowEstimate, t.Size = sqlbase.NullInt(nrows), sqlbase.NullInt(size)
 		setOpt(t.Options, "engine", engine.String)
 		setOpt(t.Options, "collation", coll.String)

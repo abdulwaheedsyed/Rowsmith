@@ -1,0 +1,59 @@
+.mapview {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: var(--sunken);
+}
+.mapview--compact {
+  height: 220px;
+  flex: none;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+/* Two classes: MapLibre's stylesheet (loaded later) sets .maplibregl-map { position: relative }. */
+.mapview .mapview__map {
+  position: absolute;
+  inset: 0;
+}
+.mapview__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.mapview__bar {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--overlay) 92%, transparent);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+}
+.mapview__bar .select {
+  height: 24px;
+  width: auto;
+  font-size: var(--fs-2xs);
+}
+.mapview__err {
+  color: var(--warn);
+}
+.maplibregl-ctrl-group {
+  background: var(--overlay) !important;
+  border: 1px solid var(--line);
+  box-shadow: none !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--line) !important;
+}
+:root:not([data-theme="light"]) .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}

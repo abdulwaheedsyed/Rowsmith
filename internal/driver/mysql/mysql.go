@@ -219,6 +219,11 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 			rows.Close()
 			return nil, err
 		}
+		// InnoDB statistics lag behind bulk loads; a zero estimate with data on
+		// disk means "unknown", not "empty".
+		if nrows.Valid && nrows.Int64 == 0 && size.Valid && size.Int64 > 16384 {
+			nrows.Valid = false
+		}
 		kind := "table"
 		if strings.Contains(typ.String, "VIEW") {
 			kind = "view"

@@ -1,0 +1,242 @@
+.navigator {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.navigator__conn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 12px;
+  min-height: var(--h-topbar);
+  border-bottom: 1px solid var(--line-soft);
+}
+.navigator__name {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+.navigator__ver {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+.navigator__scope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 10px 4px;
+}
+.scopepick {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sunken);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.scopepick:hover {
+  border-color: var(--line-strong);
+}
+.scopepick svg {
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+  flex: none;
+}
+.scopepick__label {
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  width: 58px;
+  text-align: left;
+  flex: none;
+}
+.scopepick__value {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+.scopepick__chev {
+  margin-left: auto;
+}
+.scopepick__pop {
+  width: 300px;
+  padding: 6px;
+}
+.scopepick__list {
+  max-height: 320px;
+  overflow: auto;
+  margin-top: 6px;
+}
+.scopepick__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: var(--fs-sm);
+  cursor: default;
+}
+.scopepick__item[data-selected="true"] {
+  background: var(--hover);
+}
+.scopepick__item.is-dim {
+  color: var(--muted);
+}
+.scopepick__item.is-current {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.scopepick__item .mono {
+  font-size: var(--fs-2xs);
+}
+.scopepick__empty {
+  padding: 10px;
+  font-size: var(--fs-xs);
+}
+
+.navigator__filter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 6px 10px;
+}
+.navigator__filter > svg {
+  position: absolute;
+  left: 19px;
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+  pointer-events: none;
+}
+.navigator__filter .input {
+  height: 28px;
+  padding-left: 26px;
+  font-size: var(--fs-xs);
+}
+.navigator__tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 6px 16px;
+}
+.navigator__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.navigator__empty {
+  padding: 16px 10px;
+  font-size: var(--fs-xs);
+}
+.navigator__error {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  word-break: break-word;
+}
+.navgroup {
+  margin-top: 6px;
+}
+.navgroup__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 24px;
+  padding: 0 6px 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.navgroup__head:hover {
+  color: var(--text-2);
+}
+.navgroup__head svg {
+  width: 13px;
+  height: 13px;
+}
+.navgroup__count {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.navgroup__items {
+  display: flex;
+  flex-direction: column;
+  content-visibility: auto;
+}
+.navitem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-row);
+  padding: 0 8px 0 20px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  min-width: 0;
+  flex: none;
+}
+.navitem:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.navitem.is-active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.navitem.is-active::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.navitem__icon {
+  width: 14px;
+  height: 14px;
+  color: var(--faint);
+  flex: none;
+}
+.navitem.is-active .navitem__icon {
+  color: var(--accent-text);
+}
+.navitem__name {
+  flex: 1;
+}
+.navitem__meta {
+  font-size: var(--fs-2xs);
+  color: var(--faint);
+  max-width: 45%;
+  flex: none;
+}
+.spin {
+  animation: rs-spin 0.9s linear infinite;
+}

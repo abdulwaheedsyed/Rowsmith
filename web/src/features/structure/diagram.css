@@ -1,0 +1,127 @@
+.diagram {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.diagram__bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-xs);
+  background: var(--surface);
+}
+.diagram__search {
+  position: relative;
+  width: 220px;
+}
+.diagram__search svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+}
+.diagram__search .input {
+  height: var(--h-control-sm);
+  padding-left: 27px;
+  font-size: var(--fs-xs);
+}
+.diagram__canvas {
+  flex: 1;
+  min-height: 0;
+  background: var(--sunken);
+}
+.diagram__canvas .react-flow {
+  --xy-background-color: var(--sunken);
+  --xy-background-pattern-color: var(--line);
+  --xy-edge-stroke: var(--line-strong);
+  --xy-edge-label-background-color: var(--overlay);
+  --xy-edge-label-color: var(--muted);
+  --xy-controls-button-background-color: var(--overlay);
+  --xy-controls-button-color: var(--text-2);
+  --xy-controls-button-border-color: var(--line);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--bg) 60%, transparent);
+  --xy-minimap-node-background-color: var(--line-strong);
+}
+.eredge .react-flow__edge-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.ernode {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  font-size: 11.5px;
+  transition: opacity var(--t-med);
+}
+.ernode.is-dim {
+  opacity: 0.25;
+}
+.react-flow__node.selected .ernode {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ernode__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+}
+.ernode__name {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.ernode__kind {
+  margin-left: auto;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.ernode__col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.ernode__icon {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+.ernode__icon--pk { color: var(--accent-text); }
+.ernode__icon--fk { color: var(--info); }
+.ernode__cname {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ernode__ctype {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.ernode__more {
+  padding: 3px 10px;
+  font-size: 10px;
+  color: var(--faint);
+}
+.erhandle {
+  opacity: 0;
+}

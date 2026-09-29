@@ -1,0 +1,261 @@
+import * as RDialog from "@radix-ui/react-dialog";
+import * as RMenu from "@radix-ui/react-dropdown-menu";
+import * as RTooltip from "@radix-ui/react-tooltip";
+import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useToasts } from "../lib/store";
+
+// ---- Brand ----------------------------------------------------------------------
+
+/** The Rowsmith mark: an anvil built from stacked table rows. The face row
+ *  carries the temper gradient — the one place the brand uses it decoratively. */
+export function AnvilMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="anvil">
+      <defs>
+        <linearGradient id="rs-temper" x1="0" x2="1">
+          <stop offset="0" stopColor="#EBC76A" />
+          <stop offset=".45" stopColor="#C4803F" />
+          <stop offset=".75" stopColor="#93508A" />
+          <stop offset="1" stopColor="#3D7AD4" />
+        </linearGradient>
+      </defs>
+      <path d="M3 7h26v4.5H12.5C8.8 11.5 6 10 3 7z" fill="url(#rs-temper)" />
+      <rect x="11" y="13.5" width="12" height="3.2" rx="1" fill="var(--text-2)" />
+      <rect x="13.5" y="18.4" width="7" height="3" rx="1" fill="var(--muted)" />
+      <rect x="7.5" y="23" width="19" height="3.4" rx="1" fill="var(--text-2)" />
+    </svg>
+  );
+}
+
+export function Wordmark({ size = 18 }: { size?: number }) {
+  return (
+    <span className="wordmark display" style={{ fontSize: size }}>
+      rowsmith
+    </span>
+  );
+}
+
+// ---- Buttons ------------------------------------------------------------------------
+
+type BtnVariant = "default" | "primary" | "ghost" | "danger";
+interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: BtnVariant;
+  size?: "sm" | "md" | "lg";
+  icon?: boolean;
+  block?: boolean;
+  loading?: boolean;
+}
+
+export const Button = forwardRef<HTMLButtonElement, BtnProps>(function Button(
+  { variant = "default", size = "md", icon, block, loading, className = "", children, disabled, ...rest },
+  ref,
+) {
+  const cls = [
+    "btn",
+    variant !== "default" && `btn--${variant}`,
+    size !== "md" && `btn--${size}`,
+    icon && "btn--icon",
+    block && "btn--block",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <button ref={ref} type="button" className={cls} disabled={disabled || loading} {...rest}>
+      {loading ? <span className="spinner" /> : null}
+      {children}
+    </button>
+  );
+});
+
+// ---- Tooltip ------------------------------------------------------------------------
+
+export function Tip({ label, children, side = "bottom" }: { label: ReactNode; children: ReactNode; side?: "top" | "bottom" | "left" | "right" }) {
+  return (
+    <RTooltip.Root delayDuration={350}>
+      <RTooltip.Trigger asChild>{children}</RTooltip.Trigger>
+      <RTooltip.Portal>
+        <RTooltip.Content className="tooltip" side={side} sideOffset={6} collisionPadding={8}>
+          {label}
+        </RTooltip.Content>
+      </RTooltip.Portal>
+    </RTooltip.Root>
+  );
+}
+
+export const TipProvider = RTooltip.Provider;
+
+// ---- Dialog ---------------------------------------------------------------------------
+
+interface DialogProps {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  footer?: ReactNode;
+  width?: "normal" | "wide" | "xwide";
+  dismissable?: boolean;
+}
+
+export function Dialog({ open, onOpenChange, title, description, children, footer, width = "normal", dismissable = true }: DialogProps) {
+  return (
+    <RDialog.Root open={open} onOpenChange={(o) => (dismissable || o ? onOpenChange(o) : undefined)}>
+      <RDialog.Portal>
+        <RDialog.Overlay className="scrim" />
+        <RDialog.Content
+          className={`dialog ${width !== "normal" ? `dialog--${width}` : ""}`}
+          onPointerDownOutside={(e) => !dismissable && e.preventDefault()}
+          onEscapeKeyDown={(e) => !dismissable && e.preventDefault()}
+          aria-describedby={description ? undefined : undefined}
+        >
+          <div className="dialog__head">
+            <div className="grow">
+              <RDialog.Title className="dialog__title">{title}</RDialog.Title>
+              {description ? <RDialog.Description className="dialog__desc">{description}</RDialog.Description> : <RDialog.Description className="sr-only">{String(title)}</RDialog.Description>}
+            </div>
+            {dismissable && (
+              <RDialog.Close asChild>
+                <Button variant="ghost" icon size="sm" aria-label="Close">
+                  <X />
+                </Button>
+              </RDialog.Close>
+            )}
+          </div>
+          {children !== undefined && <div className="dialog__body">{children}</div>}
+          {footer && <div className="dialog__foot">{footer}</div>}
+        </RDialog.Content>
+      </RDialog.Portal>
+    </RDialog.Root>
+  );
+}
+
+// ---- Menus --------------------------------------------------------------------------------
+
+export const Menu = RMenu.Root;
+export const MenuTrigger = RMenu.Trigger;
+
+export function MenuContent({ children, align = "start", side = "bottom" }: { children: ReactNode; align?: "start" | "end" | "center"; side?: "bottom" | "top" | "right" | "left" }) {
+  return (
+    <RMenu.Portal>
+      <RMenu.Content className="menu" align={align} side={side} sideOffset={4} collisionPadding={8}>
+        {children}
+      </RMenu.Content>
+    </RMenu.Portal>
+  );
+}
+
+export function MenuItem({ icon, children, onSelect, danger, disabled, hint }: { icon?: ReactNode; children: ReactNode; onSelect?(): void; danger?: boolean; disabled?: boolean; hint?: ReactNode }) {
+  return (
+    <RMenu.Item className={`menu__item ${danger ? "menu__item--danger" : ""}`} onSelect={onSelect} disabled={disabled}>
+      {icon}
+      <span className="grow truncate">{children}</span>
+      {hint && <span className="menu__hint">{hint}</span>}
+    </RMenu.Item>
+  );
+}
+
+export const MenuSep = () => <RMenu.Separator className="menu__sep" />;
+export const MenuLabel = ({ children }: { children: ReactNode }) => <RMenu.Label className="menu__label">{children}</RMenu.Label>;
+
+// ---- Toasts -------------------------------------------------------------------------------
+
+export function Toasts() {
+  const { toasts, dismiss } = useToasts();
+  return (
+    <div className="toasts" role="status" aria-live="polite">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast toast--${t.kind}`}>
+          {t.kind === "success" ? <CheckCircle2 size={16} color="var(--success)" /> : t.kind === "error" ? <AlertTriangle size={16} color="var(--danger)" /> : <Info size={16} color="var(--info)" />}
+          <div className="grow">
+            <div className="toast__title">{t.title}</div>
+            {t.body && <div className="toast__body">{t.body}</div>}
+          </div>
+          <button className="btn btn--ghost btn--icon btn--sm" aria-label="Dismiss" onClick={() => dismiss(t.id)}>
+            <X />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Small pieces --------------------------------------------------------------------------
+
+export function Kbd({ children }: { children: ReactNode }) {
+  return <kbd className="kbd">{children}</kbd>;
+}
+
+export function Env({ env }: { env: string }) {
+  const label = env === "development" ? "dev" : env === "production" ? "prod" : env;
+  return <span className={`env env--${env}`}>{label}</span>;
+}
+
+export function Spinner({ large }: { large?: boolean }) {
+  return <span className={`spinner ${large ? "spinner--lg" : ""}`} role="progressbar" aria-label="Loading" />;
+}
+
+export function Empty({ icon, title, children, action }: { icon?: ReactNode; title: ReactNode; children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="empty">
+      {icon && <div className="empty__icon">{icon}</div>}
+      <div className="empty__title">{title}</div>
+      {children && <div>{children}</div>}
+      {action}
+    </div>
+  );
+}
+
+export function Alert({ kind = "info", title, children }: { kind?: "info" | "warn" | "danger" | "success"; title?: ReactNode; children?: ReactNode }) {
+  const Icon = kind === "success" ? CheckCircle2 : kind === "info" ? Info : AlertTriangle;
+  return (
+    <div className={`alert alert--${kind}`} role={kind === "danger" ? "alert" : undefined}>
+      <Icon />
+      <div className="grow">
+        {title && <div className="alert__title">{title}</div>}
+        {children && <div>{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Engine monograms ----------------------------------------------------------------------
+// Brand-neutral badges instead of vendor logos.
+
+const engines: Record<string, { mono: string; hue: string }> = {
+  mysql: { mono: "My", hue: "#4f93c2" },
+  mariadb: { mono: "Ma", hue: "#b98a5c" },
+  postgres: { mono: "Pg", hue: "#5b7fc7" },
+  mssql: { mono: "Ms", hue: "#c9564f" },
+  oracle: { mono: "Or", hue: "#d0533d" },
+  sqlite: { mono: "Sl", hue: "#6aa3b8" },
+  mongodb: { mono: "Mg", hue: "#4ea96b" },
+  bigquery: { mono: "Bq", hue: "#5f8fe6" },
+};
+
+export function EngineBadge({ driver, size = 26 }: { driver: string; size?: number }) {
+  const e = engines[driver] ?? { mono: driver.slice(0, 2), hue: "#8793a6" };
+  return (
+    <span
+      className="engine"
+      style={{ width: size, height: size, fontSize: size * 0.42, ["--hue" as string]: e.hue }}
+      aria-hidden="true"
+    >
+      {e.mono}
+    </span>
+  );
+}
+
+export function Field({ label, required, help, error, children, htmlFor }: { label: ReactNode; required?: boolean; help?: ReactNode; error?: ReactNode; children: ReactNode; htmlFor?: string }) {
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={htmlFor}>
+        {label}
+        {required && <span className="req">*</span>}
+      </label>
+      {children}
+      {error ? <div className="field__error">{error}</div> : help ? <div className="field__help">{help}</div> : null}
+    </div>
+  );
+}
