@@ -7,6 +7,7 @@ require (
 	github.com/golang-sql/sqlexp v0.1.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/microsoft/go-mssqldb v1.11.2
+	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/twpayne/go-geom v1.7.0
 	go.mongodb.org/mongo-driver/v2 v2.9.1
 	golang.org/x/crypto v0.57.0
