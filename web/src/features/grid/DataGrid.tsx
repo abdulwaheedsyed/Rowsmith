@@ -52,6 +52,10 @@ export interface DataGridProps {
   quote?: string;
   empty?: ReactNode;
   footer?: ReactNode;
+  /** Added to row numbers, so page 2 starts at 101 rather than 1. */
+  rowNumberOffset?: number;
+  /** Changing it scrolls back to the top (e.g. a new page). */
+  scrollKey?: string;
 }
 
 const HEADER_H = 36;
@@ -106,7 +110,11 @@ export function DataGrid(props: DataGridProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length > 0]);
 
-  const rnW = Math.max(44, String(rows.length + 1).length * 8 + 22);
+  const rnOffset = props.rowNumberOffset ?? 0;
+  const rnW = Math.max(44, String(rows.length + 1 + rnOffset).length * 8 + 22);
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = 0;
+  }, [props.scrollKey]);
   const lefts = useMemo(() => {
     const out: number[] = [];
     let x = 0;
@@ -400,7 +408,7 @@ export function DataGrid(props: DataGridProps) {
     body.push(
       <div key={r} className={`g-row g-row--${state} ${r % 2 ? "g-row--alt" : ""} ${sel && r >= sel.r0 && r <= sel.r1 && sel.rowsMode ? "g-row--sel" : ""}`} style={{ top: r * ROW_H, height: ROW_H, width: rnW + totalW }}>
         <div className="g-rn" data-r={r} data-c={-1} style={{ width: rnW }}>
-          {state === "new" ? "+" : state === "deleted" ? "−" : r + 1}
+          {state === "new" ? "+" : state === "deleted" ? "−" : r + 1 + rnOffset}
         </div>
         {visibleCols.map((c) => {
           const col = columns[c];

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as RPopover from "@radix-ui/react-popover";
 import {
-  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, FileUp,
+  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, ChevronLeft, FileUp,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useDescribe, useDriver, qualified } from "../../lib/queries";
@@ -19,8 +19,20 @@ import { MapView, hasGeometry } from "../map/MapView";
 import { useMediaQuery } from "../../lib/hooks";
 import "./browse.css";
 
-const PAGE = 200;
+const PAGE_SIZES = [50, 100, 250, 500, 1000];
+const ALL_CHUNK = 5000; // rows per request while loading everything
+const ALL_CAP = 250_000; // rows the browser keeps at most
+const ALL_WARN = 50_000; // ask before loading more than this
 const HIDDEN = "__rowsmith_rowid";
+
+function defaultPageSize() {
+  try {
+    const n = Number(localStorage.getItem("rowsmith.pageSize"));
+    return PAGE_SIZES.includes(n) ? n : 100;
+  } catch {
+    return 100;
+  }
+}
 
 interface BrowseState {
   filters: Filter[];
@@ -30,6 +42,8 @@ interface BrowseState {
   hidden: string[];
   inspector: boolean;
   view: "grid" | "map";
+  page?: number;
+  pageSize?: number;
 }
 
 const OPS: { op: string; label: string; needs: "one" | "none" | "many" | "two"; kinds?: string[] }[] = [
@@ -128,14 +142,48 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   const req: Omit<BrowseRequest, "offset" | "limit"> = { ref, filters: st.filters, sort: st.sort, search: st.search || undefined, where: st.where || undefined };
   const key = ["browse", conn.id, ref.database ?? "", ref.schema ?? "", ref.name, JSON.stringify(req)];
 
-  const data = useInfiniteQuery({
-    queryKey: key,
-    initialPageParam: 0,
-    queryFn: ({ pageParam, signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset: pageParam, limit: PAGE }, signal),
-    getNextPageParam: (last, pages) => (last.truncated ? pages.length * PAGE : undefined),
+  // Paging: one page at a time, or every row in chunks when asked.
+  const pageSize = st.pageSize && PAGE_SIZES.includes(st.pageSize) ? st.pageSize : defaultPageSize();
+  const page = st.page ?? 0;
+  const [all, setAll] = useState(false);
+  const [allStopped, setAllStopped] = useState(false);
+  const [askAll, setAskAll] = useState(false);
+  const reqKey = JSON.stringify(req);
+  const lastReq = useRef(reqKey);
+  useEffect(() => {
+    // New filters or sort start from the first page.
+    if (lastReq.current !== reqKey) {
+      lastReq.current = reqKey;
+      if (page !== 0) patchState({ page: 0 });
+      setAll(false);
+    }
+  }, [reqKey, page, patchState]);
+
+  const pageQ = useQuery({
+    queryKey: [...key, "page", pageSize, page],
+    queryFn: ({ signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset: page * pageSize, limit: pageSize }, signal),
+    placeholderData: keepPreviousData,
+    enabled: !all,
     staleTime: 30_000,
     retry: false,
   });
+  const allQ = useInfiniteQuery({
+    queryKey: [...key, "all"],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset: pageParam, limit: ALL_CHUNK }, signal),
+    getNextPageParam: (last, pages) => (last.truncated && pages.length * ALL_CHUNK < ALL_CAP ? pages.length * ALL_CHUNK : undefined),
+    enabled: all,
+    staleTime: 30_000,
+    retry: false,
+  });
+  useEffect(() => {
+    if (all && !allStopped && allQ.hasNextPage && !allQ.isFetchingNextPage && !allQ.isError) allQ.fetchNextPage();
+  }, [all, allStopped, allQ.hasNextPage, allQ.isFetchingNextPage, allQ.isError, allQ.data?.pages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const data = {
+    error: all ? allQ.error : pageQ.error,
+    isFetching: all ? allQ.isFetching : pageQ.isFetching,
+    refetch: () => (all ? allQ.refetch() : pageQ.refetch()),
+  };
   const count = useQuery({
     queryKey: ["count", ...key.slice(1)],
     queryFn: ({ signal }) => post<{ rows: number; exact: boolean }>(`c/${conn.id}/count`, { ...req, offset: 0, limit: 0 }, signal),
@@ -143,9 +191,12 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     retry: false,
   });
 
-  const first = data.data?.pages[0];
+  const first = all ? allQ.data?.pages[0] : pageQ.data;
   const { cols, map } = useMemo(() => toGridColumns(first, table), [first, table]);
-  const loaded = useMemo(() => (data.data?.pages ?? []).flatMap((p) => p.rows), [data.data]);
+  const loaded = useMemo(() => (all ? (allQ.data?.pages ?? []).flatMap((p) => p.rows) : pageQ.data?.rows ?? []), [all, allQ.data, pageQ.data]);
+  const hasNextPage = !all && !!pageQ.data?.truncated;
+  const allCapped = all && !allQ.hasNextPage && !!allQ.data?.pages.at(-1)?.truncated;
+  const allLoading = all && !allStopped && (allQ.isFetching || !!allQ.hasNextPage);
   const visibleCols = cols.filter((c) => !st.hidden.includes(c.name));
   const visIdx = visibleCols.map((c) => cols.indexOf(c));
 
@@ -167,9 +218,48 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
 
   useEffect(() => {
     if (!active) return;
-    const total = count.data ? `${count.data.exact ? "" : "≈ "}${int(count.data.rows)} rows` : "";
-    setStatus(tab.id, { rows: loaded.length ? `${int(loaded.length)} loaded${total ? " of " + total : ""}` : total, ms: first?.durationMs, note: pendingCount ? `${pendingCount} unsaved change${pendingCount > 1 ? "s" : ""}` : undefined });
-  }, [active, loaded.length, count.data, first?.durationMs, pendingCount, tab.id, setStatus]);
+    const total = count.data ? `${count.data.exact ? "" : "≈ "}${int(count.data.rows)}` : "";
+    const rows = all
+      ? `${int(loaded.length)} loaded${total ? " of " + total : ""}`
+      : loaded.length ? `rows ${int(page * pageSize + 1)}–${int(page * pageSize + loaded.length)}${total ? " of " + total : ""}` : total ? `${total} rows` : "";
+    setStatus(tab.id, { rows, ms: first?.durationMs, note: pendingCount ? `${pendingCount} unsaved change${pendingCount > 1 ? "s" : ""}` : undefined });
+  }, [active, all, page, pageSize, loaded.length, count.data, first?.durationMs, pendingCount, tab.id, setStatus]);
+
+  // Navigation keeps unsaved edits safe: they belong to the rows on screen.
+  const guard = () => {
+    if (pendingCount === 0) return true;
+    toast.info("Save or discard your changes first", "Unsaved edits belong to the rows on this page.");
+    return false;
+  };
+  const totalRows = count.data?.rows;
+  const pages = totalRows !== undefined ? Math.max(1, Math.ceil(totalRows / pageSize)) : undefined;
+  const goPage = (n: number) => {
+    if (!guard()) return;
+    patchState({ page: Math.max(0, n) });
+    setActiveCell(null);
+  };
+  const setPageSize = (n: number) => {
+    if (!guard()) return;
+    try {
+      localStorage.setItem("rowsmith.pageSize", String(n));
+    } catch {
+      /* storage unavailable */
+    }
+    patchState({ pageSize: n, page: Math.floor((page * pageSize) / n) });
+  };
+  const startAll = (confirmed = false) => {
+    if (!guard()) return;
+    if (!confirmed && totalRows !== undefined && totalRows > ALL_WARN) return setAskAll(true);
+    setAskAll(false);
+    setAllStopped(false);
+    setAll(true);
+    setActiveCell(null);
+  };
+  const backToPages = () => {
+    if (!guard()) return;
+    setAll(false);
+    setAllStopped(false);
+  };
 
   // Editing -------------------------------------------------------------------------
   const rowKeyOf = (loadedIdx: number): Record<string, Cell> => {
@@ -357,16 +447,17 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
         ) : st.view === "map" && geo ? (
           <MapView columns={visibleCols.map((c) => ({ name: c.name, kind: c.kind }))} rows={displayRows} onPick={(r) => { setActiveCell({ r, c: 0 }); patchState({ inspector: true, view: "grid" }); }} />
         ) : narrow ? (
-          <CardList cols={visibleCols} rows={displayRows} onOpen={(r) => setActiveCell({ r, c: 0 })} hasMore={!!data.hasNextPage} onMore={() => data.fetchNextPage()} loading={data.isFetchingNextPage} rowState={rowState} />
+          <CardList cols={visibleCols} rows={displayRows} onOpen={(r) => setActiveCell({ r, c: 0 })} hasMore={false} onMore={() => {}} loading={allLoading || pageQ.isFetching} rowState={rowState} />
         ) : (
           <DataGrid
             columns={visibleCols}
             rows={displayRows}
             rowState={rowState}
             cellDirty={cellDirty}
-            hasMore={!!data.hasNextPage}
-            loadingMore={data.isFetchingNextPage}
-            onLoadMore={() => data.fetchNextPage()}
+            hasMore={false}
+            loadingMore={allLoading}
+            rowNumberOffset={(all ? 0 : page * pageSize) - nIns}
+            scrollKey={`${all}:${page}:${pageSize}`}
             sort={st.sort}
             onSort={onSort}
             editable={editable}
@@ -379,9 +470,13 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
             tableName={qualified(ref, drv?.quoteChar ?? '"')}
             quote={drv?.quoteChar}
             empty={
-              <Empty title={st.filters.length || st.search || st.where ? "No rows match" : "This table is empty"}>
-                {st.filters.length || st.search || st.where ? "Loosen the filters to see more." : editable ? "Add the first row with the + Row button." : null}
-              </Empty>
+              page > 0 && !all ? (
+                <Empty title="No rows on this page" action={<Button size="sm" onClick={() => goPage(0)}>First page</Button>}>The table has fewer rows than the count estimated.</Empty>
+              ) : (
+                <Empty title={st.filters.length || st.search || st.where ? "No rows match" : "This table is empty"}>
+                  {st.filters.length || st.search || st.where ? "Loosen the filters to see more." : editable ? "Add the first row with the + Row button." : null}
+                </Empty>
+              )
             }
           />
         )}
@@ -401,10 +496,11 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
       </div>
 
       <div className="browse__foot">
-        <span className="tnum muted">
-          {count.data ? <>{count.data.exact ? "" : "≈ "}{int(count.data.rows)} rows</> : count.isLoading ? "Counting…" : ""}
-          {loaded.length > 0 && <span className="faint"> · {int(loaded.length)} loaded</span>}
-        </span>
+        <Pager
+          all={all} loading={allLoading} capped={allCapped} loaded={loaded.length} page={page} pageSize={pageSize} pages={pages}
+          total={count.data ? `${count.data.exact ? "" : "≈ "}${int(count.data.rows)}` : count.isLoading ? "…" : ""}
+          hasNext={hasNextPage} fetching={pageQ.isFetching && !all}
+          onPage={goPage} onPageSize={setPageSize} onAll={() => startAll()} onStop={() => setAllStopped(true)} onBack={backToPages} />
         {first?.sql && (
           <button className="browse__sql mono truncate" onClick={() => setSqlShown(!sqlShown)} title="Generated SQL">
             <ChevronRight className={sqlShown ? "rot" : ""} />{sqlShown ? first.sql : first.sql.slice(0, 120)}
@@ -424,6 +520,16 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
           </div>
         )}
       </div>
+
+      <Dialog open={askAll} onOpenChange={setAskAll} title={`Load ${totalRows !== undefined ? int(totalRows) : "all"} rows?`}
+        description={totalRows !== undefined && totalRows > ALL_CAP
+          ? `The browser keeps at most ${int(ALL_CAP)} rows, so the first ${int(ALL_CAP)} are loaded. Export the table to get every row.`
+          : "Loading this many rows takes a while and makes the grid heavier. You can stop at any time."}
+        footer={<>
+          <Button onClick={() => setAskAll(false)}>Cancel</Button>
+          <Button onClick={() => { setAskAll(false); openExport(conn, { kind: "table", ref, browse: { filters: st.filters, sort: st.sort, search: st.search || undefined, where: st.where || undefined }, rows: totalRows, filtered: !!(st.filters.length || st.search || st.where) }); }}><Download /> Export instead</Button>
+          <Button variant="primary" onClick={() => startAll(true)}>Load {int(Math.min(totalRows ?? ALL_CAP, ALL_CAP))} rows</Button>
+        </>} />
 
       <Dialog open={confirm} onOpenChange={setConfirm} title="Save changes to production?"
         description={`${conn.name} is marked as production. ${pendingCount} change${pendingCount === 1 ? "" : "s"} will be written in a single transaction.`}
@@ -543,6 +649,52 @@ function ColumnsMenu({ cols, hidden, onChange }: { cols: GridColumn[]; hidden: s
 }
 
 // ---- Mobile card list ------------------------------------------------------------
+
+function Pager({ all, loading, capped, loaded, page, pageSize, pages, total, hasNext, fetching, onPage, onPageSize, onAll, onStop, onBack }: {
+  all: boolean; loading: boolean; capped: boolean; loaded: number; page: number; pageSize: number; pages?: number; total: string; hasNext: boolean; fetching: boolean;
+  onPage(n: number): void; onPageSize(n: number): void; onAll(): void; onStop(): void; onBack(): void;
+}) {
+  const [draft, setDraft] = useState(String(page + 1));
+  useEffect(() => setDraft(String(page + 1)), [page]);
+  const jump = () => {
+    const n = Math.round(Number(draft));
+    if (!Number.isFinite(n) || n < 1) return setDraft(String(page + 1));
+    onPage(Math.min(n, pages ?? n) - 1);
+  };
+  if (all) {
+    return (
+      <div className="pager" role="group" aria-label="Rows">
+        <span className="tnum pager__range">
+          {loading ? <>Loading {int(loaded)}{total ? <span className="faint"> of {total}</span> : null}…</>
+            : capped ? <>First {int(loaded)} rows <span className="faint">· the browser limit; export for the rest</span></>
+            : <>All {int(loaded)} rows</>}
+        </span>
+        {loading && <><Spinner /><Button size="sm" variant="ghost" onClick={onStop}>Stop</Button></>}
+        <Button size="sm" variant="ghost" onClick={onBack}>Back to pages</Button>
+      </div>
+    );
+  }
+  const from = loaded ? page * pageSize + 1 : 0;
+  return (
+    <div className="pager" role="group" aria-label="Pages">
+      <span className="tnum pager__range">
+        {loaded ? `${int(from)}–${int(from + loaded - 1)}` : "0"}{total ? <span className="faint"> of {total}</span> : null}
+      </span>
+      <Button size="sm" variant="ghost" icon disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Previous page"><ChevronLeft /></Button>
+      <label className="pager__page">
+        <input className="input tnum" value={draft} inputMode="numeric" aria-label="Page"
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))} onBlur={jump} onKeyDown={(e) => e.key === "Enter" && jump()} />
+        {pages !== undefined && <span className="faint tnum">/ {int(pages)}</span>}
+      </label>
+      <Button size="sm" variant="ghost" icon disabled={!hasNext} onClick={() => onPage(page + 1)} aria-label="Next page"><ChevronRight /></Button>
+      {fetching && <Spinner />}
+      <select className="select pager__size" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} aria-label="Rows per page">
+        {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} per page</option>)}
+      </select>
+      <Button size="sm" variant="ghost" onClick={onAll} disabled={!hasNext && page === 0}>Load all</Button>
+    </div>
+  );
+}
 
 function CardList({ cols, rows, onOpen, hasMore, onMore, loading, rowState }: { cols: GridColumn[]; rows: Cell[][]; onOpen(r: number): void; hasMore: boolean; onMore(): void; loading: boolean; rowState(r: number): string }) {
   const titleIdx = Math.max(0, cols.findIndex((c) => !c.pk && (c.kind === "string" || c.kind === "text")));
