@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as RContext from "@radix-ui/react-context-menu";
 import {
-  X, Plus, Table2, TerminalSquare, Columns3, FileCode2, Activity, SlidersHorizontal, UserRound, Server, Network, RefreshCw, Skull, Database, HardDrive,
+  X, Plus, Table2, TerminalSquare, Columns3, FileCode2, Activity, SlidersHorizontal, UserRound, Server, Network, RefreshCw, Skull, Database, HardDrive, PencilRuler,
 } from "lucide-react";
 import { get, post, qs } from "../../lib/api";
 import { useDatabases, useDriver, useServer } from "../../lib/queries";
@@ -16,13 +16,14 @@ import { QueryTab } from "../query/QueryTab";
 import { StructureTab, DefinitionTab } from "../structure/StructureTab";
 import { DataGrid } from "../grid/DataGrid";
 import { DiagramTab } from "../structure/DiagramTab";
+import { DesignTab } from "../design/DesignTab";
 import { newQueryTab, openPanel, openObject } from "./actions";
 import { useRuns } from "../query/runs";
 import "./workspace.css";
 
 const TAB_ICONS: Record<Tab["kind"], typeof Table2> = {
   browse: Table2, query: TerminalSquare, structure: Columns3, definition: FileCode2, processes: Activity,
-  variables: SlidersHorizontal, users: UserRound, overview: Server, diagram: Network,
+  variables: SlidersHorizontal, users: UserRound, overview: Server, diagram: Network, design: PencilRuler,
 };
 
 export function Workspace({ conn, me }: { conn: Connection; me: Me }) {
@@ -65,6 +66,8 @@ function TabContent({ tab, conn, active }: { tab: Tab; conn: Connection; active:
       return <UsersPanel conn={conn} />;
     case "diagram":
       return <DiagramTab tab={tab} conn={conn} />;
+    case "design":
+      return <DesignTab tab={tab} conn={conn} />;
   }
 }
 

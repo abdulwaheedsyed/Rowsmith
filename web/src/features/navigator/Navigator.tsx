@@ -5,15 +5,17 @@ import { Command } from "cmdk";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Table2, Eye, FunctionSquare, Zap, CalendarClock, Hash, Shapes, Puzzle, Search, RefreshCw,
-  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug,
+  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug, PencilRuler, Download, FileUp, Plus,
 } from "lucide-react";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
 import { useWorkspace } from "../../lib/store";
 import type { Connection, DbObject, ObjectRef } from "../../lib/types";
 import { bytes, compact } from "../../lib/format";
 import { Button, EngineBadge, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip, Alert } from "../../components/ui";
-import { newQueryTab, openObject, openPanel, openDiagram } from "../workspace/actions";
+import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../workspace/actions";
 import { DDLDialog } from "../structure/DDLDialog";
+import { NameDDLDialog } from "../structure/NameDDLDialog";
+import { openExport, openImport } from "../transfer/store";
 import { requestDisconnect } from "../workspace/disconnect";
 import "./navigator.css";
 
@@ -27,6 +29,7 @@ export function kindIcon(kind: string) {
   return ICONS[kind] ?? FileCode2;
 }
 
+const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
 const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries"]);
 
 export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }) {
@@ -43,6 +46,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   const qc = useQueryClient();
   const [filter, setFilter] = useState("");
   const [ddl, setDdl] = useState<{ action: "drop" | "truncate"; ref: ObjectRef } | null>(null);
+  const [nameDlg, setNameDlg] = useState<{ action: "create_database" | "create_schema" | "rename"; target?: ObjectRef } | null>(null);
+  const canWrite = conn.access !== "read" && !conn.readOnly;
 
   const hasDbs = !!drv?.caps.databases;
   const hasSchemas = !!drv?.caps.schemas;
@@ -109,6 +114,14 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             {drv?.caps.processes && <MenuItem icon={<Activity />} onSelect={() => openPanel(conn, "processes")}>Processes</MenuItem>}
             {drv?.caps.variables && <MenuItem icon={<SlidersHorizontal />} onSelect={() => openPanel(conn, "variables")}>Variables & status</MenuItem>}
             {drv?.caps.users && <MenuItem icon={<UserRound />} onSelect={() => openPanel(conn, "users")}>Database users</MenuItem>}
+            {canWrite && (drv?.design || drv?.caps.createDatabase || drv?.caps.editRows) && <MenuSep />}
+            {canWrite && drv?.design && ready && <MenuItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { database: scope.database, schema: scope.schema })}>New {drv.caps.documents ? "collection" : "table"}…</MenuItem>}
+            {canWrite && drv?.caps.createDatabase && <MenuItem icon={<Database />} onSelect={() => setNameDlg({ action: "create_database" })}>New database…</MenuItem>}
+            {canWrite && drv?.caps.schemas && drv?.caps.ddl && (!hasDbs || !!scope.database) && <MenuItem icon={<Layers />} onSelect={() => setNameDlg({ action: "create_schema", target: { database: scope.database, name: "" } })}>New schema…</MenuItem>}
+            <MenuSep />
+            {canWrite && drv?.caps.editRows && ready && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", database: scope.database, schema: scope.schema })}>Import data…</MenuItem>}
+            {canWrite && drv?.caps.sql && <MenuItem icon={<FileCode2 />} onSelect={() => openImport(conn, { kind: "sql", database: scope.database, schema: scope.schema })}>Run a SQL file…</MenuItem>}
+            {drv?.caps.sql && drv?.caps.ddl && !drv.caps.documents && ready && <MenuItem icon={<Download />} onSelect={() => openExport(conn, { kind: "dump", database: scope.database, schema: scope.schema })}>Export as SQL dump…</MenuItem>}
             <MenuSep />
             <MenuItem icon={<RefreshCw />} onSelect={refresh}>Refresh</MenuItem>
             {conn.access === "manage" && <MenuItem icon={<Pencil />} onSelect={onEdit}>Edit connection</MenuItem>}
@@ -176,11 +189,18 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
           const Icon = kindIcon(kind);
           return (
             <div key={kind} className="navgroup" role="group">
-              <button className="navgroup__head" onClick={() => toggle(key, !isOpen)} aria-expanded={isOpen}>
-                {isOpen ? <ChevronDown /> : <ChevronRight />}
-                <span className="grow">{info?.label ?? kind}</span>
-                <span className="navgroup__count tnum">{list.length}</span>
-              </button>
+              <div className="navgroup__bar">
+                <button className="navgroup__head" onClick={() => toggle(key, !isOpen)} aria-expanded={isOpen}>
+                  {isOpen ? <ChevronDown /> : <ChevronRight />}
+                  <span className="grow">{info?.label ?? kind}</span>
+                  <span className="navgroup__count tnum">{list.length}</span>
+                </button>
+                {(kind === "table" || kind === "collection") && canWrite && drv?.design && (
+                  <Tip label={`New ${kind}`}>
+                    <button className="navgroup__add" aria-label={`New ${kind}`} onClick={() => openDesign(conn, { database: scope.database, schema: scope.schema })}><Plus /></button>
+                  </Tip>
+                )}
+              </div>
               {isOpen && (
                 <div className="navgroup__items">
                   {list.map((o) => {
@@ -213,7 +233,16 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                                 Query in new tab
                               </CItem>
                             )}
+                            {canWrite && drv?.design && DESIGNABLE.has(o.kind) && <CItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { ref })}>Edit structure</CItem>}
+                            {browsable && (
+                              <>
+                                <RContext.Separator className="menu__sep" />
+                                <CItem icon={<Download />} onSelect={() => openExport(conn, { kind: "table", ref, rows: o.rows ?? undefined })}>Export…</CItem>
+                                {canWrite && drv?.caps.editRows && DESIGNABLE.has(o.kind) && <CItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", ref })}>Import data…</CItem>}
+                              </>
+                            )}
                             <RContext.Separator className="menu__sep" />
+                            {canWrite && drv?.caps.ddl && <CItem icon={<Pencil />} onSelect={() => setNameDlg({ action: "rename", target: ref })}>Rename…</CItem>}
                             <CItem icon={<Copy />} onSelect={() => navigator.clipboard?.writeText(o.name)}>Copy name</CItem>
                             <CItem icon={<Copy />} onSelect={() => navigator.clipboard?.writeText(qualified(ref, q, true))}>Copy qualified name</CItem>
                             {drv?.caps.ddl && conn.access !== "read" && !conn.readOnly && (
@@ -235,6 +264,13 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
         })}
       </div>
       {ddl && <DDLDialog conn={conn} action={ddl.action} target={ddl.ref} onClose={() => setDdl(null)} onDone={refresh} />}
+      {nameDlg && (
+        <NameDDLDialog conn={conn} action={nameDlg.action} target={nameDlg.target} onClose={() => setNameDlg(null)}
+          onDone={(name) => {
+            if (nameDlg.action === "create_database") setScope(conn.id, { database: name, schema: undefined });
+            if (nameDlg.action === "create_schema") setScope(conn.id, { schema: name });
+          }} />
+      )}
     </div>
   );
 }

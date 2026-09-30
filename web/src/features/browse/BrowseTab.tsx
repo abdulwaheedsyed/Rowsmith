@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as RPopover from "@radix-ui/react-popover";
 import {
-  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight,
+  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, FileUp,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useDescribe, useDriver, qualified } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
 import type { BrowseRequest, Cell, Connection, Filter, Result, RowEdit, Sort, Table, Column } from "../../lib/types";
 import { cellText, csvEscape, int } from "../../lib/format";
-import { Alert, Button, Dialog, Empty, Menu, MenuContent, MenuItem, MenuTrigger, Spinner, Tip } from "../../components/ui";
+import { Alert, Button, Dialog, Empty, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip } from "../../components/ui";
+import { openExport, openImport } from "../transfer/store";
 import { DataGrid, type GridColumn } from "../grid/DataGrid";
 import { Inspector } from "../grid/Inspector";
 import { openObject } from "../workspace/actions";
@@ -161,6 +162,7 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   }, [loaded, edits, visIdx.join(","), cols, map]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const editable = !!table?.editable && !!drv?.caps.editRows && conn.access !== "read" && !conn.readOnly;
+  const canImport = conn.access !== "read" && !conn.readOnly && (table?.kind === "table" || table?.kind === "partitioned_table" || table?.kind === "collection") && !!drv?.caps.editRows;
   const pendingCount = edits.updates.size + edits.inserts.length + edits.deletes.size;
 
   useEffect(() => {
@@ -318,6 +320,12 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
             <Button size="sm" variant="ghost" icon aria-label="Export"><Download /></Button>
           </MenuTrigger>
           <MenuContent align="end">
+            <MenuItem icon={<Download />} onSelect={() => openExport(conn, { kind: "table", ref, browse: { filters: st.filters, sort: st.sort, search: st.search || undefined, where: st.where || undefined }, rows: count.data?.rows, filtered: !!(st.filters.length || st.search || st.where) })}
+              hint={count.data ? `${count.data.exact ? "" : "≈"}${int(count.data.rows)}` : undefined}>
+              Export {st.filters.length || st.search || st.where ? "matching" : "all"} rows…
+            </MenuItem>
+            {canImport && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", ref })}>Import into this table…</MenuItem>}
+            <MenuSep />
             <MenuItem onSelect={() => exportLoaded("csv")} hint={`${int(displayRows.length)} rows`}>Loaded rows as CSV</MenuItem>
             <MenuItem onSelect={() => exportLoaded("json")} hint={`${int(displayRows.length)} rows`}>Loaded rows as JSON</MenuItem>
           </MenuContent>

@@ -73,7 +73,7 @@ func (mssqlDriver) Info() driver.Info {
 
 var design = driver.TableDesign{
 	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true,
-	GeneratedVirtual: true, Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	GeneratedVirtual: true, GeneratedStored: true, Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
 	// Index.Type as Describe reports it; the first is the default.
 	IndexTypes: []string{"nonclustered", "clustered", "nonclustered columnstore", "clustered columnstore"},
 	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "SET DEFAULT"},

@@ -179,6 +179,7 @@ func (c *conn) AlterTableSQL(from *driver.Table, to driver.TableDef) ([]string, 
 	if from == nil {
 		return nil, errors.New("current table definition is missing")
 	}
+	from, to = driver.FollowRenames(from, to)
 	target := qualify(from.Ref.Database, from.Ref.Name)
 	var pre, clauses []string
 

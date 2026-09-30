@@ -69,3 +69,31 @@ func TestPGAutoIncrementBecomesIdentity(t *testing.T) {
 		t.Errorf("got %s", stmts[0])
 	}
 }
+
+func TestPGRenameKeepsIndexes(t *testing.T) {
+	c := &conn{}
+	from := &driver.Table{
+		Ref:        driver.ObjectRef{Schema: "public", Name: "t"},
+		Columns:    []driver.Column{{Name: "id", Type: "bigint"}, {Name: "title", Type: "text"}},
+		PrimaryKey: []string{"id"},
+		Indexes:    []driver.Index{{Name: "t_title", Columns: []string{"title"}, Unique: true, Type: "btree"}},
+	}
+	for _, idxCol := range []string{"headline", "title"} { // editors may send the new or the old name
+		to := driver.TableDef{
+			Ref: from.Ref,
+			Columns: []driver.ColumnDef{
+				{Column: driver.Column{Name: "id", Type: "bigint"}, OriginalName: "id"},
+				{Column: driver.Column{Name: "headline", Type: "text"}, OriginalName: "title"},
+			},
+			PrimaryKey: []string{"id"},
+			Indexes:    []driver.Index{{Name: "t_title", Columns: []string{idxCol}, Unique: true, Type: "btree"}},
+		}
+		stmts, err := c.AlterTableSQL(from, to)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(stmts) != 1 || !strings.Contains(stmts[0], `RENAME COLUMN "title" TO "headline"`) {
+			t.Errorf("index %s: got %q", idxCol, stmts)
+		}
+	}
+}

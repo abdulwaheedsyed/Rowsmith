@@ -578,7 +578,7 @@ func qualify(schema, name string) string {
 func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
 
 var design = driver.TableDesign{
-	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true,
+	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true, GeneratedStored: true,
 	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
 	IndexTypes: []string{"btree", "hash", "gist", "gin", "brin", "spgist"},
 	FKActions:  []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},

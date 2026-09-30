@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, MessageSquareText, ListTree, TableProperties, Map as MapIcon, Download, Copy, Ban } from "lucide-react";
 import type { Connection } from "../../lib/types";
 import { cellText, csvEscape, duration, int, modKey, temperForMs } from "../../lib/format";
-import { Alert, Button, Empty, Kbd, Menu, MenuContent, MenuItem, MenuTrigger, Spinner } from "../../components/ui";
+import { Alert, Button, Empty, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner } from "../../components/ui";
+import { openExport } from "../transfer/store";
 import { DataGrid, type GridColumn } from "../grid/DataGrid";
 import { Inspector } from "../grid/Inspector";
 import { MapView, hasGeometry } from "../map/MapView";
@@ -11,7 +12,7 @@ import type { ResultSet, RunState } from "./runs";
 
 type Pane = { kind: "set"; stmt: number; set: number } | { kind: "messages" } | { kind: "plan" };
 
-export function Results({ run, conn }: { run: RunState; conn: Connection }) {
+export function Results({ run, conn, database, schema }: { run: RunState; conn: Connection; database?: string; schema?: string }) {
   const sets = useMemo(() => {
     const out: { stmt: number; set: number; rs: ResultSet; label: string }[] = [];
     run.stmts.forEach((s, si) =>
@@ -125,9 +126,18 @@ export function Results({ run, conn }: { run: RunState; conn: Connection }) {
                 <Button size="sm" variant="ghost" icon aria-label="Export result"><Download /></Button>
               </MenuTrigger>
               <MenuContent align="end">
+                {run.stmts[current.stmt]?.sql && (
+                  <>
+                    <MenuItem icon={<Download />} onSelect={() => openExport(conn, { kind: "query", sql: run.stmts[current.stmt].sql, database, schema })}
+                      hint={current.rs.summary?.truncated ? "all rows" : undefined}>
+                      Export to a file…
+                    </MenuItem>
+                    <MenuSep />
+                  </>
+                )}
                 <MenuItem icon={<Copy />} onSelect={() => exportSet("tsv")}>Copy all as TSV</MenuItem>
-                <MenuItem icon={<Download />} onSelect={() => exportSet("csv")}>Download CSV</MenuItem>
-                <MenuItem icon={<Download />} onSelect={() => exportSet("json")}>Download JSON</MenuItem>
+                <MenuItem icon={<Download />} onSelect={() => exportSet("csv")} hint={`${int(current.rs.rows.length)} rows`}>Shown rows as CSV</MenuItem>
+                <MenuItem icon={<Download />} onSelect={() => exportSet("json")} hint={`${int(current.rs.rows.length)} rows`}>Shown rows as JSON</MenuItem>
               </MenuContent>
             </Menu>
           </>

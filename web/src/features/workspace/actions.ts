@@ -45,3 +45,13 @@ export function openDiagram(conn: Connection, database?: string, schema?: string
   ensureRoute(conn);
   return id;
 }
+
+/** Opens the structure designer for an existing table, or for a new one in a scope. */
+export function openDesign(conn: Connection, target: { ref: ObjectRef } | { database?: string; schema?: string }) {
+  const ws = useWorkspace.getState();
+  const id = "ref" in target
+    ? ws.openTab({ connId: conn.id, kind: "design", title: `Edit ${target.ref.name}`, ref: target.ref, database: target.ref.database, schema: target.ref.schema })
+    : ws.openTab({ connId: conn.id, kind: "design", title: "New table", database: target.database, schema: target.schema });
+  ensureRoute(conn);
+  return id;
+}

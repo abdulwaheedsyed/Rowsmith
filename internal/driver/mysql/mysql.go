@@ -388,7 +388,7 @@ func qualify(db, name string) string {
 
 var design = driver.TableDesign{
 	Columns: true, ReorderColumns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true,
-	Generated: true, GeneratedVirtual: true, OnUpdate: true, Checks: true, PrimaryKey: true, ForeignKeys: true,
+	Generated: true, GeneratedVirtual: true, GeneratedStored: true, OnUpdate: true, Checks: true, PrimaryKey: true, ForeignKeys: true,
 	Indexes: true, IndexLengths: true,
 	IndexTypes: []string{"btree", "fulltext", "spatial"},
 	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "RESTRICT"},

@@ -57,6 +57,31 @@ export interface DriverInfo {
   types: string[];
   urlSchemes: string[];
   quoteChar: string;
+  design?: TableDesign;
+}
+
+/** What the structure editor may offer for an engine (driver.TableDesign). */
+export interface TableDesign {
+  columns: boolean;
+  reorderColumns: boolean;
+  autoIncrement: boolean;
+  columnComments: boolean;
+  tableComment: boolean;
+  collation: boolean;
+  generated: boolean;
+  generatedVirtual: boolean;
+  generatedStored: boolean;
+  onUpdate: boolean;
+  checks: boolean;
+  primaryKey: boolean;
+  foreignKeys: boolean;
+  indexes: boolean;
+  partialIndexes: boolean;
+  indexLengths: boolean;
+  indexTypes?: string[];
+  fkActions?: string[];
+  options?: Field[];
+  note?: string;
 }
 
 export type Environment = "production" | "staging" | "development" | "local";
@@ -129,6 +154,8 @@ export interface DbObject {
   collation?: string;
   updated?: string;
   extra?: string;
+  extension?: string;
+  ownedBy?: string;
 }
 
 export interface ObjectRef {
@@ -151,6 +178,7 @@ export interface Column {
   default?: string;
   autoIncrement?: boolean;
   generated?: string;
+  generatedStored?: boolean;
   primaryKey?: boolean;
   comment?: string;
   collation?: string;
@@ -206,6 +234,22 @@ export interface Table {
   ddl?: string;
   definition?: string;
   editable: boolean;
+}
+
+/** Desired table state sent to the DDL generator (driver.TableDef). */
+export interface ColumnDef extends Column {
+  originalName?: string;
+}
+
+export interface TableDef {
+  ref: ObjectRef;
+  columns: ColumnDef[];
+  indexes: Index[];
+  foreignKeys: ForeignKey[];
+  checks: { name: string; expression: string }[];
+  primaryKey: string[];
+  comment: string;
+  options: Record<string, string>;
 }
 
 export interface ResultColumn {

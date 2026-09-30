@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { KeyRound, Link2, Table2, TerminalSquare, Copy, CornerDownRight, CornerUpLeft, Zap, ShieldCheck, Hash, Sparkles, FileCode2 } from "lucide-react";
+import { KeyRound, Link2, Table2, TerminalSquare, Copy, CornerDownRight, CornerUpLeft, Zap, ShieldCheck, Hash, Sparkles, FileCode2, PencilRuler } from "lucide-react";
 import { get, qs } from "../../lib/api";
 import { useDescribe, useDriver } from "../../lib/queries";
 import type { Tab } from "../../lib/store";
@@ -8,7 +8,7 @@ import type { Connection, ForeignKey } from "../../lib/types";
 import { bytes, int } from "../../lib/format";
 import { Alert, Button, Spinner, Tip } from "../../components/ui";
 import { SqlEditor } from "../query/SqlEditor";
-import { newQueryTab, openObject } from "../workspace/actions";
+import { newQueryTab, openDesign, openObject } from "../workspace/actions";
 import { sampleQuery } from "../navigator/Navigator";
 import "./structure.css";
 
@@ -44,6 +44,9 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
           {t.comment && <p className="structure__comment">{t.comment}</p>}
         </div>
         <div className="row gap-3">
+          {drv?.design && conn.access !== "read" && !conn.readOnly && ["table", "partitioned_table", "collection"].includes(t.kind) && (
+            <Button onClick={() => openDesign(conn, { ref: { ...ref, kind: t.kind } })}><PencilRuler /> Edit</Button>
+          )}
           <Button onClick={() => openObject(conn, ref, "browse")}><Table2 /> Data</Button>
           <Button onClick={() => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: ref.database, schema: ref.schema })}>
             <TerminalSquare /> Query

@@ -188,6 +188,10 @@ func (b *builder) arg(v any) string {
 // buildSelect renders the GoogleSQL query for a filtered, searched or sorted
 // browse (or its COUNT(*)). Values always travel as named parameters.
 func buildSelect(path string, t *driver.Table, req driver.BrowseRequest, count bool) (string, []bigquery.QueryParameter, error) {
+	return buildQuery(path, t, req, count, true)
+}
+
+func buildQuery(path string, t *driver.Table, req driver.BrowseRequest, count, paged bool) (string, []bigquery.QueryParameter, error) {
 	b := &builder{}
 	byName := map[string]*driver.Column{}
 	for i := range t.Columns {
@@ -272,6 +276,9 @@ func buildSelect(path string, t *driver.Table, req driver.BrowseRequest, count b
 	}
 	if len(order) > 0 {
 		q += " ORDER BY " + strings.Join(order, ", ")
+	}
+	if !paged {
+		return q, b.params, nil
 	}
 	// Fetch one extra row to learn whether another page exists.
 	q += " LIMIT " + strconv.Itoa(browseLimit(req.Limit)+1)

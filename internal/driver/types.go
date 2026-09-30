@@ -96,7 +96,8 @@ type TableDesign struct {
 	TableComment     bool `json:"tableComment"`
 	Collation        bool `json:"collation"`        // Column.Collation
 	Generated        bool `json:"generated"`        // computed columns (Column.Generated)
-	GeneratedVirtual bool `json:"generatedVirtual"` // VIRTUAL as well as STORED (Column.GeneratedStored=false)
+	GeneratedVirtual bool `json:"generatedVirtual"` // VIRTUAL computed columns (Column.GeneratedStored=false)
+	GeneratedStored  bool `json:"generatedStored"`  // STORED/PERSISTED computed columns
 	OnUpdate         bool `json:"onUpdate"`         // Column.OnUpdate (MySQL)
 	Checks           bool `json:"checks"`
 	PrimaryKey       bool `json:"primaryKey"`

@@ -111,3 +111,58 @@ func HostPort(p OpenParams, defaultPort int) (string, int) {
 	}
 	return host, port
 }
+
+// FollowRenames prepares an ALTER diff for engines that carry column renames
+// into indexes, keys and foreign keys by themselves (PostgreSQL, MySQL): it
+// returns copies of from and to whose index, primary-key and foreign-key
+// column lists use the new names, so a rename alone does not rebuild them.
+func FollowRenames(from *Table, to TableDef) (*Table, TableDef) {
+	ren := map[string]string{}
+	newNames := map[string]bool{}
+	for _, c := range to.Columns {
+		newNames[c.Name] = true
+		if c.OriginalName != "" && c.OriginalName != c.Name {
+			ren[c.OriginalName] = c.Name
+		}
+	}
+	if len(ren) == 0 {
+		return from, to
+	}
+	mapCols := func(cols []string, desired bool) []string {
+		out := make([]string, len(cols))
+		for i, c := range cols {
+			out[i] = c
+			// The desired side may still use an old name, unless that name
+			// now belongs to another column.
+			if n, ok := ren[c]; ok && (!desired || !newNames[c]) {
+				out[i] = n
+			}
+		}
+		return out
+	}
+	f := *from
+	f.PrimaryKey = mapCols(from.PrimaryKey, false)
+	f.Indexes = make([]Index, len(from.Indexes))
+	for i, ix := range from.Indexes {
+		ix.Columns = mapCols(ix.Columns, false)
+		f.Indexes[i] = ix
+	}
+	f.ForeignKeys = make([]ForeignKey, len(from.ForeignKeys))
+	for i, fk := range from.ForeignKeys {
+		fk.Columns = mapCols(fk.Columns, false)
+		f.ForeignKeys[i] = fk
+	}
+	t := to
+	t.PrimaryKey = mapCols(to.PrimaryKey, true)
+	t.Indexes = make([]Index, len(to.Indexes))
+	for i, ix := range to.Indexes {
+		ix.Columns = mapCols(ix.Columns, true)
+		t.Indexes[i] = ix
+	}
+	t.ForeignKeys = make([]ForeignKey, len(to.ForeignKeys))
+	for i, fk := range to.ForeignKeys {
+		fk.Columns = mapCols(fk.Columns, true)
+		t.ForeignKeys[i] = fk
+	}
+	return &f, t
+}

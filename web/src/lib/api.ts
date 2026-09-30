@@ -95,7 +95,16 @@ export type StreamEvent =
   | { t: "stmtEnd"; ms: number; error?: QueryError }
   | { t: "done"; ms: number; inTx: boolean; console: string; error?: QueryError };
 
-export async function* stream(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
+export function csrfToken() {
+  return csrf;
+}
+
+export function stream(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<StreamEvent> {
+  return streamLines<StreamEvent>(path, body, signal);
+}
+
+/** POSTs a JSON body and yields each line of an NDJSON response. */
+export async function* streamLines<T>(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<T> {
   const res = await fetch("api/" + path, {
     method: "POST",
     headers: headers(true),
@@ -119,8 +128,8 @@ export async function* stream(path: string, body: unknown, signal?: AbortSignal)
     while ((nl = buf.indexOf("\n")) >= 0) {
       const line = buf.slice(0, nl);
       buf = buf.slice(nl + 1);
-      if (line.trim()) yield JSON.parse(line) as StreamEvent;
+      if (line.trim()) yield JSON.parse(line) as T;
     }
   }
-  if (buf.trim()) yield JSON.parse(buf) as StreamEvent;
+  if (buf.trim()) yield JSON.parse(buf) as T;
 }

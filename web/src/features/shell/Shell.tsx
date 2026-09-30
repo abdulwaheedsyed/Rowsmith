@@ -23,6 +23,7 @@ import { Account } from "../account/Account";
 import { StatusBar } from "./StatusBar";
 import { newQueryTab } from "../workspace/actions";
 import { DisconnectDialog, requestDisconnect } from "../workspace/disconnect";
+import { TransferDialogs } from "../transfer/Dialogs";
 import { useRuns } from "../query/runs";
 
 export function Shell({ me }: { me: Me }) {
@@ -101,6 +102,7 @@ export function Shell({ me }: { me: Me }) {
       <MobileBar conn={conn} onMenu={() => setDrawer(true)} />
       <CommandPalette me={me} conn={conn} onNewConnection={() => setEditing({ open: true })} />
       <DisconnectDialog />
+      <TransferDialogs />
       {editing.open && <ConnectionDialog conn={editing.conn} initialDriver={editing.driver} onClose={() => setEditing({ open: false })} />}
     </div>
   );

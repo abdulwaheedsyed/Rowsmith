@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ObjectRef } from "./types";
 
-export type TabKind = "overview" | "browse" | "query" | "structure" | "definition" | "processes" | "variables" | "users" | "diagram";
+export type TabKind = "overview" | "browse" | "query" | "structure" | "definition" | "processes" | "variables" | "users" | "diagram" | "design";
 
 export interface Tab {
   id: string;
@@ -50,6 +50,7 @@ const newId = () => `t${Date.now().toString(36)}${(seq++).toString(36)}`;
 function sameTarget(a: Tab, b: Omit<Tab, "id">) {
   if (a.connId !== b.connId || a.kind !== b.kind) return false;
   if (b.kind === "query") return false;
+  if (b.kind === "design" && !b.ref) return false; // every new table gets its own tab
   if (b.kind === "processes" || b.kind === "variables" || b.kind === "users" || b.kind === "overview") return true;
   if (b.kind === "diagram") return a.database === b.database && a.schema === b.schema;
   const r1 = a.ref, r2 = b.ref;

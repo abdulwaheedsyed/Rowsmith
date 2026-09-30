@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels and the team vault are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. The AI assistant, scheduled exports and the structure editor are next. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, and import and export are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. The AI assistant and scheduled exports are next. See [Roadmap](#roadmap).
 
 ---
 
@@ -32,6 +32,10 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
   - transactions that stay open across runs
   - cancelling a running query
 - **Structure**: columns, indexes, foreign keys in both directions, checks, triggers, partitions and generated DDL
+- **Structure editor**: create and change tables (or MongoDB collections) from a form, with the exact SQL for your engine shown live as you edit. Columns can be renamed, reordered where the engine allows it, typed, keyed and computed; indexes, foreign keys, checks and table options are edited in place. Each engine only offers what it can do, and dropping columns asks first. Also: new databases and schemas, and renaming objects.
+- **Export**: tables (with the grid's filters and sort), query results and whole schemas to CSV, TSV, JSON, NDJSON, Excel or SQL INSERT statements, optionally gzipped. Files are prepared on the server with live progress, so exports are not limited to the rows on screen.
+- **SQL dumps**: a script that recreates tables, rows, keys, views, routines and triggers, restorable with the database's own client (`mysql`, `psql`) or with Rowsmith. Handles partitions, sequences and identity columns, and leaves out objects that extensions such as PostGIS create themselves.
+- **Import**: CSV (delimiter detected), TSV, JSON, NDJSON and Excel into an existing table, with a preview and column mapping, in one transaction: if a row fails, nothing is kept. SQL files run statement by statement with the console's safety rules.
 - **EXPLAIN / EXPLAIN ANALYZE** turned into a plan tree. PostgreSQL's `ANALYZE` runs inside a transaction that is always rolled back.
 - **Administration**: running processes (with kill), server variables and status, database users and grants
 - **Type fidelity**: exact decimals, 64-bit integers, binary previews with image detection, and dates exactly as the server stores them
@@ -73,8 +77,8 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Web UI: connection manager, navigator, virtualized data grid, SQL editor with schema-aware autocomplete, plan viewer, map view, command palette, mobile layout
 - [x] Relationship (ER) diagrams
 - [x] Production container image and reverse-proxy examples
-- [ ] Structure editor: create and alter tables from a form (DDL generation is done for MySQL and PostgreSQL)
-- [ ] Import and export (SQL dump, CSV, JSON, XLSX)
+- [x] Structure editor for every engine
+- [x] Import and export (SQL dump, CSV, TSV, JSON, NDJSON, Excel)
 - [ ] AI SQL assistant (Claude): write, explain and fix queries from your schema
 - [ ] Scheduled queries and exports with email delivery and threshold alerts
 - [ ] Shareable query links and comments
@@ -104,6 +108,7 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 
 - **Encryption at rest.** Each secret is encrypted with its own random data key using XChaCha20-Poly1305. That data key is then wrapped with a key-encryption key derived from the master key by HKDF-SHA256. Every envelope is bound to its record and field, so a ciphertext copied into another row will not decrypt.
 - **Master key.** Supply it as a Docker secret (`/run/secrets/rowsmith_master_key`), through `ROWSMITH_MASTER_KEY_FILE`, or through `ROWSMITH_MASTER_KEY`. If none is given, Rowsmith generates `<data>/keys/master.key` with `0600` permissions on first start. **Back the key up separately from the data directory.** Without it, saved secrets cannot be recovered. `rowsmith rotate-key` rotates it and re-wraps every stored secret.
+- **Exports and uploads** are written to `<data>/spool`, each encrypted with its own random key that exists only in memory, readable only by the user who created them, and deleted after 15 minutes (or when an import finishes). Exports always read through read-only database sessions.
 - **Secrets are write-only.** The API reports only whether a secret is set. Users with read or write access see only a connection's host and database, never its credentials.
 - **Sessions** use random 256-bit tokens, stored hashed. Cookies are `HttpOnly`, `Secure` and `SameSite=Strict`, and use the `__Host-` prefix when served at the root path. Sessions have idle and absolute timeouts and are rotated after sign-in and MFA.
 - **Request protection.** Every state-changing request needs a per-session CSRF token, a same-origin `Origin` header and a JSON body. The server sends a strict Content Security Policy with no inline scripts and `frame-ancestors 'none'`, plus HSTS.
@@ -128,6 +133,7 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 | `ROWSMITH_SESSION_MAX` | `72h` | Absolute session lifetime |
 | `ROWSMITH_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
 | `ROWSMITH_SQLITE_DIR` | `<data>/sqlite` | The only directory SQLite connections may open files from |
+| `ROWSMITH_MAX_UPLOAD_MB` | `1024` | Largest file accepted for import |
 | `ROWSMITH_INSECURE_COOKIES` | `false` | Local plain-HTTP development only |
 
 ## Deployment

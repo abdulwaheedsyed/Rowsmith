@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -10,7 +10,8 @@ import type { Connection, Me, SavedQuery } from "../../lib/types";
 import { compact } from "../../lib/format";
 import { go } from "../../lib/nav";
 import { Env, Kbd } from "../../components/ui";
-import { newQueryTab, openObject, openPanel, openDiagram } from "../workspace/actions";
+import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../workspace/actions";
+import { openExport, openImport } from "../transfer/store";
 import { kindIcon } from "../navigator/Navigator";
 import { requestDisconnect } from "../workspace/disconnect";
 
@@ -117,6 +118,26 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                   {drv?.caps.foreignKeys && (
                     <Command.Item value="diagram er relationships schema" onSelect={run(() => openDiagram(conn, scope?.database, scope?.schema))}>
                       <Network /> Relationship diagram
+                    </Command.Item>
+                  )}
+                  {drv?.design && conn.access !== "read" && !conn.readOnly && (
+                    <Command.Item value="new table create table design structure" onSelect={run(() => openDesign(conn, { database: scope?.database, schema: scope?.schema }))}>
+                      <PencilRuler /> New {drv.caps.documents ? "collection" : "table"}
+                    </Command.Item>
+                  )}
+                  {drv?.caps.editRows && conn.access !== "read" && !conn.readOnly && (
+                    <Command.Item value="import data csv excel json upload load" onSelect={run(() => openImport(conn, { kind: "table", database: scope?.database, schema: scope?.schema }))}>
+                      <FileUp /> Import data
+                    </Command.Item>
+                  )}
+                  {drv?.caps.sql && conn.access !== "read" && !conn.readOnly && (
+                    <Command.Item value="run sql file script import restore" onSelect={run(() => openImport(conn, { kind: "sql", database: scope?.database, schema: scope?.schema }))}>
+                      <FileUp /> Run a SQL file
+                    </Command.Item>
+                  )}
+                  {drv?.caps.sql && drv.caps.ddl && !drv.caps.documents && (
+                    <Command.Item value="export sql dump backup database" onSelect={run(() => openExport(conn, { kind: "dump", database: scope?.database, schema: scope?.schema }))}>
+                      <Download /> Export as SQL dump
                     </Command.Item>
                   )}
                   <Command.Item value="disconnect close connection log out" onSelect={run(() => requestDisconnect(conn))}>

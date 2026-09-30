@@ -49,7 +49,7 @@ var types = []string{
 
 // design describes the structure editor; ddlgen.go generates the SQL.
 var design = driver.TableDesign{
-	Columns: true, ReorderColumns: true, AutoIncrement: true, Collation: true, Generated: true, GeneratedVirtual: true,
+	Columns: true, ReorderColumns: true, AutoIncrement: true, Collation: true, Generated: true, GeneratedVirtual: true, GeneratedStored: true,
 	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
 	FKActions: []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},
 	Options: []driver.Field{

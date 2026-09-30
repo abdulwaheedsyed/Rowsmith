@@ -181,6 +181,7 @@ func (c *conn) AlterTableSQL(from *driver.Table, to driver.TableDef) ([]string, 
 	if from == nil {
 		return nil, errors.New("current table definition is missing")
 	}
+	from, to = driver.FollowRenames(from, to)
 	schema := from.Ref.Schema
 	if schema == "" {
 		schema = "public"

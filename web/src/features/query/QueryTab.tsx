@@ -359,7 +359,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
       </div>
       <div className="query__split" role="separator" aria-orientation="horizontal" onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} />
       <div className="query__results">
-        <Results run={run} conn={conn} />
+        <Results run={run} conn={conn} database={database} schema={schema} />
       </div>
 
       <Dialog

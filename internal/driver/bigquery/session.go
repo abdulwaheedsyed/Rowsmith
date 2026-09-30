@@ -55,6 +55,10 @@ func (s *session) query(script string, opts driver.ExecOptions) *bigquery.Query 
 		q.MaxBytesBilled = opts.MaxBytesBilled
 	}
 	for _, p := range opts.Params {
+		if qp, ok := p.(bigquery.QueryParameter); ok {
+			q.Parameters = append(q.Parameters, qp) // named, from BrowseQuery
+			continue
+		}
 		q.Parameters = append(q.Parameters, bigquery.QueryParameter{Value: p})
 	}
 	return q
