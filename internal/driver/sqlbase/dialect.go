@@ -60,9 +60,13 @@ func (Base) Paginate(q string, limit int, offset int64, _ bool) string {
 	return q
 }
 
-func (Base) Kind(ct *sql.ColumnType) driver.ValueKind { return driver.KindFromTypeName(ct.DatabaseTypeName()) }
+func (Base) Kind(ct *sql.ColumnType) driver.ValueKind {
+	return driver.KindFromTypeName(ct.DatabaseTypeName())
+}
 
-func (Base) TextExpr(col driver.Column) string { return "CAST(" + `"` + col.Name + `"` + " AS VARCHAR(4000))" }
+func (Base) TextExpr(col driver.Column) string {
+	return "CAST(" + `"` + col.Name + `"` + " AS VARCHAR(4000))"
+}
 
 func (Base) Like(expr, ph string, negate bool) string {
 	op := " LIKE "
@@ -128,11 +132,13 @@ func GenericEncode(v any, kind driver.ValueKind) any {
 		return driver.EncodeFloat(float64(x))
 	case bool:
 		return x
-	case fmt.Stringer:
-		return driver.EncodeText(x.String())
 	}
+	// time.Time is also a Stringer, so it must be matched first.
 	if t, ok := asTime(v); ok {
 		return driver.EncodeTime(t, kind)
+	}
+	if s, ok := v.(fmt.Stringer); ok {
+		return driver.EncodeText(s.String())
 	}
 	return driver.EncodeText(fmt.Sprint(v))
 }

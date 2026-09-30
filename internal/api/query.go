@@ -15,15 +15,15 @@ import (
 )
 
 type queryReq struct {
-	Tab      string `json:"tab"`
-	Database string `json:"database"`
-	Schema   string `json:"schema"`
-	SQL      string `json:"sql"`
-	Mode     string `json:"mode"`   // "all" (default) | "statement"
-	Cursor   int    `json:"cursor"` // byte offset for mode=statement
-	MaxRows  int    `json:"maxRows"`
-	Confirm  bool   `json:"confirm"`
-	StopOnError *bool `json:"stopOnError"`
+	Tab         string `json:"tab"`
+	Database    string `json:"database"`
+	Schema      string `json:"schema"`
+	SQL         string `json:"sql"`
+	Mode        string `json:"mode"`   // "all" (default) | "statement"
+	Cursor      int    `json:"cursor"` // byte offset for mode=statement
+	MaxRows     int    `json:"maxRows"`
+	Confirm     bool   `json:"confirm"`
+	StopOnError *bool  `json:"stopOnError"`
 }
 
 // ndjsonSink streams execution events as newline-delimited JSON.

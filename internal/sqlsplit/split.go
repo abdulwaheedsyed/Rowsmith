@@ -320,7 +320,9 @@ func isDigits(s string) bool {
 	return s != ""
 }
 
-func isSpaceRune(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == '\f' || r == '\v' }
+func isSpaceRune(r rune) bool {
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r' || r == '\f' || r == '\v'
+}
 
 // hasCode reports whether text contains anything besides whitespace and comments.
 func hasCode(text string, d Dialect) bool {

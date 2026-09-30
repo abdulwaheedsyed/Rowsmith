@@ -199,7 +199,9 @@ func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
 	return out, rows.Err()
 }
 
-func (c *conn) Schemas(ctx context.Context, database string) ([]driver.Schema, error) { return nil, nil }
+func (c *conn) Schemas(ctx context.Context, database string) ([]driver.Schema, error) {
+	return nil, nil
+}
 
 func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, error) {
 	if s.Database == "" {

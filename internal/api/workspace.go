@@ -461,11 +461,11 @@ func (s *Server) wsDBUserGrants(w http.ResponseWriter, r *http.Request, rc *reqC
 // wsDDL generates (never executes) SQL for structural changes. The client
 // previews it and runs it through the console, where safety checks apply.
 type ddlReq struct {
-	Action  string           `json:"action"` // create_table alter_table drop truncate rename create_database drop_database create_schema drop_schema
-	Ref     driver.ObjectRef `json:"ref"`
-	Def     *driver.TableDef `json:"def"`
-	NewName string           `json:"newName"`
-	Cascade bool             `json:"cascade"`
+	Action  string            `json:"action"` // create_table alter_table drop truncate rename create_database drop_database create_schema drop_schema
+	Ref     driver.ObjectRef  `json:"ref"`
+	Def     *driver.TableDef  `json:"def"`
+	NewName string            `json:"newName"`
+	Cascade bool              `json:"cascade"`
 	Options map[string]string `json:"options"`
 }
 

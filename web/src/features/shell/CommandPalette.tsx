@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Eye, FunctionSquare, Moon, Plus, Server, Sun, Table2, TerminalSquare, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -11,6 +11,7 @@ import { compact } from "../../lib/format";
 import { go } from "../../lib/nav";
 import { Env, Kbd } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram } from "../workspace/actions";
+import { kindIcon } from "../navigator/Navigator";
 
 // Every typed word must appear in the item; matches at the start of the
 // name rank first. Predictable beats clever for jumping to tables.
@@ -25,7 +26,6 @@ function paletteFilter(value: string, search: string) {
   return 0.5;
 }
 
-const kindIcon: Record<string, typeof Table2> = { table: Table2, view: Eye, materialized_view: Eye, function: FunctionSquare, procedure: FunctionSquare };
 
 export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: Connection; onNewConnection(): void }) {
   const { paletteOpen, setPaletteOpen, setTheme } = useUI();
@@ -45,7 +45,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
     fn();
   };
 
-  const browsable = useMemo(() => (objects.data ?? []).filter((o) => ["table", "view", "materialized_view", "partitioned_table", "foreign_table", "collection"].includes(o.kind)), [objects.data]);
+  const browsable = useMemo(() => (objects.data ?? []).filter((o) => ["table", "view", "materialized_view", "partitioned_table", "foreign_table", "external_table", "collection", "timeseries"].includes(o.kind)), [objects.data]);
   const isAdmin = me.user.role === "owner" || me.user.role === "admin";
 
   return (
@@ -66,7 +66,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
               {conn && browsable.length > 0 && (
                 <Command.Group heading={`Tables & views${scope?.database ? ` · ${scope.database}${scope.schema ? "." + scope.schema : ""}` : ""}`}>
                   {browsable.slice(0, search ? 400 : 12).map((o) => {
-                    const Icon = kindIcon[o.kind] ?? Table2;
+                    const Icon = kindIcon(o.kind);
                     const ref = { database: scope?.database, schema: scope?.schema, name: o.name, kind: o.kind };
                     return (
                       <Command.Item key={`o:${o.kind}:${o.name}`} value={`${o.name} ${o.kind}`} onSelect={run(() => openObject(conn, ref, "browse"))}>

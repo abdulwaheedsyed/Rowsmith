@@ -69,15 +69,15 @@ func TestParseErrors(t *testing.T) {
 
 func TestClassify(t *testing.T) {
 	cases := map[string]driver.StatementKind{
-		"db.t.find({})":                                 driver.StmtRead,
-		"db.t.aggregate([{ $match: {} }])":              driver.StmtRead,
+		"db.t.find({})":                                   driver.StmtRead,
+		"db.t.aggregate([{ $match: {} }])":                driver.StmtRead,
 		"db.t.aggregate([{ $match: {} }, { $out: 'x' }])": driver.StmtWrite,
-		"db.t.updateOne({a: 1}, {$set: {b: 2}})":         driver.StmtWrite,
-		"db.t.createIndex({a: 1})":                      driver.StmtDDL,
-		"db.runCommand({ ping: 1 })":                    driver.StmtRead,
-		"db.runCommand({ dropDatabase: 1 })":            driver.StmtWrite,
-		"show dbs":                                      driver.StmtRead,
-		"use x":                                         driver.StmtSession,
+		"db.t.updateOne({a: 1}, {$set: {b: 2}})":          driver.StmtWrite,
+		"db.t.createIndex({a: 1})":                        driver.StmtDDL,
+		"db.runCommand({ ping: 1 })":                      driver.StmtRead,
+		"db.runCommand({ dropDatabase: 1 })":              driver.StmtWrite,
+		"show dbs":                                        driver.StmtRead,
+		"use x":                                           driver.StmtSession,
 	}
 	for src, want := range cases {
 		cmds, err := parseScript(src)

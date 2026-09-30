@@ -211,7 +211,10 @@ def main():
     # viewer with read-only share
     _, u = c.req("POST", "/api/users", {"name": "Vic Viewer", "email": VIEWER, "role": "viewer", "password": "Quiet-Lantern-Harbor-31"}, 201)
     c.req("PUT", f"/api/connections/{conns['mysql']}/shares", {"shares": [{"userId": u["id"], "access": "write"}]}, 200)
-    v = Client(); v.login(VIEWER, "Quiet-Lantern-Harbor-31")
+    v = Client(); me = v.login(VIEWER, "Quiet-Lantern-Harbor-31")
+    assert me["user"]["mustChangePassword"], me
+    v.req("GET", "/api/connections", expect=403); ok("temporary password: everything but a password change is refused")
+    v.req("POST", "/api/me/password", {"current": "Quiet-Lantern-Harbor-31", "next": "Amber-Signal-Orchard-58"}, 200)
     _, lst = v.req("GET", "/api/connections", expect=200)
     assert len(lst) == 1 and lst[0]["access"] == "read" and "password" not in json.dumps(lst[0]), lst
     ok("viewer sees only the shared connection, capped to read access, no secrets")

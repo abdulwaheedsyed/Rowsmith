@@ -362,4 +362,3 @@ func generatePassword() string {
 	}
 	return string(out)
 }
-

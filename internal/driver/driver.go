@@ -215,7 +215,9 @@ func All() []Info {
 	for _, d := range registry {
 		out = append(out, d.Info())
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Order < out[j].Order || (out[i].Order == out[j].Order && out[i].Name < out[j].Name) })
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Order < out[j].Order || (out[i].Order == out[j].Order && out[i].Name < out[j].Name)
+	})
 	return out
 }
 

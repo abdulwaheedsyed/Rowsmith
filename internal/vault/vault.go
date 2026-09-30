@@ -37,9 +37,9 @@ const (
 )
 
 var (
-	ErrMalformed = errors.New("vault: malformed envelope")
+	ErrMalformed  = errors.New("vault: malformed envelope")
 	ErrUnknownKey = errors.New("vault: envelope sealed with an unknown master key")
-	ErrDecrypt   = errors.New("vault: decryption failed (wrong key or tampered data)")
+	ErrDecrypt    = errors.New("vault: decryption failed (wrong key or tampered data)")
 )
 
 type kek struct {

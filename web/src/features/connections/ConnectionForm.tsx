@@ -34,14 +34,28 @@ function defaults(d?: DriverInfo) {
   return p;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver:// style URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
-    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite" } as Record<string, string>)[scheme];
+    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
+    if (driver === "sqlite") {
+      // sqlite:reports/sales.db or sqlite:///reports/sales.db — relative to the server's SQLite directory.
+      params.file = decodeURIComponent((u.host + u.pathname).replace(/^\/+/, ""));
+      return { driver, params, secrets };
+    }
+    if (driver === "bigquery") {
+      // bigquery://project/dataset?location=EU
+      params.project = decodeURIComponent(u.hostname);
+      const ds = decodeURIComponent(u.pathname.replace(/^\//, ""));
+      if (ds) params.dataset = ds;
+      const loc = u.searchParams.get("location");
+      if (loc) params.location = loc;
+      return { driver, params, secrets };
+    }
     if (u.hostname) params.host = decodeURIComponent(u.hostname);
     if (u.port) params.port = Number(u.port);
     if (u.username) params.user = decodeURIComponent(u.username);

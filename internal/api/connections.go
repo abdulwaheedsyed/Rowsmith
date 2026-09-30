@@ -81,16 +81,16 @@ func effectiveAccess(u *store.User, a store.Access) store.Access {
 }
 
 type connReq struct {
-	Name        *string           `json:"name"`
-	Driver      *string           `json:"driver"`
-	Color       *string           `json:"color"`
-	Environment *string           `json:"environment"`
-	Folder      *string           `json:"folder"`
-	ReadOnly    *bool             `json:"readOnly"`
-	TeamAccess  *store.Access     `json:"teamAccess"`
-	Notes       *string           `json:"notes"`
-	Params      map[string]any    `json:"params"`
-	Secrets     map[string]*string `json:"secrets"` // null = clear, absent = keep
+	Name        *string              `json:"name"`
+	Driver      *string              `json:"driver"`
+	Color       *string              `json:"color"`
+	Environment *string              `json:"environment"`
+	Folder      *string              `json:"folder"`
+	ReadOnly    *bool                `json:"readOnly"`
+	TeamAccess  *store.Access        `json:"teamAccess"`
+	Notes       *string              `json:"notes"`
+	Params      map[string]any       `json:"params"`
+	Secrets     map[string]*string   `json:"secrets"` // null = clear, absent = keep
 	SSH         *session.SSHSettings `json:"ssh"`
 }
 

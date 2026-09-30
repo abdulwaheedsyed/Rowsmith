@@ -228,10 +228,10 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type meResp struct {
-	User      *store.User        `json:"user"`
-	Stage     store.SessionStage `json:"stage"`
-	CSRF      string             `json:"csrf"`
-	RecoveryLeft int             `json:"recoveryCodesLeft"`
+	User         *store.User        `json:"user"`
+	Stage        store.SessionStage `json:"stage"`
+	CSRF         string             `json:"csrf"`
+	RecoveryLeft int                `json:"recoveryCodesLeft"`
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request, rc *reqCtx) {

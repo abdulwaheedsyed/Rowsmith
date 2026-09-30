@@ -25,8 +25,8 @@ import (
 
 // SSHSettings is the non-secret part of a connection's tunnel config.
 type SSHSettings struct {
-	Enabled bool      `json:"enabled"`
-	Hops    []SSHHop  `json:"hops"`
+	Enabled bool     `json:"enabled"`
+	Hops    []SSHHop `json:"hops"`
 }
 
 type SSHHop struct {

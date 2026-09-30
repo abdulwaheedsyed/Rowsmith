@@ -143,7 +143,9 @@ func (c *conn) Close() error {
 	return c.client.Disconnect(ctx)
 }
 
-func (c *conn) Ping(ctx context.Context) error { return c.client.Ping(ctx, readpref.PrimaryPreferred()) }
+func (c *conn) Ping(ctx context.Context) error {
+	return c.client.Ping(ctx, readpref.PrimaryPreferred())
+}
 
 func (c *conn) db(name string) *mongo.Database {
 	if name == "" {
