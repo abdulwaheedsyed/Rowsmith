@@ -61,6 +61,7 @@ func (pgDriver) Info() driver.Info {
 			CreateDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true,
 			Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"postgres", "postgresql"}, QuoteChar: `"`,
+		Design: &design,
 	}
 }
 
@@ -571,3 +572,11 @@ func qualify(schema, name string) string {
 }
 
 func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+
+var design = driver.TableDesign{
+	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true,
+	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	IndexTypes: []string{"btree", "hash", "gist", "gin", "brin", "spgist"},
+	FKActions:  []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},
+	Note:       "PostgreSQL cannot move existing columns; new columns are added at the end.",
+}

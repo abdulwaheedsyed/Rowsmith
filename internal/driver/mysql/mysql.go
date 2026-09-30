@@ -63,6 +63,7 @@ func (d *mysqlDriver) Info() driver.Info {
 		Caps: driver.Caps{Databases: true, SQL: true, Transactions: true, EditRows: true, DDL: true, CreateDatabase: true,
 			ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"mysql", "mariadb"}, QuoteChar: "`",
+		Design: &design,
 	}
 }
 
@@ -383,4 +384,18 @@ func qualify(db, name string) string {
 		return quote(name)
 	}
 	return quote(db) + "." + quote(name)
+}
+
+var design = driver.TableDesign{
+	Columns: true, ReorderColumns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true,
+	Generated: true, GeneratedVirtual: true, OnUpdate: true, Checks: true, PrimaryKey: true, ForeignKeys: true,
+	Indexes: true, IndexLengths: true,
+	IndexTypes: []string{"BTREE", "FULLTEXT", "SPATIAL"},
+	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "RESTRICT"},
+	Options: []driver.Field{
+		{Key: "engine", Label: "Storage engine", Type: driver.FieldSelect, Span: 3, Options: []driver.Option{
+			{Value: "InnoDB", Label: "InnoDB"}, {Value: "MyISAM", Label: "MyISAM"}, {Value: "MEMORY", Label: "MEMORY"},
+			{Value: "ARCHIVE", Label: "ARCHIVE"}, {Value: "Aria", Label: "Aria (MariaDB)"}}},
+		{Key: "collation", Label: "Default collation", Type: driver.FieldText, Span: 3, Placeholder: "server default, e.g. utf8mb4_0900_ai_ci"},
+	},
 }

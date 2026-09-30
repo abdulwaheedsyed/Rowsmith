@@ -81,6 +81,37 @@ type Info struct {
 	Types       []string   `json:"types"`      // data types offered by the column editor
 	URLSchemes  []string   `json:"urlSchemes"` // connection URLs the form can parse
 	QuoteChar   string     `json:"quoteChar"`  // identifier quote for client-side snippets
+	// Design describes the structure editor for this engine; nil hides it.
+	Design *TableDesign `json:"design,omitempty"`
+}
+
+// TableDesign tells the structure editor which parts of a TableDef an engine
+// can create and change. The editor only offers what is listed here, and the
+// engine's DDLGenerator must accept everything it offers.
+type TableDesign struct {
+	Columns          bool `json:"columns"`        // columns can be designed (false for document stores: indexes only)
+	ReorderColumns   bool `json:"reorderColumns"` // existing columns can be moved in place (new tables are always free-form)
+	AutoIncrement    bool `json:"autoIncrement"`  // Column.AutoIncrement: engine-native auto-numbering
+	ColumnComments   bool `json:"columnComments"`
+	TableComment     bool `json:"tableComment"`
+	Collation        bool `json:"collation"`        // Column.Collation
+	Generated        bool `json:"generated"`        // computed columns (Column.Generated)
+	GeneratedVirtual bool `json:"generatedVirtual"` // VIRTUAL as well as STORED (Column.GeneratedStored=false)
+	OnUpdate         bool `json:"onUpdate"`         // Column.OnUpdate (MySQL)
+	Checks           bool `json:"checks"`
+	PrimaryKey       bool `json:"primaryKey"`
+	ForeignKeys      bool `json:"foreignKeys"`
+	Indexes          bool `json:"indexes"`
+	PartialIndexes   bool `json:"partialIndexes"` // Index.Where
+	IndexLengths     bool `json:"indexLengths"`   // Index.Lengths (prefix indexes)
+	// IndexTypes are the methods offered for Index.Type; the first is the default.
+	IndexTypes []string `json:"indexTypes,omitempty"`
+	// FKActions are the rules offered for ON DELETE / ON UPDATE.
+	FKActions []string `json:"fkActions,omitempty"`
+	// Options are table-level settings stored in TableDef.Options (e.g. engine).
+	Options []Field `json:"options,omitempty"`
+	// Note is shown in the editor, e.g. how the engine applies changes.
+	Note string `json:"note,omitempty"`
 }
 
 // ---- catalog -----------------------------------------------------------------
