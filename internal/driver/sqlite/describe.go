@@ -94,8 +94,10 @@ func (c *conn) describeColumns(ctx context.Context, t *driver.Table, def tableDe
 		col.Nullable = !notNull
 		col.Default = sqlbase.NullStr(dflt)
 		col.PrimaryKey = pk > 0
+		col.Collation = def.collations[col.Name]
 		if hidden == 2 || hidden == 3 { // generated VIRTUAL / STORED
 			col.Generated = cmp.Or(def.generated[col.Name], "generated")
+			col.GeneratedStored = hidden == 3
 		}
 		if pk > 0 {
 			pkPos[col.Name] = pk

@@ -150,15 +150,22 @@ func span(s string, toks []token) string {
 type tableDef struct {
 	checks       []driver.Check
 	generated    map[string]string // column -> expression
+	collations   map[string]string // column -> collation
 	withoutRowid bool
 	strict       bool
 	module       string // virtual table module
+
+	// What a rebuild must carry over, as the CREATE TABLE text states it.
+	autoincrement string          // column declared INTEGER PRIMARY KEY AUTOINCREMENT
+	unnamed       map[string]bool // check names made up for unnamed CHECK constraints
+	deferred      []bool          // per foreign key in declaration order: DEFERRABLE INITIALLY DEFERRED
+	onConflict    bool            // some constraint has an ON CONFLICT clause
 }
 
 // parseTable reads what PRAGMA table_xinfo does not report from CREATE TABLE text.
 func parseTable(ddl string) tableDef {
 	toks := lex(ddl)
-	def := tableDef{generated: map[string]string{}}
+	def := tableDef{generated: map[string]string{}, collations: map[string]string{}, unnamed: map[string]bool{}}
 	if len(toks) > 1 && toks[1].is("VIRTUAL") {
 		for i := 2; i+1 < len(toks); i++ {
 			if toks[i].is("USING") {
@@ -182,10 +189,25 @@ func parseTable(ddl string) tableDef {
 			continue
 		}
 		column := !(it[0].is("CONSTRAINT") || it[0].is("PRIMARY") || it[0].is("UNIQUE") || it[0].is("CHECK") || it[0].is("FOREIGN"))
+		name := unquote(it[0].text)
 		for k := 0; k < len(it); k++ {
-			if it[k].text == "(" {
+			switch t := it[k]; {
+			case t.text == "(":
 				k = closing(it, k) // e.g. DEFAULT (expr)
 				continue
+			case k == 0: // the column name or the constraint keyword
+			case column && t.is("COLLATE") && k+1 < len(it):
+				def.collations[name] = unquote(it[k+1].text)
+			case column && t.is("AUTOINCREMENT"):
+				def.autoincrement = name
+			case t.is("REFERENCES"):
+				def.deferred = append(def.deferred, false)
+			case t.is("DEFERRABLE") && !it[k-1].is("NOT") && len(def.deferred) > 0:
+				if k+2 < len(it) && it[k+1].is("INITIALLY") && it[k+2].is("DEFERRED") {
+					def.deferred[len(def.deferred)-1] = true
+				}
+			case t.is("CONFLICT") && it[k-1].is("ON"):
+				def.onConflict = true
 			}
 			if k+1 >= len(it) || it[k+1].text != "(" {
 				continue
@@ -200,7 +222,7 @@ func parseTable(ddl string) tableDef {
 				}
 				def.checks = append(def.checks, driver.Check{Name: name, Expression: expr})
 			case it[k].is("AS") && column:
-				def.generated[unquote(it[0].text)] = expr
+				def.generated[name] = expr
 			}
 			k = end
 		}
@@ -208,6 +230,7 @@ func parseTable(ddl string) tableDef {
 	for i := range def.checks {
 		if def.checks[i].Name == "" {
 			def.checks[i].Name = fmt.Sprintf("check_%d", i+1)
+			def.unnamed[def.checks[i].Name] = true
 		}
 	}
 	return def
