@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"rowsmith/internal/ai"
 	"rowsmith/internal/auth"
 	"rowsmith/internal/config"
 	"rowsmith/internal/driver"
@@ -48,6 +49,8 @@ type Server struct {
 
 	cookieName string
 	spool      *spool.Spool
+	ai         *ai.Assistant
+	aiLimit    *auth.Limiter
 }
 
 type Deps struct {
@@ -68,6 +71,8 @@ func New(d Deps) *Server {
 	} else {
 		d.Log.Error("spool directory unavailable; exports and imports are disabled", "err", err)
 	}
+	s.ai = ai.New()
+	s.aiLimit = auth.NewLimiter(12, 6) // questions per minute, per person
 	s.cookieName = "rowsmith_session"
 	if d.Config.BasePath == "/" && !d.Config.Insecure {
 		// __Host- cookies must be Secure, host-only and Path=/, which blocks
@@ -182,6 +187,11 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("POST /api/uploads", s.upload)
 	full("POST /api/c/{id}/import/preview", s.wsImportPreview)
 	full("POST /api/c/{id}/import", s.wsImport)
+	full("GET /api/ai", s.aiStatus)
+	full("POST /api/ai/models", s.aiModels)
+	full("POST /api/ai/check", s.aiCheck)
+	full("POST /api/ai/forget", s.aiForget)
+	full("POST /api/c/{id}/ai", s.wsAsk)
 	full("POST /api/c/{id}/analyze", s.wsAnalyze)
 	full("POST /api/c/{id}/explain", s.wsExplain)
 	full("GET /api/c/{id}/processes", s.wsProcesses)

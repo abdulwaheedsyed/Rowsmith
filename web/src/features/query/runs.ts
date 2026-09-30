@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import type { Cell, QueryError, ResultColumn, StatementKind, Plan, PendingStatement } from "../../lib/types";
 
+/** An error as the assistant should see it. */
+export function errorText(e: QueryError): string {
+  return [e.message, e.detail && `Detail: ${e.detail}`, e.hint && `Hint: ${e.hint}`, e.code && `Code: ${e.code}`, e.line && `Line: ${e.line}`].filter(Boolean).join("\n");
+}
+
 export interface ResultSet {
   columns: ResultColumn[];
   rows: Cell[][];
@@ -28,6 +33,7 @@ export interface RunState {
   inTx?: boolean;
   console?: string;
   plan?: Plan;
+  planSql?: string;
   planError?: string;
   planLoading?: boolean;
   confirm?: { statements: PendingStatement[]; environment: string };

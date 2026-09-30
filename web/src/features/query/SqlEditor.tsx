@@ -153,6 +153,7 @@ interface Props {
   onExplain?(): void;
   onSave?(): void;
   onFormat?(): void;
+  onAssist?(): void;
   marks?: StatementMark[];
   errorLine?: number | null;
   readOnly?: boolean;
@@ -176,6 +177,7 @@ export function SqlEditor(props: Props) {
       { key: "Mod-e", preventDefault: true, run: () => (cbs.current.onExplain?.(), true) },
       { key: "Mod-s", preventDefault: true, run: () => (cbs.current.onSave?.(), true) },
       { key: "Shift-Alt-f", preventDefault: true, run: () => (cbs.current.onFormat?.(), true) },
+      { key: "Mod-i", preventDefault: true, run: () => (cbs.current.onAssist ? (cbs.current.onAssist(), true) : false) },
       { key: "Mod-/", run: toggleComment },
     ]);
     const state = EditorState.create({
@@ -302,4 +304,39 @@ function language(p: Props): Extension {
 /** Byte offset (UTF-8) of a UTF-16 string index — the server splits by bytes. */
 export function byteOffset(s: string, index: number) {
   return new TextEncoder().encode(s.slice(0, index)).length;
+}
+
+/** The statement around a position: split on semicolons outside quotes and
+ *  comments (and on blank lines for console languages without semicolons). */
+export function statementAround(doc: string, pos: number, blankLines = false): { text: string; line: number } | null {
+  const bounds: number[] = [0];
+  let q = "";
+  for (let i = 0; i < doc.length; i++) {
+    const c = doc[i];
+    if (q) {
+      if (q === "--" ? c === "\n" : q === "/*" ? c === "*" && doc[i + 1] === "/" && ++i : c === q) q = "";
+      continue;
+    }
+    if (c === "'" || c === '"' || c === "`") q = c;
+    else if (c === "-" && doc[i + 1] === "-") q = "--";
+    else if (c === "/" && doc[i + 1] === "*") q = "/*";
+    else if (c === ";") bounds.push(i + 1);
+    else if (blankLines && c === "\n" && doc[i + 1] === "\n") bounds.push(i + 1);
+  }
+  bounds.push(doc.length);
+  let best: { from: number; to: number } | null = null;
+  for (let i = 0; i + 1 < bounds.length; i++) {
+    const from = bounds[i], to = bounds[i + 1];
+    if (!doc.slice(from, to).trim()) continue;
+    if (pos >= from && pos <= to) {
+      best = { from, to };
+      break;
+    }
+    if (from < pos) best = { from, to }; // the last statement before the cursor
+  }
+  if (!best) return null;
+  const raw = doc.slice(best.from, best.to);
+  const lead = raw.length - raw.trimStart().length;
+  const text = raw.trim();
+  return { text, line: doc.slice(0, best.from + lead).split("\n").length };
 }

@@ -578,6 +578,8 @@ body.is-resizing-v * {
   gap: 2px;
   margin-bottom: 18px;
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .page__tab {
   position: relative;
@@ -590,8 +592,10 @@ body.is-resizing-v * {
   font-weight: 500;
   text-decoration: none !important;
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 7px;
+  white-space: nowrap;
 }
 .page__tab:hover {
   color: var(--text);

@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format as formatSQL } from "sql-formatter";
-import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert, Sparkles } from "lucide-react";
 import { ApiError, get, post, put, stream } from "../../lib/api";
 import { useCatalog, useDriver, useDatabases, useSchemas } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
-import type { Connection, Plan, SavedQuery, PendingStatement, Danger, StatementKind } from "../../lib/types";
+import type { Connection, Me, Plan, SavedQuery, PendingStatement, Danger, StatementKind } from "../../lib/types";
 import { modKey } from "../../lib/format";
 import { Alert, Button, Dialog, Field, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Tip } from "../../components/ui";
-import { SqlEditor, byteOffset, type EditorHandle, type StatementMark } from "./SqlEditor";
+import { SqlEditor, byteOffset, statementAround, type EditorHandle, type StatementMark } from "./SqlEditor";
+import { AssistantPanel } from "../ai/AssistantPanel";
+import { useAssistant, type EditorContext } from "../ai/store";
 import { Results } from "./Results";
-import { useRuns, type RunState, type StmtRun } from "./runs";
+import { errorText, useRuns, type RunState, type StmtRun } from "./runs";
 import { useStatus } from "../shell/status";
 import { HeatBar } from "./HeatBar";
 import "./query.css";
@@ -213,7 +215,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
       const cur = byteOffset(doc, view.state.selection.main.head);
       stmt = r?.statements.find((s) => cur >= s.start && cur <= s.end + 1)?.sql ?? r?.statements[0]?.sql ?? doc;
     }
-    setRun(tab.id, (r) => ({ ...r, planLoading: true, plan: undefined, planError: undefined }));
+    setRun(tab.id, (r) => ({ ...r, planLoading: true, plan: undefined, planError: undefined, planSql: stmt }));
     try {
       const plan = await post<Plan>(`c/${conn.id}/explain`, { database, schema, sql: stmt, analyze });
       setRun(tab.id, (r) => ({ ...r, plan, planLoading: false }));
@@ -239,6 +241,38 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
   };
 
   const txAction = (stmt: "COMMIT" | "ROLLBACK") => execute("all", false, stmt);
+
+  // ---- assistant ------------------------------------------------------------------
+  const aiOpen = useAssistant((s) => !!s.open[tab.id]);
+  const setAiOpen = (open: boolean) => useAssistant.getState().setOpen(tab.id, open);
+  const me = qc.getQueryData<Me>(["me"]);
+  const editorContext = (): EditorContext => {
+    const view = editor.current?.view;
+    if (!view) return sql.trim() ? { script: sql } : {};
+    const doc = view.state.doc.toString();
+    const sel = view.state.selection.main;
+    if (!sel.empty) return { selection: view.state.sliceDoc(sel.from, sel.to) };
+    const st = statementAround(doc, sel.head, drv?.dialect === "mongodb");
+    if (!st) return {};
+    const failed = run.stmts.find((x) => x.error);
+    const err = failed && failed.sql.trim() === st.text.replace(/;$/, "").trim() ? errorText(failed.error!) : undefined;
+    return { statement: st.text, line: st.line, error: err };
+  };
+  const insertSQL = (text: string) => {
+    const view = editor.current?.view;
+    if (!view) return setSql((s) => (s.trim() ? s.replace(/\s*$/, "\n\n") + text : text));
+    const sel = view.state.selection.main;
+    const line = view.state.doc.lineAt(sel.from);
+    const pad = sel.empty && line.text.trim() ? (sel.from === line.to ? "\n\n" : "") : "";
+    view.dispatch({ changes: { from: sel.from, to: sel.to, insert: pad + text }, selection: { anchor: sel.from + pad.length + text.length }, scrollIntoView: true });
+    view.focus();
+  };
+  const replaceSQL = (text: string) => {
+    const view = editor.current?.view;
+    if (!view) return setSql(text);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: text.length }, scrollIntoView: true });
+    view.focus();
+  };
 
   // Error line in editor coordinates.
   const errorLine = useMemo(() => {
@@ -268,6 +302,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
   const needsTyping = run.confirm && run.confirm.environment === "production" && run.confirm.statements.some((s) => s.danger.level === "destructive");
 
   return (
+    <div className={`queryshell ${aiOpen ? "has-ai" : ""}`}>
     <div className="query" ref={box}>
       <div className="query__bar">
         {running ? (
@@ -308,6 +343,9 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
         )}
         <Tip label={<>Save query <Kbd>{modKey()}S</Kbd></>}>
           <Button size="sm" variant="ghost" icon onClick={() => setSaveOpen(true)} aria-label="Save query"><Save /></Button>
+        </Tip>
+        <Tip label={<>Ask the assistant <Kbd>{modKey()}I</Kbd></>}>
+          <Button size="sm" variant={aiOpen ? "default" : "ghost"} onClick={() => setAiOpen(!aiOpen)} aria-pressed={aiOpen} className="query__ai"><Sparkles /> Ask AI</Button>
         </Tip>
         <div className="vdivider" />
         {hasDbs && (
@@ -351,6 +389,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
           onExplain={() => explain(false)}
           onSave={() => setSaveOpen(true)}
           onFormat={format}
+          onAssist={() => setAiOpen(!useAssistant.getState().open[tab.id])}
           marks={marks}
           errorLine={errorLine}
           handleRef={editor}
@@ -359,7 +398,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
       </div>
       <div className="query__split" role="separator" aria-orientation="horizontal" onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} />
       <div className="query__results">
-        <Results run={run} conn={conn} database={database} schema={schema} />
+        <Results run={run} conn={conn} database={database} schema={schema} tabId={tab.id} />
       </div>
 
       <Dialog
@@ -401,6 +440,11 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
       </Dialog>
 
       {saveOpen && <SaveQueryDialog tab={tab} conn={conn} sql={sql} onClose={() => setSaveOpen(false)} />}
+    </div>
+    {aiOpen && (
+      <AssistantPanel tabId={tab.id} conn={conn} database={database} schema={schema} isAdmin={me?.user.role === "owner" || me?.user.role === "admin"}
+        editorContext={editorContext} onInsert={insertSQL} onReplace={replaceSQL} onRun={(text) => execute("all", false, text)} onClose={() => setAiOpen(false)} />
+    )}
     </div>
   );
 }
@@ -464,5 +508,3 @@ function SaveQueryDialog({ tab, conn, sql, onClose }: { tab: Tab; conn: Connecti
     </Dialog>
   );
 }
-
-

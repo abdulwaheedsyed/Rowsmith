@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, and import and export are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. The AI assistant and scheduled exports are next. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, and the AI assistant are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Scheduled exports are next. See [Roadmap](#roadmap).
 
 ---
 
@@ -19,6 +19,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | **Safety rails for production** | Statements are classified before they run. On production connections, anything that may modify data needs confirmation. `DROP`, `TRUNCATE`, and `DELETE` or `UPDATE` without `WHERE` always need it. Read-only access is enforced by the database session and by Rowsmith. |
 | **An audit trail** | Sign-ins, connection changes, sharing, data edits and every data-modifying query are recorded with who, when and from where. |
 | **Spatial data on a map** | PostGIS, MySQL and MariaDB geometry is decoded to GeoJSON, ready to show on a map. |
+| **An assistant on your own terms** | Ask for queries in plain words, or have one explained, fixed or made faster. Bring your own Anthropic, OpenAI or OpenRouter key, or point it at a model you host with Ollama. It reads the schema, never changes data, and only sees rows if you allow it. |
 
 ## Features
 
@@ -46,6 +47,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
   - session management
   - first-run setup protected by a one-time code
 - **Query history and saved queries** (private or shared with the team), plus notes on connections and objects
+- **AI assistant** in every query tab (`Ctrl+I`): write queries from a description, explain them, fix a failed statement from its error, or speed one up from its plan. Answers stream with SQL you can insert, replace or run. See [AI assistant](#ai-assistant).
 
 ### Engines
 
@@ -79,7 +81,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Production container image and reverse-proxy examples
 - [x] Structure editor for every engine
 - [x] Import and export (SQL dump, CSV, TSV, JSON, NDJSON, Excel)
-- [ ] AI SQL assistant (Claude): write, explain and fix queries from your schema
+- [x] AI SQL assistant: write, explain, fix and speed up queries from your schema, with Anthropic, OpenAI, OpenRouter or a self-hosted model
 - [ ] Scheduled queries and exports with email delivery and threshold alerts
 - [ ] Shareable query links and comments
 
@@ -88,6 +90,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 ```
 cmd/rowsmith          entry point and CLI (serve, create-user, reset-password, rotate-key, healthcheck)
 internal/api          JSON + NDJSON streaming API, auth middleware, CSRF, security headers
+internal/ai           SQL assistant: Anthropic and OpenAI-compatible providers, read-only schema tools
 internal/auth         Argon2id, TOTP, recovery codes, session tokens, rate limiting
 internal/vault        envelope encryption for secrets at rest
 internal/store        embedded SQLite metadata store with migrations
@@ -135,6 +138,23 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 | `ROWSMITH_SQLITE_DIR` | `<data>/sqlite` | The only directory SQLite connections may open files from |
 | `ROWSMITH_MAX_UPLOAD_MB` | `1024` | Largest file accepted for import |
 | `ROWSMITH_INSECURE_COOKIES` | `false` | Local plain-HTTP development only |
+
+## AI assistant
+
+An admin sets it up under **Administration → AI assistant** and turns it on for everyone. Each team uses its own account with a provider:
+
+| Provider | Endpoint | Key | Notes |
+|---|---|---|---|
+| Anthropic | built in | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude Opus, Sonnet or Haiku, with streamed reasoning, adjustable effort and a cached schema. `ANTHROPIC_API_KEY` in the environment also works. |
+| OpenAI | `https://api.openai.com/v1` | [platform.openai.com](https://platform.openai.com/api-keys) | Any chat model; the list is loaded from your account. |
+| OpenRouter | `https://openrouter.ai/api/v1` | [openrouter.ai/keys](https://openrouter.ai/keys) | Hundreds of models from many labs behind one key. |
+| Custom | your URL | optional | Anything that speaks the OpenAI chat completions API: Ollama, LM Studio, vLLM, LiteLLM, llama.cpp, gateways and proxies. |
+
+A Claude.ai or ChatGPT subscription can't be used here: providers only sell API access through API keys, billed per token.
+
+**Self-hosted models.** From inside the container, a server on the same machine is at `host.docker.internal` (the compose file maps it). It has to listen beyond `127.0.0.1`. For Ollama, set `OLLAMA_HOST=0.0.0.0`, then use `http://host.docker.internal:11434/v1` as the endpoint. Models that can call tools give the best answers. With models that can't, Rowsmith still works: the assistant answers from the schema alone.
+
+**What is sent.** The assistant gets the schema of the database in scope (names, types, keys and comments), what you have selected in the editor, and your question. It looks things up with read-only tools: listing tables, describing one, and checking a query against the database's planner without running it. If an admin allows it, it may also read a few sample rows and run small read-only queries. That can be limited to non-production connections. It never runs anything that changes data; you run what it writes yourself, with the usual production confirmations. Keys are encrypted with the master key, are never sent to the browser, and only ever go to the endpoint they were entered for. The audit log records each question's model and token counts, not its text.
 
 ## Deployment
 

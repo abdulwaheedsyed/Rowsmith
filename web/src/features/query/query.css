@@ -593,3 +593,36 @@
     display: none;
   }
 }
+
+.queryshell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.queryshell > .query {
+  flex: 1;
+  min-width: 0;
+}
+.query__ai svg {
+  color: var(--accent-text);
+}
+.msg__fix {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.msg__fix svg,
+.results__planbar svg {
+  color: var(--accent-text);
+}
+.results__plan {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.results__planbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--line-soft);
+}

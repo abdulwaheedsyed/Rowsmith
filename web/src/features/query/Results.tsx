@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertTriangle, MessageSquareText, ListTree, TableProperties, Map as MapIcon, Download, Copy, Ban } from "lucide-react";
-import type { Connection } from "../../lib/types";
+import { CheckCircle2, AlertTriangle, MessageSquareText, ListTree, TableProperties, Map as MapIcon, Download, Copy, Ban, Sparkles } from "lucide-react";
+import { useAIStatus, useAssistant, type EditorContext } from "../ai/store";
+import { errorText } from "./runs";
+import type { Connection, Plan } from "../../lib/types";
 import { cellText, csvEscape, duration, int, modKey, temperForMs } from "../../lib/format";
 import { Alert, Button, Empty, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner } from "../../components/ui";
 import { openExport } from "../transfer/store";
@@ -12,7 +14,9 @@ import type { ResultSet, RunState } from "./runs";
 
 type Pane = { kind: "set"; stmt: number; set: number } | { kind: "messages" } | { kind: "plan" };
 
-export function Results({ run, conn, database, schema }: { run: RunState; conn: Connection; database?: string; schema?: string }) {
+export function Results({ run, conn, database, schema, tabId }: { run: RunState; conn: Connection; database?: string; schema?: string; tabId?: string }) {
+  const ai = useAIStatus();
+  const assist = ai.data?.enabled && tabId ? (message: string, context: EditorContext) => useAssistant.getState().ask(tabId, message, context) : undefined;
   const sets = useMemo(() => {
     const out: { stmt: number; set: number; rs: ResultSet; label: string }[] = [];
     run.stmts.forEach((s, si) =>
@@ -164,18 +168,29 @@ export function Results({ run, conn, database, schema }: { run: RunState; conn: 
             </div>
           </>
         )}
-        {pane.kind === "messages" && <Messages run={run} />}
+        {pane.kind === "messages" && <Messages run={run} assist={assist} />}
         {pane.kind === "plan" && (
           run.planLoading ? <div className="results__center"><Spinner large /></div> :
           run.planError ? <div className="results__pad"><Alert kind="danger" title="Explain failed">{run.planError}</Alert></div> :
-          run.plan ? <PlanView plan={run.plan} /> : null
+          run.plan ? (
+            <div className="results__plan">
+              {assist && (
+                <div className="results__planbar">
+                  <Button size="sm" variant="ghost" onClick={() => assist("How can I make this query faster? Base it on the plan.", { statement: run.planSql, plan: planText(run.plan!) })}>
+                    <Sparkles /> Ask how to make it faster
+                  </Button>
+                </div>
+              )}
+              <PlanView plan={run.plan} />
+            </div>
+          ) : null
         )}
       </div>
     </div>
   );
 }
 
-function Messages({ run }: { run: RunState }) {
+function Messages({ run, assist }: { run: RunState; assist?: (message: string, context: EditorContext) => void }) {
   return (
     <div className="messages">
       {run.error && <Alert kind="danger" title="The run stopped">{run.error}</Alert>}
@@ -207,6 +222,11 @@ function Messages({ run }: { run: RunState }) {
                 {s.error.detail && <div className="msg__err-extra">Detail: {s.error.detail}</div>}
                 {s.error.hint && <div className="msg__err-extra">Hint: {s.error.hint}</div>}
                 {s.error.code && <div className="msg__err-code mono">code {s.error.code}{s.error.line ? ` · line ${s.error.line}` : ""}</div>}
+                {assist && (
+                  <Button size="sm" className="msg__fix" onClick={() => assist("Fix this statement so it runs, and say what was wrong.", { statement: s.sql, error: errorText(s.error!), line: s.line })}>
+                    <Sparkles /> Fix with AI
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -220,4 +240,10 @@ function Messages({ run }: { run: RunState }) {
       )}
     </div>
   );
+}
+
+/** A plan as text for the assistant: the engine's own output, capped. */
+function planText(p: Plan): string {
+  const raw = p.raw ?? "";
+  return raw.length > 30000 ? raw.slice(0, 30000) + "\n… (plan truncated)" : raw;
 }

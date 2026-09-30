@@ -271,8 +271,15 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request, rc *reqCt
 var settingKeys = map[string]bool{
 	"security.require_mfa": false,
 	"smtp.host":            false, "smtp.port": false, "smtp.username": false, "smtp.password": true, "smtp.from": false, "smtp.tls": false,
-	"ai.provider": false, "ai.model": false, "ai.api_key": true, "ai.send_samples": false, "ai.enabled": false,
+	"ai.enabled": false, "ai.provider": false, "ai.base_url": false, "ai.api_key": true, "ai.model": false, "ai.effort": false, "ai.data": false, "ai.production": false,
 	"map.tiles": false,
+}
+
+// settingValues restricts settings that take one of a few values.
+var settingValues = map[string]map[string]bool{
+	"ai.provider": {"anthropic": true, "openai": true},
+	"ai.effort":   {"low": true, "medium": true, "high": true},
+	"ai.data":   {"schema": true, "data": true},
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -304,6 +311,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 		return
 	}
 	changed := []string{}
+	if moved, keyGiven := s.aiEndpointMoves(r, req); moved && !keyGiven {
+		req["ai.api_key"] = nil // a key is never sent to an endpoint it was not entered for
+	}
 	for k, v := range req {
 		secret, ok := settingKeys[k]
 		if !ok {
@@ -316,6 +326,20 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 			continue
 		}
 		val := *v
+		if allowed, ok := settingValues[k]; ok && !allowed[val] {
+			writeErr(w, 400, "invalid value for "+k)
+			return
+		}
+		if k == "ai.base_url" && val != "" {
+			if err := validEndpoint(val); err != nil {
+				writeErr(w, 400, err.Error())
+				return
+			}
+		}
+		if len(val) > 500 && !secret {
+			writeErr(w, 400, k+" is too long")
+			return
+		}
 		if secret {
 			if val == "" {
 				continue
@@ -335,6 +359,30 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	}
 	s.audit(r.Context(), rc, "settings.updated", "", map[string]any{"keys": changed})
 	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+// aiEndpointMoves reports whether the request points the assistant at a
+// different provider or endpoint, and whether it carries a new key.
+func (s *Server) aiEndpointMoves(r *http.Request, req map[string]*string) (moved, keyGiven bool) {
+	for _, k := range []string{"ai.provider", "ai.base_url"} {
+		v, ok := req[k]
+		if !ok {
+			continue
+		}
+		old, _, _ := s.store.Setting(r.Context(), k)
+		next := ""
+		if v != nil {
+			next = *v
+		}
+		if k == "ai.provider" && old == "" {
+			old = "anthropic"
+		}
+		if strings.TrimRight(old, "/") != strings.TrimRight(next, "/") {
+			moved = true
+		}
+	}
+	key, ok := req["ai.api_key"]
+	return moved, ok && key != nil && *key != ""
 }
 
 // SecretSetting returns a decrypted secret setting ("" when unset).

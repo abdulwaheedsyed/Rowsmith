@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -14,6 +14,15 @@ import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../
 import { openExport, openImport } from "../transfer/store";
 import { kindIcon } from "../navigator/Navigator";
 import { requestDisconnect } from "../workspace/disconnect";
+import { useAIStatus, useAssistant } from "../ai/store";
+
+// askAI opens the assistant beside the current query tab, or a new one.
+function askAI(conn: Connection) {
+  const ws = useWorkspace.getState();
+  const active = ws.tabs.find((t) => t.id === ws.active[conn.id]);
+  const tab = active?.kind === "query" ? active.id : newQueryTab(conn);
+  useAssistant.getState().setOpen(tab, true);
+}
 
 // Every typed word must appear in the item; matches at the start of the
 // name rank first. Predictable beats clever for jumping to tables.
@@ -49,6 +58,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
 
   const browsable = useMemo(() => (objects.data ?? []).filter((o) => ["table", "view", "materialized_view", "partitioned_table", "foreign_table", "external_table", "collection", "timeseries"].includes(o.kind)), [objects.data]);
   const isAdmin = me.user.role === "owner" || me.user.role === "admin";
+  const ai = useAIStatus();
 
   return (
     <RDialog.Root open={paletteOpen} onOpenChange={(o) => (o ? setPaletteOpen(true) : close())}>
@@ -97,6 +107,11 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                   <Command.Item value="new query sql editor" onSelect={run(() => newQueryTab(conn))}>
                     <TerminalSquare /> New query <span className="palette__meta">SQL editor</span>
                   </Command.Item>
+                  {ai.data?.enabled && (
+                    <Command.Item value="ask ai assistant write explain fix sql" onSelect={run(() => askAI(conn))}>
+                      <Sparkles /> Ask the assistant <span className="palette__meta">{ai.data.modelName}</span>
+                    </Command.Item>
+                  )}
                   <Command.Item value="overview server databases" onSelect={run(() => openPanel(conn, "overview"))}>
                     <Server /> Server overview
                   </Command.Item>
@@ -182,6 +197,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                 <Command.Item value="library saved queries history" onSelect={run(() => go("/library"))}><BookMarked /> Saved queries & history</Command.Item>
                 <Command.Item value="account security password two-step mfa" onSelect={run(() => go("/account"))}><UserRound /> Account & security</Command.Item>
                 {isAdmin && <Command.Item value="admin users team audit log settings" onSelect={run(() => go("/admin"))}><Shield /> Administration</Command.Item>}
+                {isAdmin && <Command.Item value="ai assistant settings provider model api key openai openrouter ollama anthropic" onSelect={run(() => go("/admin/ai"))}><Sparkles /> AI assistant settings</Command.Item>}
                 <Command.Item value="theme dark mode" onSelect={run(() => setTheme("dark"))}><Moon /> Dark theme</Command.Item>
                 <Command.Item value="theme light mode" onSelect={run(() => setTheme("light"))}><Sun /> Light theme</Command.Item>
               </Command.Group>
