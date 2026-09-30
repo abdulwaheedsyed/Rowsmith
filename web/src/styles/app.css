@@ -164,6 +164,10 @@ body.is-resizing-v * {
   border: 2px solid var(--sunken);
   background: var(--env-local);
 }
+.ingot.is-open::before {
+  height: 6px;
+  background: var(--muted);
+}
 .ingot--production::after { background: var(--env-production); }
 .ingot--staging::after { background: var(--env-staging); }
 .ingot--development::after { background: var(--env-development); }

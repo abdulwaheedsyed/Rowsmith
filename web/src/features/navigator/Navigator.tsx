@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Table2, Eye, FunctionSquare, Zap, CalendarClock, Hash, Shapes, Puzzle, Search, RefreshCw,
-  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart,
+  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug,
 } from "lucide-react";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
 import { useWorkspace } from "../../lib/store";
@@ -14,6 +14,7 @@ import { bytes, compact } from "../../lib/format";
 import { Button, EngineBadge, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip, Alert } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram } from "../workspace/actions";
 import { DDLDialog } from "../structure/DDLDialog";
+import { requestDisconnect } from "../workspace/disconnect";
 import "./navigator.css";
 
 const ICONS: Record<string, typeof Table2> = {
@@ -111,6 +112,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             <MenuSep />
             <MenuItem icon={<RefreshCw />} onSelect={refresh}>Refresh</MenuItem>
             {conn.access === "manage" && <MenuItem icon={<Pencil />} onSelect={onEdit}>Edit connection</MenuItem>}
+            <MenuSep />
+            <MenuItem icon={<Unplug />} onSelect={() => requestDisconnect(conn)}>Disconnect</MenuItem>
           </MenuContent>
         </Menu>
       </div>
@@ -243,7 +246,7 @@ export function sampleQuery(dialect: string | undefined, ref: ObjectRef, q: stri
   return `SELECT *\nFROM ${qualified(ref, q)}\nLIMIT 100`;
 }
 
-function CItem({ icon, children, onSelect, danger }: { icon: React.ReactNode; children: React.ReactNode; onSelect(): void; danger?: boolean }) {
+export function CItem({ icon, children, onSelect, danger }: { icon: React.ReactNode; children: React.ReactNode; onSelect(): void; danger?: boolean }) {
   return (
     <RContext.Item className={`menu__item ${danger ? "menu__item--danger" : ""}`} onSelect={onSelect}>
       {icon}

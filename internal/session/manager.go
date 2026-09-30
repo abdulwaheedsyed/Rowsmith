@@ -264,6 +264,43 @@ func (m *Manager) Invalidate(connID string) {
 	}
 }
 
+// Disconnect ends userID's consoles on a connection, rolling back their open
+// transactions, and closes its pools unless another user still has a console
+// on it. It returns the number of consoles closed.
+func (m *Manager) Disconnect(userID, connID string) int {
+	m.mu.Lock()
+	var cons []*Console
+	shared := false
+	for k, c := range m.consoles {
+		if c.ConnID != connID {
+			continue
+		}
+		if c.UserID == userID {
+			delete(m.consoles, k)
+			cons = append(cons, c)
+		} else {
+			shared = true
+		}
+	}
+	var olds []*live
+	if !shared {
+		for k, l := range m.live {
+			if l.connID == connID && l.opening == nil {
+				delete(m.live, k)
+				olds = append(olds, l)
+			}
+		}
+	}
+	m.mu.Unlock()
+	for _, c := range cons {
+		c.close()
+	}
+	for _, l := range olds {
+		go m.closeWhenUnused(l)
+	}
+	return len(cons)
+}
+
 func (m *Manager) closeWhenUnused(l *live) {
 	for i := 0; i < 600; i++ {
 		m.mu.Lock()

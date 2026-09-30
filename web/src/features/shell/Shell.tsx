@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, Route, Switch, useLocation, useRoute } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import * as RContext from "@radix-ui/react-context-menu";
 import {
   Plus, Search, Settings, LogOut, Moon, Sun, Monitor, UserRound, BookMarked, Shield, Menu as MenuIcon, X, Home as HomeIcon,
-  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen,
+  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil,
 } from "lucide-react";
 import { post } from "../../lib/api";
-import { useConnections, useServer } from "../../lib/queries";
+import { useConnections, useOpenConnections, useServer } from "../../lib/queries";
 import { useUI, useWorkspace } from "../../lib/store";
 import type { Connection, Me } from "../../lib/types";
 import { AnvilMark, Button, Env, Kbd, Menu, MenuContent, MenuItem, MenuLabel, MenuSep, MenuTrigger, Tip } from "../../components/ui";
 import { modKey } from "../../lib/format";
 import { Home } from "../home/Home";
 import { Workspace } from "../workspace/Workspace";
-import { Navigator } from "../navigator/Navigator";
+import { CItem, Navigator } from "../navigator/Navigator";
 import { CommandPalette } from "./CommandPalette";
 import { ConnectionDialog } from "../connections/ConnectionForm";
 import { Library } from "../library/Library";
@@ -21,6 +22,7 @@ import { Admin } from "../admin/Admin";
 import { Account } from "../account/Account";
 import { StatusBar } from "./StatusBar";
 import { newQueryTab } from "../workspace/actions";
+import { DisconnectDialog, requestDisconnect } from "../workspace/disconnect";
 
 export function Shell({ me }: { me: Me }) {
   const [, params] = useRoute<{ id: string }>("/c/:id/*?");
@@ -64,7 +66,7 @@ export function Shell({ me }: { me: Me }) {
 
   return (
     <div className={`shell ${navOpen ? "" : "shell--nav-collapsed"} ${inWorkspace ? "" : "shell--no-nav"} ${drawer ? "shell--drawer" : ""} ${envClass}`} style={{ ["--nav-w" as string]: `${navWidth}px` }}>
-      <Rail me={me} activeId={connId} onAdd={() => setEditing({ open: true })} />
+      <Rail me={me} activeId={connId} onAdd={() => setEditing({ open: true })} onEdit={(c) => setEditing({ open: true, conn: c })} />
       <aside className="shell__nav" aria-label="Navigator">
         {inWorkspace && conn ? (
           <Navigator conn={conn} onEdit={() => setEditing({ open: true, conn })} />
@@ -97,6 +99,7 @@ export function Shell({ me }: { me: Me }) {
       </div>
       <MobileBar conn={conn} onMenu={() => setDrawer(true)} />
       <CommandPalette me={me} conn={conn} onNewConnection={() => setEditing({ open: true })} />
+      <DisconnectDialog />
       {editing.open && <ConnectionDialog conn={editing.conn} initialDriver={editing.driver} onClose={() => setEditing({ open: false })} />}
     </div>
   );
@@ -121,8 +124,9 @@ function initials(name: string) {
   return (words[0][0] + words[1][0]);
 }
 
-function Rail({ me, activeId, onAdd }: { me: Me; activeId?: string; onAdd(): void }) {
+function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAdd(): void; onEdit(c: Connection): void }) {
   const conns = useConnections();
+  const open = useOpenConnections();
   const recent = useWorkspace((s) => s.recent);
   const list = [...(conns.data ?? [])].sort((a, b) => {
     const ra = recent.indexOf(a.id), rb = recent.indexOf(b.id);
@@ -138,14 +142,34 @@ function Rail({ me, activeId, onAdd }: { me: Me; activeId?: string; onAdd(): voi
         </Link>
       </Tip>
       <div className="rail__list">
-        {list.map((c) => (
-          <Tip key={c.id} side="right" label={<span className="row gap-3">{c.name} <Env env={c.environment} /></span>}>
-            <Link href={`/c/${c.id}`} className={`ingot ingot--${c.environment} ${c.id === activeId ? "is-active" : ""}`} aria-label={c.name} style={c.color ? { ["--ingot" as string]: c.color } : undefined}>
-              <span className="ingot__text">{initials(c.name)}</span>
-              {c.readOnly || c.access === "read" ? <Lock className="ingot__lock" /> : null}
-            </Link>
-          </Tip>
-        ))}
+        {list.map((c) => {
+          const isOpen = open.has(c.id);
+          return (
+            <RContext.Root key={c.id}>
+              <Tip side="right" label={<span className="row gap-3">{c.name} <Env env={c.environment} />{isOpen && <span className="faint">connected</span>}</span>}>
+                <RContext.Trigger asChild>
+                  <Link href={`/c/${c.id}`} className={`ingot ingot--${c.environment} ${c.id === activeId ? "is-active" : ""} ${isOpen ? "is-open" : ""}`}
+                    aria-label={isOpen ? `${c.name} (connected)` : c.name} style={c.color ? { ["--ingot" as string]: c.color } : undefined}>
+                    <span className="ingot__text">{initials(c.name)}</span>
+                    {c.readOnly || c.access === "read" ? <Lock className="ingot__lock" /> : null}
+                  </Link>
+                </RContext.Trigger>
+              </Tip>
+              <RContext.Portal>
+                <RContext.Content className="menu">
+                  <CItem icon={<TerminalSquare />} onSelect={() => newQueryTab(c)}>New query</CItem>
+                  {c.access === "manage" && <CItem icon={<Pencil />} onSelect={() => onEdit(c)}>Edit connection</CItem>}
+                  {isOpen && (
+                    <>
+                      <RContext.Separator className="menu__sep" />
+                      <CItem icon={<Unplug />} onSelect={() => requestDisconnect(c)}>Disconnect</CItem>
+                    </>
+                  )}
+                </RContext.Content>
+              </RContext.Portal>
+            </RContext.Root>
+          );
+        })}
         {me.user.role !== "viewer" && (
           <Tip label="New connection" side="right">
             <button className="ingot ingot--add" onClick={onAdd} aria-label="New connection">

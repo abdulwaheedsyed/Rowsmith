@@ -273,6 +273,15 @@ func (s *Server) wsCloseConsole(w http.ResponseWriter, r *http.Request, rc *reqC
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
+// wsDisconnect ends the caller's sessions on a connection.
+func (s *Server) wsDisconnect(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
+	c, _, ok := s.connFor(w, r, rc, store.AccessRead)
+	if !ok {
+		return
+	}
+	writeJSON(w, 200, map[string]any{"consoles": s.sessions.Disconnect(rc.user.ID, c.ID)})
+}
+
 func statementAt(stmts []sqlsplit.Statement, cursor int) (sqlsplit.Statement, bool) {
 	best := -1
 	for i, st := range stmts {

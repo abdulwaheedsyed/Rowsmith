@@ -168,6 +168,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("POST /api/c/{id}/query", s.wsQuery)
 	full("POST /api/c/{id}/query/cancel", s.wsCancel)
 	full("POST /api/c/{id}/console/close", s.wsCloseConsole)
+	full("POST /api/c/{id}/disconnect", s.wsDisconnect)
 	full("POST /api/c/{id}/analyze", s.wsAnalyze)
 	full("POST /api/c/{id}/explain", s.wsExplain)
 	full("GET /api/c/{id}/processes", s.wsProcesses)

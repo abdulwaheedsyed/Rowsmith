@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useSyncExternalStore } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { get, qs } from "./api";
 import type { CatalogTable, Connection, Database, DbObject, DriverInfo, ObjectRef, Schema, ServerInfo, Table, Access } from "./types";
 
@@ -36,8 +37,21 @@ export function useServer(connId?: string) {
     queryFn: () => get<ServerResp>(`c/${connId}/server`),
     enabled: !!connId,
     staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000, // as long as the server keeps an idle pool open
     retry: false,
   });
+}
+
+// Connections opened in this browser whose server info is still cached,
+// i.e. the ones that are connected until they idle out or are disconnected.
+export function useOpenConnections(): Set<string> {
+  const qc = useQueryClient();
+  const cache = qc.getQueryCache();
+  const ids = useSyncExternalStore(
+    (onChange) => cache.subscribe(onChange),
+    () => cache.findAll({ queryKey: ["server"] }).filter((q) => q.state.data !== undefined).map((q) => String(q.queryKey[1])).sort().join(" "),
+  );
+  return useMemo(() => new Set(ids ? ids.split(" ") : []), [ids]);
 }
 
 export function useDatabases(connId?: string, enabled = true) {

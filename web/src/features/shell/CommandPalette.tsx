@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -12,6 +12,7 @@ import { go } from "../../lib/nav";
 import { Env, Kbd } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram } from "../workspace/actions";
 import { kindIcon } from "../navigator/Navigator";
+import { requestDisconnect } from "../workspace/disconnect";
 
 // Every typed word must appear in the item; matches at the start of the
 // name rank first. Predictable beats clever for jumping to tables.
@@ -118,6 +119,9 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                       <Network /> Relationship diagram
                     </Command.Item>
                   )}
+                  <Command.Item value="disconnect close connection log out" onSelect={run(() => requestDisconnect(conn))}>
+                    <Unplug /> Disconnect
+                  </Command.Item>
                 </Command.Group>
               )}
 
