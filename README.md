@@ -10,7 +10,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 
 ## Why Rowsmith
 
-| | |
+| Strength | What you get |
 |---|---|
 | **One workspace, many engines** | A common driver interface covers browsing, filtering, editing, SQL execution, EXPLAIN plans, process lists, variables and users. Each engine adds only what it supports, and new engines plug into the same registry. |
 | **Built for teams** | Owner, admin, member and viewer roles. Share a connection with the whole team or with specific people, with read, write or manage access. Viewers are always read-only. |
