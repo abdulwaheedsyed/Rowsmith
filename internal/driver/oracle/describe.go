@@ -44,7 +44,7 @@ func (c *conn) describe(ctx context.Context, ref driver.ObjectRef, full bool) (*
 		if cons, err = c.describeConstraints(ctx, t); err != nil {
 			return nil, cleanErr(err)
 		}
-		if err := c.describeIndexes(ctx, t, cons.pkIndex); err != nil {
+		if err := c.describeIndexes(ctx, t, cons); err != nil {
 			return nil, cleanErr(err)
 		}
 	}
@@ -280,7 +280,11 @@ func (c *conn) describeColumns(ctx context.Context, t *driver.Table) error {
 			col.Default = &g
 		case virtual.String == "YES":
 			col.Generated = expr
-		case def.Valid:
+		case def.Valid && !strings.EqualFold(expr, "NULL"):
+			// DEFAULT NULL is how Oracle removes a default; it leaves "NULL" behind.
+			if onNull.String == "YES" {
+				expr = "ON NULL " + expr
+			}
 			col.Default = &expr
 		}
 		t.Columns = append(t.Columns, col)
@@ -336,13 +340,31 @@ type constraints struct {
 type namedColumns struct {
 	name    string
 	columns []string
+	index   string // index enforcing a unique constraint
 }
 
-var notNullCheck = regexp.MustCompile(`^"[^"]+" IS NOT NULL$`)
+var notNullCheck = regexp.MustCompile(`^"([^"]+)" IS NOT NULL$`)
+
+// notNullConstraint reports check constraints that implement NOT NULL,
+// which is shown on the column instead. They are system-named unless the
+// column was declared with CONSTRAINT name NOT NULL; on a nullable column
+// the same condition is a real (or disabled) check.
+func notNullConstraint(expr string, cols []driver.Column) bool {
+	m := notNullCheck.FindStringSubmatch(expr)
+	if m == nil {
+		return false
+	}
+	for _, col := range cols {
+		if col.Name == m[1] {
+			return !col.Nullable
+		}
+	}
+	return false
+}
 
 func (c *conn) describeConstraints(ctx context.Context, t *driver.Table) (constraints, error) {
 	cons := constraints{indexes: map[string]bool{}}
-	rows, err := c.db.QueryContext(ctx, `SELECT c.CONSTRAINT_NAME, c.CONSTRAINT_TYPE, c.SEARCH_CONDITION, c.GENERATED, c.INDEX_NAME, cc.COLUMN_NAME
+	rows, err := c.db.QueryContext(ctx, `SELECT c.CONSTRAINT_NAME, c.CONSTRAINT_TYPE, c.SEARCH_CONDITION, c.INDEX_NAME, cc.COLUMN_NAME
 		FROM ALL_CONSTRAINTS c
 		LEFT JOIN ALL_CONS_COLUMNS cc ON cc.OWNER = c.OWNER AND cc.CONSTRAINT_NAME = c.CONSTRAINT_NAME AND cc.TABLE_NAME = c.TABLE_NAME
 		WHERE c.OWNER = :1 AND c.TABLE_NAME = :2 AND c.CONSTRAINT_TYPE IN ('P', 'U', 'C')
@@ -353,8 +375,8 @@ func (c *conn) describeConstraints(ctx context.Context, t *driver.Table) (constr
 	defer rows.Close()
 	checks := map[string]bool{}
 	for rows.Next() {
-		var name, typ, cond, generated, index, col sql.NullString
-		if err := rows.Scan(&name, &typ, &cond, &generated, &index, &col); err != nil {
+		var name, typ, cond, index, col sql.NullString
+		if err := rows.Scan(&name, &typ, &cond, &index, &col); err != nil {
 			return cons, err
 		}
 		if index.Valid {
@@ -369,11 +391,11 @@ func (c *conn) describeConstraints(ctx context.Context, t *driver.Table) (constr
 				cons.unique = append(cons.unique, namedColumns{name: name.String})
 			}
 			u := &cons.unique[len(cons.unique)-1]
-			u.columns = append(u.columns, col.String)
+			u.columns, u.index = append(u.columns, col.String), index.String
 		case "C":
 			expr := strings.TrimSpace(cond.String)
-			if checks[name.String] || generated.String == "GENERATED NAME" && notNullCheck.MatchString(expr) {
-				continue // NOT NULL is shown on the column
+			if checks[name.String] || notNullConstraint(expr, t.Columns) {
+				continue
 			}
 			checks[name.String] = true
 			t.Checks = append(t.Checks, driver.Check{Name: name.String, Expression: expr})
@@ -397,7 +419,8 @@ var indexTypes = map[string]string{
 
 var quotedName = regexp.MustCompile(`^"([^"]+)"$`)
 
-func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, pkIndex string) error {
+func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, cons constraints) error {
+	pkIndex := cons.pkIndex
 	rows, err := c.db.QueryContext(ctx, `SELECT i.OWNER, i.INDEX_NAME, i.INDEX_TYPE, i.UNIQUENESS, ic.COLUMN_NAME, ic.DESCEND, e.COLUMN_EXPRESSION
 		FROM ALL_INDEXES i
 		JOIN ALL_IND_COLUMNS ic ON ic.INDEX_OWNER = i.OWNER AND ic.INDEX_NAME = i.INDEX_NAME
@@ -408,6 +431,10 @@ func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, pkIndex str
 		return err
 	}
 	defer rows.Close()
+	columns := map[string]bool{}
+	for _, col := range t.Columns {
+		columns[col.Name] = true
+	}
 	type entry struct {
 		owner string
 		ix    driver.Index
@@ -428,7 +455,9 @@ func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, pkIndex str
 		}
 		ix := &list[len(list)-1].ix
 		column, isDesc := col.String, desc.String == "DESC"
-		if e := strings.TrimSpace(expr.String); e != "" {
+		// Keys on virtual columns come with the column's expression, keys
+		// on hidden columns (SYS_NC...) are function-based.
+		if e := strings.TrimSpace(expr.String); e != "" && !columns[column] {
 			// Descending keys are stored as expressions naming the column.
 			if m := quotedName.FindStringSubmatch(e); m != nil && isDesc {
 				column = m[1]
@@ -442,15 +471,30 @@ func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, pkIndex str
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	columns := map[string]bool{}
-	for _, col := range t.Columns {
-		columns[col.Name] = true
-	}
 	for _, e := range list {
 		e.ix.Definition = indexDDL(e.owner, e.ix, t, columns)
+		if e.ix.Primary && cons.pk != "" {
+			e.ix.Definition = constraintDDL(t, cons.pk, "PRIMARY KEY", t.PrimaryKey)
+		}
+		for _, u := range cons.unique {
+			if u.index == e.ix.Name {
+				e.ix.Definition = constraintDDL(t, u.name, "UNIQUE", u.columns)
+			}
+		}
 		t.Indexes = append(t.Indexes, e.ix)
 	}
 	return nil
+}
+
+// constraintDDL is the definition of an index that enforces a primary key or
+// unique constraint: the constraint itself, which DDL generation reads back
+// (constraintOf) to drop and re-create the constraint rather than the index.
+func constraintDDL(t *driver.Table, name, kind string, cols []string) string {
+	q := make([]string, len(cols))
+	for i, c := range cols {
+		q[i] = quote(c)
+	}
+	return "ALTER TABLE " + qualify(t.Ref.Schema, t.Ref.Name) + " ADD CONSTRAINT " + quote(name) + " " + kind + " (" + strings.Join(q, ", ") + ")"
 }
 
 // indexDDL renders CREATE INDEX; key parts that are not plain columns are

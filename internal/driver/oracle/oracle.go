@@ -78,9 +78,10 @@ func (oracleDriver) Info() driver.Info {
 		ID: "oracle", Name: "Oracle", Order: 40,
 		Description: "Oracle Database 12c and later: 19c, 21c, 23ai, Free, and Autonomous Database over TLS",
 		Dialect:     "plsql", DefaultPort: 1521, Fields: fields, SSH: true,
-		Caps: driver.Caps{Schemas: true, SQL: true, Transactions: true, EditRows: true, ForeignKeys: true,
+		Caps: driver.Caps{Schemas: true, SQL: true, Transactions: true, EditRows: true, DDL: true, ForeignKeys: true,
 			Explain: true, Processes: true, Variables: true, Users: true, Geometry: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"oracle"}, QuoteChar: `"`,
+		Design: &design,
 	}
 }
 
