@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -662,7 +663,7 @@ func inferredTable(docs []bson.D) *driver.Table {
 func streamCursor(ctx context.Context, cur *mongo.Cursor, maxRows int, sink driver.Sink, start time.Time) error {
 	defer cur.Close(context.Background())
 	if maxRows <= 0 {
-		maxRows = 1000
+		maxRows = math.MaxInt // exports read everything
 	}
 	head := min(maxRows, 1000)
 	var docs []bson.D

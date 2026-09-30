@@ -222,7 +222,12 @@ func (j *jsonWriter) Row(cells []any) error {
 			}
 			if c.Name == "…" {
 				// Fields outside the inferred columns travel in one object.
-				if m, ok := v.(map[string]any); ok {
+				switch m := v.(type) {
+				case driver.Doc:
+					for _, k := range m.Keys {
+						obj = append(obj, kv{k, docJSON(m.Values[k])})
+					}
+				case map[string]any:
 					for k, e := range m {
 						obj = append(obj, kv{k, docJSON(e)})
 					}

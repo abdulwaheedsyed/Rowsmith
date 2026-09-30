@@ -74,7 +74,7 @@ func encode(v any) any {
 				return map[string]any{"$geo": json.RawMessage(raw)}
 			}
 		}
-		return orderedJSON{keys: keys, m: m}
+		return driver.Doc{Keys: keys, Values: m}
 	case bson.M:
 		m := make(map[string]any, len(x))
 		for k, e := range x {
@@ -105,33 +105,7 @@ func encode(v any) any {
 	return fmt.Sprint(v)
 }
 
-// orderedJSON keeps sub-document key order when marshalled.
-type orderedJSON struct {
-	keys []string
-	m    map[string]any
-}
-
-func (o orderedJSON) MarshalJSON() ([]byte, error) {
-	var b strings.Builder
-	b.WriteByte('{')
-	for i, k := range o.keys {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		kb, _ := json.Marshal(k)
-		b.Write(kb)
-		b.WriteByte(':')
-		vb, err := json.Marshal(o.m[k])
-		if err != nil {
-			return nil, err
-		}
-		b.Write(vb)
-	}
-	b.WriteByte('}')
-	return []byte(b.String()), nil
-}
-
-func orderedMap(d bson.D) orderedJSON {
+func orderedMap(d bson.D) driver.Doc {
 	m := map[string]any{}
 	keys := make([]string, 0, len(d))
 	for _, e := range d {
@@ -145,7 +119,7 @@ func orderedMap(d bson.D) orderedJSON {
 			m[e.Key] = v
 		}
 	}
-	return orderedJSON{keys: keys, m: m}
+	return driver.Doc{Keys: keys, Values: m}
 }
 
 func plainArray(a bson.A) []any {

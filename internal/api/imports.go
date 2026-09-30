@@ -260,6 +260,7 @@ func (s *Server) wsImport(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 		return
 	}
 	defer rd.Close()
+	req.Options.Documents = info.Caps.Documents
 	counted := &countingReader{r: rd}
 	src, err := importer.Open(counted, req.Options)
 	if err != nil {

@@ -237,3 +237,29 @@ func KindFromTypeName(t string) ValueKind {
 	}
 	return KindOther
 }
+
+// Doc is a sub-document cell that keeps its key order when marshalled.
+type Doc struct {
+	Keys   []string
+	Values map[string]any
+}
+
+func (d Doc) MarshalJSON() ([]byte, error) {
+	var b strings.Builder
+	b.WriteByte('{')
+	for i, k := range d.Keys {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		kb, _ := json.Marshal(k)
+		b.Write(kb)
+		b.WriteByte(':')
+		vb, err := json.Marshal(d.Values[k])
+		if err != nil {
+			return nil, err
+		}
+		b.Write(vb)
+	}
+	b.WriteByte('}')
+	return []byte(b.String()), nil
+}

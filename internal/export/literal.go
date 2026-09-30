@@ -88,7 +88,7 @@ func Literal(dialect string, col driver.ResultColumn, v any, st *LiteralStats) s
 			return geoLit(dialect, typ, g, w, int(srid), st)
 		}
 		return stringLit(dialect, compactJSON(plainJSON(x)), st)
-	case []any:
+	case []any, driver.Doc:
 		return stringLit(dialect, compactJSON(plainJSON(x)), st)
 	}
 	s, _ := Text(v)

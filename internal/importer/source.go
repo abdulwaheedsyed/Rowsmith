@@ -22,6 +22,8 @@ type Options struct {
 	// EmptyAsNull turns empty fields into NULL for text columns too; other
 	// columns always read an empty field as NULL.
 	EmptyAsNull bool `json:"emptyAsNull"`
+	// Documents keeps Extended JSON values as they are, for document stores.
+	Documents bool `json:"-"`
 }
 
 // Source yields records as values aligned to Columns.

@@ -83,7 +83,7 @@ func Text(v any) (s string, null bool) {
 			return compactJSON(d), false
 		}
 		return compactJSON(plainJSON(x)), false
-	case []any:
+	case []any, driver.Doc:
 		return compactJSON(plainJSON(x)), false
 	}
 	return compactJSON(v), false
@@ -97,10 +97,21 @@ func compactJSON(v any) string {
 	return string(b)
 }
 
+// docObject rebuilds a sub-document with converted values, keeping order.
+func docObject(d driver.Doc, conv func(any) any) orderedObject {
+	out := make(orderedObject, 0, len(d.Keys))
+	for _, k := range d.Keys {
+		out = append(out, kv{k, conv(d.Values[k])})
+	}
+	return out
+}
+
 // plainJSON converts a cell to an ordinary JSON value for relational data:
 // binary becomes a 0x-hex string, geometry its GeoJSON, long text a string.
 func plainJSON(v any) any {
 	switch x := v.(type) {
+	case driver.Doc:
+		return docObject(x, plainJSON)
 	case driver.LongText:
 		return x.Text
 	case driver.LargeBinary:
@@ -135,6 +146,8 @@ func plainJSON(v any) any {
 // same BSON types.
 func docJSON(v any) any {
 	switch x := v.(type) {
+	case driver.Doc:
+		return docObject(x, docJSON)
 	case driver.LongText:
 		return x.Text
 	case driver.LargeBinary:

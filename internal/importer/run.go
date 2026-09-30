@@ -80,7 +80,10 @@ func Run(ctx context.Context, bi driver.BulkImporter, job Job) (int64, error) {
 		}
 		c, ok := byName[m.Column]
 		if !ok {
-			return 0, fmt.Errorf("the table has no column %q", m.Column)
+			if !job.Options.Documents {
+				return 0, fmt.Errorf("the table has no column %q", m.Column)
+			}
+			c = &driver.Column{Name: m.Column} // documents take any field
 		}
 		if seen[m.Column] {
 			return 0, fmt.Errorf("column %s is mapped twice", m.Column)
@@ -188,6 +191,13 @@ func textual(c *driver.Column) bool {
 
 // Prepare turns a file value into what the column's grid editor would send.
 func Prepare(v any, col *driver.Column, opts Options) (any, error) {
+	if opts.Documents {
+		// The document store converts values itself, using the field's type.
+		if s, ok := v.(string); ok && (s == "" && opts.EmptyAsNull || opts.NullText != "" && s == opts.NullText) {
+			return nil, nil
+		}
+		return v, nil
+	}
 	switch x := v.(type) {
 	case nil:
 		return nil, nil
