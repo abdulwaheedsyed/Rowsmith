@@ -132,7 +132,7 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 
 ## Deployment
 
-The `Dockerfile` builds a 42 MB distroless image that runs as a non-root user. [`deploy/compose.yaml`](deploy/compose.yaml) runs it with a read-only root filesystem, all capabilities dropped, the master key as a Docker secret, and the port bound to `127.0.0.1` so only your reverse proxy can reach it.
+The `Dockerfile` builds a small distroless image (about 85 MB) that runs as a non-root user. [`deploy/compose.yaml`](deploy/compose.yaml) runs it with a read-only root filesystem, all capabilities dropped, the master key as a Docker secret, and the port bound to `127.0.0.1` so only your reverse proxy can reach it.
 
 ```bash
 sudo install -d -m 700 /etc/rowsmith
@@ -143,7 +143,11 @@ openssl rand -base64 32 | sudo tee /etc/rowsmith/master.key >/dev/null && sudo c
 ```
 
 ```bash
-docker compose -f deploy/compose.yaml up -d --build
+echo 'ROWSMITH_PUBLIC_URL=https://db.example.com' | sudo tee /etc/rowsmith/compose.env
+```
+
+```bash
+docker compose -f deploy/compose.yaml --env-file /etc/rowsmith/compose.env up -d --build
 ```
 
 ```bash
@@ -151,7 +155,7 @@ docker logs rowsmith 2>&1 | grep "setup code"
 ```
 
 1. Create the master key outside any web root, and back it up separately from the `rowsmith-data` volume.
-2. Set `ROWSMITH_PUBLIC_URL` in `deploy/compose.yaml`, then start the container.
+2. Put the public URL in `/etc/rowsmith/compose.env` (a path such as `https://example.com/sql` works too), then build and start the container.
 3. Open the public URL and enter the setup code from the log to create the owner account.
 
 [`deploy/Caddyfile.example`](deploy/Caddyfile.example) shows Caddy on its own subdomain or under a path such as `/sql`. Keep `flush_interval -1` so query results stream. A subdomain is the stronger choice: under a shared hostname, other apps on that hostname share Rowsmith's browser origin.

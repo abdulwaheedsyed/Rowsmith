@@ -5,8 +5,12 @@
 #        openssl rand -base64 32 | sudo tee /etc/rowsmith/master.key >/dev/null
 #        sudo chmod 444 /etc/rowsmith/master.key   # read by the container user; directory stays 700
 #      Back this file up separately from the rowsmith-data volume.
-#   2. Set ROWSMITH_PUBLIC_URL below, then:  docker compose -f deploy/compose.yaml up -d --build
-#   3. Read the one-time setup code:          docker logs rowsmith 2>&1 | grep "setup code"
+#   2. Put the public URL in an env file outside the repo, then build and start:
+#        echo 'ROWSMITH_PUBLIC_URL=https://db.example.com' | sudo tee /etc/rowsmith/compose.env
+#        docker compose -f deploy/compose.yaml --env-file /etc/rowsmith/compose.env up -d --build
+#      A path such as https://example.com/sql also works.
+#   3. Read the one-time setup code:
+#        docker logs rowsmith 2>&1 | grep "setup code"
 name: rowsmith
 
 services:
@@ -18,7 +22,7 @@ services:
     container_name: rowsmith
     restart: unless-stopped
     environment:
-      ROWSMITH_PUBLIC_URL: https://db.example.com   # change me; a path such as https://example.com/sql also works
+      ROWSMITH_PUBLIC_URL: ${ROWSMITH_PUBLIC_URL:?set ROWSMITH_PUBLIC_URL, e.g. in /etc/rowsmith/compose.env}
       ROWSMITH_MASTER_KEY_FILE: /run/secrets/rowsmith_master_key
       ROWSMITH_LOG_LEVEL: info
     secrets:

@@ -85,8 +85,18 @@ func (s *Server) Handler() http.Handler {
 	if bp := strings.TrimSuffix(s.cfg.BasePath, "/"); bp != "" {
 		inner := h
 		h = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// "/sql" would strip to an empty path, which ServeMux redirects to
+			// the host root; send it to "/sql/" instead.
+			if r.URL.Path == bp {
+				target := bp + "/"
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, target, http.StatusMovedPermanently)
+				return
+			}
 			// Accept both stripped (Caddy handle_path) and unstripped paths.
-			if strings.HasPrefix(r.URL.Path, bp+"/") || r.URL.Path == bp {
+			if strings.HasPrefix(r.URL.Path, bp+"/") {
 				http.StripPrefix(bp, inner).ServeHTTP(w, r)
 				return
 			}
