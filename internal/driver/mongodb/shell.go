@@ -19,6 +19,7 @@ import (
 //	db.orders.find({ status: "paid", total: { $gt: 100 } }).sort({ placed: -1 }).limit(20)
 //	db.getCollection("audit log").aggregate([{ $group: { _id: "$actor", n: { $sum: 1 } } }])
 //	show collections · use analytics · db.runCommand({ ping: 1 })
+//	db.getSiblingDB("shop").getCollection("orders").createIndex({ placed: -1 })
 //
 // Arguments are JSON5-like literals (unquoted keys, single quotes, trailing
 // commas, comments) plus ObjectId(), ISODate(), NumberLong() and friends.
@@ -39,8 +40,9 @@ type command struct {
 	show string // "dbs", "collections", …
 	use  string
 
-	target string // "" for db-level calls, else the collection name
-	calls  []call // method chain after db[.collection]
+	database string // from db.getSiblingDB(name); "" is the console's database
+	target   string // "" for db-level calls, else the collection name
+	calls    []call // method chain after db[.collection]
 }
 
 type lexer struct {
@@ -616,6 +618,14 @@ func (l *lexer) statement(cmd *command) error {
 				if err != nil {
 					return err
 				}
+				if name == "getSiblingDB" && cmd.database == "" && cmd.target == "" && len(cmd.calls) == 0 {
+					n, _ := firstString(args)
+					if n == "" {
+						return l.err("getSiblingDB needs a database name")
+					}
+					cmd.database = n
+					continue
+				}
 				if name == "getCollection" && cmd.target == "" && len(cmd.calls) == 0 {
 					n, _ := firstString(args)
 					if n == "" {
@@ -687,6 +697,18 @@ var readCommands = map[string]bool{
 	"datasize": true, "features": true,
 }
 
+// ddlCommands change collections, views or indexes.
+var ddlCommands = map[string]bool{
+	"create": true, "createindexes": true, "collmod": true, "converttocapped": true, "renamecollection": true,
+	"drop": true, "dropindexes": true, "dropdatabase": true,
+}
+
+// destructiveCommands remove data when run through runCommand.
+var destructiveCommands = map[string]string{
+	"drop": "drop removes the collection permanently", "dropdatabase": "dropDatabase removes the database permanently",
+	"dropindexes": "dropIndexes removes indexes", "converttocapped": "convertToCapped discards documents beyond the size and drops secondary indexes",
+}
+
 func (c *command) kind() driver.StatementKind {
 	if c.show != "" {
 		return driver.StmtRead
@@ -701,6 +723,9 @@ func (c *command) kind() driver.StatementKind {
 				return driver.StmtUnknown
 			}
 			d, ok := cl.args[0].(bson.D)
+			if ok && len(d) > 0 && ddlCommands[strings.ToLower(d[0].Key)] {
+				return driver.StmtDDL
+			}
 			if !ok || len(d) == 0 || !readCommands[strings.ToLower(d[0].Key)] {
 				return driver.StmtWrite
 			}
@@ -751,6 +776,12 @@ func (c *command) danger(k driver.StatementKind) driver.Danger {
 		switch cl.name {
 		case "drop", "dropDatabase", "dropIndexes":
 			return driver.Danger{Level: "destructive", Reason: cl.name + " removes data permanently"}
+		case "runCommand", "adminCommand":
+			if len(cl.args) > 0 {
+				if d, ok := cl.args[0].(bson.D); ok && len(d) > 0 && destructiveCommands[strings.ToLower(d[0].Key)] != "" {
+					return driver.Danger{Level: "destructive", Reason: destructiveCommands[strings.ToLower(d[0].Key)]}
+				}
+			}
 		case "deleteMany", "updateMany":
 			if len(cl.args) == 0 {
 				return driver.Danger{Level: "destructive", Reason: cl.name + " without a filter affects every document"}
