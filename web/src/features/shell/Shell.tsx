@@ -6,7 +6,7 @@ import {
   Plus, Search, Settings, LogOut, Moon, Sun, Monitor, UserRound, BookMarked, Shield, Menu as MenuIcon, X, Home as HomeIcon,
   TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil,
 } from "lucide-react";
-import { post } from "../../lib/api";
+import { post, setCsrf } from "../../lib/api";
 import { useConnections, useOpenConnections, useServer } from "../../lib/queries";
 import { useUI, useWorkspace } from "../../lib/store";
 import type { Connection, Me } from "../../lib/types";
@@ -23,6 +23,7 @@ import { Account } from "../account/Account";
 import { StatusBar } from "./StatusBar";
 import { newQueryTab } from "../workspace/actions";
 import { DisconnectDialog, requestDisconnect } from "../workspace/disconnect";
+import { useRuns } from "../query/runs";
 
 export function Shell({ me }: { me: Me }) {
   const [, params] = useRoute<{ id: string }>("/c/:id/*?");
@@ -224,8 +225,13 @@ function AccountMenu({ me, side = "bottom" }: { me: Me; side?: "right" | "bottom
           icon={<LogOut />}
           onSelect={async () => {
             await post("auth/logout").catch(() => {});
-            qc.clear();
+            // Signal "signed out" first so the app switches to the sign-in
+            // screen; clearing the cache before this would leave the app
+            // watching a removed query and stuck on the workspace.
             qc.setQueryData(["me"], null);
+            setCsrf("");
+            useRuns.setState({ runs: {} });
+            qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" && q.queryKey[0] !== "bootstrap" });
             navigate("/");
           }}
         >
