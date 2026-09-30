@@ -79,7 +79,19 @@ func (dialect) Encode(v any, ct *sql.ColumnType, kind driver.ValueKind) any {
 
 func (dialect) SelectExpr(c driver.Column) string {
 	if c.Kind == driver.KindGeometry {
-		return "ST_AsGeoJSON(" + quote(c.Name) + ")"
+		// Large geometries (a detailed boundary or network can be hundreds
+		// of MB as GeoJSON) are simplified, or reduced to their extent, in
+		// the database so a browse page stays small; GeoCell marks them.
+		g := quote(c.Name)
+		if strings.Contains(strings.ToLower(c.Type), "geography") {
+			g += "::geometry"
+		}
+		extent := "'E' || ST_AsGeoJSON(ST_Envelope(" + g + "))"
+		tol := "GREATEST(ST_XMax(" + g + ") - ST_XMin(" + g + "), ST_YMax(" + g + ") - ST_YMin(" + g + ")) / 1000.0"
+		return "CASE WHEN ST_MemSize(" + g + ") <= 65536 THEN ST_AsGeoJSON(" + g + ")" +
+			" WHEN ST_NumGeometries(" + g + ") > 2000 OR ST_NPoints(" + g + ") > 2000000 THEN " + extent +
+			" ELSE (SELECT CASE WHEN ST_NPoints(s) <= 10000 THEN 'S' || ST_AsGeoJSON(s, 6) ELSE " + extent + " END" +
+			" FROM (SELECT ST_Simplify(" + g + ", " + tol + ", true) AS s) rowsmith_simplified) END"
 	}
 	return quote(c.Name)
 }

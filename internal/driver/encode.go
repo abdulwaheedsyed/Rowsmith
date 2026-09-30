@@ -263,3 +263,57 @@ func (d Doc) MarshalJSON() ([]byte, error) {
 	b.WriteByte('}')
 	return []byte(b.String()), nil
 }
+
+// CellSize estimates the bytes a cell adds to a response, for budgets.
+func CellSize(v any) int {
+	switch x := v.(type) {
+	case nil, bool, int64, int, int32, float64, float32:
+		return 8
+	case string:
+		return len(x)
+	case json.RawMessage:
+		return len(x)
+	case []byte:
+		return len(x) * 4 / 3
+	case LongText:
+		return len(x.Text)
+	case LargeBinary:
+		return len(x.Data) * 4 / 3
+	case map[string]any:
+		n := 8
+		for k, e := range x {
+			n += len(k) + CellSize(e)
+		}
+		return n
+	case []any:
+		n := 8
+		for _, e := range x {
+			n += CellSize(e)
+		}
+		return n
+	case Doc:
+		n := 8
+		for _, k := range x.Keys {
+			n += len(k) + CellSize(x.Values[k])
+		}
+		return n
+	}
+	return 16
+}
+
+// RowSize sums CellSize over a row.
+func RowSize(row []any) int {
+	n := 0
+	for _, v := range row {
+		n += CellSize(v)
+	}
+	return n
+}
+
+const (
+	// BrowseBudget bounds the cell data of one browse page; a page stops
+	// early (Result.Clipped) rather than exhausting memory on huge values.
+	BrowseBudget = 48 << 20
+	// StreamBudget bounds one result set streamed to the SQL console.
+	StreamBudget = 128 << 20
+)

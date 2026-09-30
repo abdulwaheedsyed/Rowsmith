@@ -82,7 +82,10 @@ func (dialect) Encode(v any, ct *sql.ColumnType, kind driver.ValueKind) any {
 
 func (dialect) SelectExpr(c driver.Column) string {
 	if c.Kind == driver.KindGeometry {
-		return "ST_AsGeoJSON(" + quote(c.Name) + ")"
+		// Oversized geometries are reported by type and size instead of
+		// being sent whole (see sqlbase.GeoCell).
+		g := quote(c.Name)
+		return "CASE WHEN LENGTH(" + g + ") <= 262144 THEN ST_AsGeoJSON(" + g + ") ELSE CONCAT('X', ST_GeometryType(" + g + "), ', ', ROUND(LENGTH(" + g + ") / 1048576, 1), ' MB') END"
 	}
 	return quote(c.Name)
 }

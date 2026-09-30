@@ -204,7 +204,8 @@ func StreamRows(ctx context.Context, d Dialect, rows *sql.Rows, maxRows int, sta
 			}
 			var batch [][]any
 			var count int64
-			truncated := false
+			var size int
+			truncated, clipped := false, false
 			last := time.Now()
 			for rows.Next() {
 				if maxRows > 0 && count >= int64(maxRows) {
@@ -217,9 +218,15 @@ func StreamRows(ctx context.Context, d Dialect, rows *sql.Rows, maxRows int, sta
 				}
 				if !full {
 					driver.PreviewRow(r)
+					if size += driver.RowSize(r); size > driver.StreamBudget {
+						truncated, clipped = true, true // keep the console responsive with huge values
+					}
 				}
 				batch = append(batch, r)
 				count++
+				if clipped {
+					break
+				}
 				if len(batch) >= batchRows || time.Since(last) > batchDelay {
 					if err := sink.Rows(batch); err != nil {
 						return err
@@ -237,7 +244,7 @@ func StreamRows(ctx context.Context, d Dialect, rows *sql.Rows, maxRows int, sta
 					return err
 				}
 			}
-			if err := sink.EndResult(driver.ResultSummary{RowCount: count, Truncated: truncated, DurationMS: ms(start)}); err != nil {
+			if err := sink.EndResult(driver.ResultSummary{RowCount: count, Truncated: truncated, Clipped: clipped, DurationMS: ms(start)}); err != nil {
 				return err
 			}
 			if truncated {

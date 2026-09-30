@@ -323,13 +323,16 @@ type ResultColumn struct {
 
 // Result is a materialized result set. Cell values are JSON-ready: see Encode.
 type Result struct {
-	Columns      []ResultColumn `json:"columns"`
-	Rows         [][]any        `json:"rows"`
-	Truncated    bool           `json:"truncated"` // more rows existed than were returned
-	RowsAffected *int64         `json:"rowsAffected,omitempty"`
-	Duration     time.Duration  `json:"-"`
-	DurationMS   float64        `json:"durationMs"`
-	SQL          string         `json:"sql,omitempty"` // the statement Rowsmith generated, shown to the user
+	Columns   []ResultColumn `json:"columns"`
+	Rows      [][]any        `json:"rows"`
+	Truncated bool           `json:"truncated"` // more rows existed than were returned
+	// Clipped means the page stopped early because its values were large
+	// (see BrowseBudget); Truncated is set too and fewer rows came back.
+	Clipped      bool          `json:"clipped,omitempty"`
+	RowsAffected *int64        `json:"rowsAffected,omitempty"`
+	Duration     time.Duration `json:"-"`
+	DurationMS   float64       `json:"durationMs"`
+	SQL          string        `json:"sql,omitempty"` // the statement Rowsmith generated, shown to the user
 }
 
 type Count struct {
@@ -396,6 +399,7 @@ type ResultSummary struct {
 	RowCount       int64   `json:"rowCount"`
 	RowsAffected   *int64  `json:"rowsAffected,omitempty"`
 	Truncated      bool    `json:"truncated"`
+	Clipped        bool    `json:"clipped,omitempty"` // stopped at StreamBudget rather than MaxRows
 	DurationMS     float64 `json:"durationMs"`
 	BytesProcessed *int64  `json:"bytesProcessed,omitempty"`
 	CacheHit       *bool   `json:"cacheHit,omitempty"`

@@ -282,6 +282,7 @@ export interface Result {
   columns: ResultColumn[];
   rows: Cell[][];
   truncated: boolean;
+  clipped?: boolean; // the page stopped early because its values are large
   rowsAffected?: number;
   durationMs: number;
   sql?: string;

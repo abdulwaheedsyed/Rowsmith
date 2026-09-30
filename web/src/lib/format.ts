@@ -116,3 +116,17 @@ export function isMac() {
 }
 
 export const modKey = () => (isMac() ? "⌘" : "Ctrl");
+
+/** Why a cell holds only part of its value (a display preview), or null.
+ *  Partial cells must not be edited: saving would overwrite the full value. */
+export function partialCell(v: Cell): string | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, any>;
+  if ("$geo" in o && o.display)
+    return o.display === "extent"
+      ? `Only the extent of this geometry is shown${o.points ? `; it has ${int(o.points)} points` : ""}.`
+      : "This geometry is simplified for display.";
+  if ("$text" in o) return o.omitted ? String(o.$text) + "." : `Only the first part of this ${bytes(o.size)} value is shown.`;
+  if ("$bin" in o && typeof o.size === "number" && o.size > 65536) return `Only the first 64 KB of this ${bytes(o.size)} value is shown.`;
+  return null;
+}

@@ -15,8 +15,40 @@ import (
 	"github.com/twpayne/go-geom/encoding/wkt"
 )
 
+// MaxPoints is the most vertices sent as a full geometry; larger ones are
+// sent as their extent, marked "display": "extent", with the point count.
+const MaxPoints = 200_000
+
+// Points counts the vertices of a geometry.
+func Points(g geom.T) int {
+	if gc, ok := g.(*geom.GeometryCollection); ok {
+		n := 0
+		for _, c := range gc.Geoms() {
+			n += Points(c)
+		}
+		return n
+	}
+	if st := g.Stride(); st > 0 {
+		return len(g.FlatCoords()) / st
+	}
+	return 0
+}
+
 // Cell builds the cell encoding from a geometry.
 func Cell(g geom.T, srid int) any {
+	if n := Points(g); n > MaxPoints {
+		b := g.Bounds()
+		env := geom.NewPolygon(geom.XY).MustSetCoords([][]geom.Coord{{
+			{b.Min(0), b.Min(1)}, {b.Max(0), b.Min(1)}, {b.Max(0), b.Max(1)}, {b.Min(0), b.Max(1)}, {b.Min(0), b.Min(1)},
+		}})
+		out, _ := Cell(env, srid).(map[string]any)
+		if out != nil {
+			delete(out, "wkt")
+			out["display"] = "extent"
+			out["points"] = n
+		}
+		return out
+	}
 	gj, err := geojson.Encode(g)
 	if err != nil {
 		return nil

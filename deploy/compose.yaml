@@ -25,6 +25,7 @@ services:
       ROWSMITH_PUBLIC_URL: ${ROWSMITH_PUBLIC_URL:?set ROWSMITH_PUBLIC_URL, e.g. in /etc/rowsmith/compose.env}
       ROWSMITH_MASTER_KEY_FILE: /run/secrets/rowsmith_master_key
       ROWSMITH_LOG_LEVEL: info
+      GOMEMLIMIT: 768MiB   # the Go runtime collects harder before reaching the container's 1g limit
     secrets:
       - rowsmith_master_key
     volumes:

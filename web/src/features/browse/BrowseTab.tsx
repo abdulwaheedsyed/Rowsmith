@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as RPopover from "@radix-ui/react-popover";
 import {
-  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, ChevronLeft, FileUp,
+  Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, ChevronLeft, FileUp, Info,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useDescribe, useDriver, qualified } from "../../lib/queries";
@@ -42,7 +42,8 @@ interface BrowseState {
   hidden: string[];
   inspector: boolean;
   view: "grid" | "map";
-  page?: number;
+  page?: number; // older tabs kept a page number
+  offset?: number;
   pageSize?: number;
 }
 
@@ -144,7 +145,10 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
 
   // Paging: one page at a time, or every row in chunks when asked.
   const pageSize = st.pageSize && PAGE_SIZES.includes(st.pageSize) ? st.pageSize : defaultPageSize();
-  const page = st.page ?? 0;
+  // Pages move by rows actually shown, so a page cut short by large values
+  // never skips rows.
+  const offset = st.offset ?? (st.page ?? 0) * pageSize;
+  const page = Math.floor(offset / pageSize);
   const [all, setAll] = useState(false);
   const [allStopped, setAllStopped] = useState(false);
   const [askAll, setAskAll] = useState(false);
@@ -154,14 +158,14 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     // New filters or sort start from the first page.
     if (lastReq.current !== reqKey) {
       lastReq.current = reqKey;
-      if (page !== 0) patchState({ page: 0 });
+      if (offset !== 0) patchState({ offset: 0, page: undefined });
       setAll(false);
     }
-  }, [reqKey, page, patchState]);
+  }, [reqKey, offset, patchState]);
 
   const pageQ = useQuery({
-    queryKey: [...key, "page", pageSize, page],
-    queryFn: ({ signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset: page * pageSize, limit: pageSize }, signal),
+    queryKey: [...key, "page", pageSize, offset],
+    queryFn: ({ signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset, limit: pageSize }, signal),
     placeholderData: keepPreviousData,
     enabled: !all,
     staleTime: 30_000,
@@ -171,7 +175,10 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     queryKey: [...key, "all"],
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) => post<Result>(`c/${conn.id}/browse`, { ...req, offset: pageParam, limit: ALL_CHUNK }, signal),
-    getNextPageParam: (last, pages) => (last.truncated && pages.length * ALL_CHUNK < ALL_CAP ? pages.length * ALL_CHUNK : undefined),
+    getNextPageParam: (last, pages) => {
+      const got = pages.reduce((n, p) => n + p.rows.length, 0);
+      return last.truncated && !last.clipped && got < ALL_CAP ? got : undefined; // large values stop the load
+    },
     enabled: all,
     staleTime: 30_000,
     retry: false,
@@ -196,6 +203,8 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   const loaded = useMemo(() => (all ? (allQ.data?.pages ?? []).flatMap((p) => p.rows) : pageQ.data?.rows ?? []), [all, allQ.data, pageQ.data]);
   const hasNextPage = !all && !!pageQ.data?.truncated;
   const allCapped = all && !allQ.hasNextPage && !!allQ.data?.pages.at(-1)?.truncated;
+  const allClipped = all && !!allQ.data?.pages.at(-1)?.clipped;
+  const pageClipped = !all && !!pageQ.data?.clipped;
   const allLoading = all && !allStopped && (allQ.isFetching || !!allQ.hasNextPage);
   const visibleCols = cols.filter((c) => !st.hidden.includes(c.name));
   const visIdx = visibleCols.map((c) => cols.indexOf(c));
@@ -221,9 +230,9 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     const total = count.data ? `${count.data.exact ? "" : "≈ "}${int(count.data.rows)}` : "";
     const rows = all
       ? `${int(loaded.length)} loaded${total ? " of " + total : ""}`
-      : loaded.length ? `rows ${int(page * pageSize + 1)}–${int(page * pageSize + loaded.length)}${total ? " of " + total : ""}` : total ? `${total} rows` : "";
+      : loaded.length ? `rows ${int(offset + 1)}–${int(offset + loaded.length)}${total ? " of " + total : ""}` : total ? `${total} rows` : "";
     setStatus(tab.id, { rows, ms: first?.durationMs, note: pendingCount ? `${pendingCount} unsaved change${pendingCount > 1 ? "s" : ""}` : undefined });
-  }, [active, all, page, pageSize, loaded.length, count.data, first?.durationMs, pendingCount, tab.id, setStatus]);
+  }, [active, all, offset, loaded.length, count.data, first?.durationMs, pendingCount, tab.id, setStatus]);
 
   // Navigation keeps unsaved edits safe: they belong to the rows on screen.
   const guard = () => {
@@ -233,11 +242,12 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   };
   const totalRows = count.data?.rows;
   const pages = totalRows !== undefined ? Math.max(1, Math.ceil(totalRows / pageSize)) : undefined;
-  const goPage = (n: number) => {
+  const goOffset = (n: number) => {
     if (!guard()) return;
-    patchState({ page: Math.max(0, n) });
+    patchState({ offset: Math.max(0, n), page: undefined });
     setActiveCell(null);
   };
+  const goPage = (n: number) => goOffset(n * pageSize);
   const setPageSize = (n: number) => {
     if (!guard()) return;
     try {
@@ -245,7 +255,7 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     } catch {
       /* storage unavailable */
     }
-    patchState({ pageSize: n, page: Math.floor((page * pageSize) / n) });
+    patchState({ pageSize: n }); // the first row on screen stays
   };
   const startAll = (confirmed = false) => {
     if (!guard()) return;
@@ -439,6 +449,11 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
         </form>
       )}
 
+      {pageClipped && (
+        <div className="browse__clipped" role="status">
+          <Info /> This page holds {int(loaded.length)} of {int(pageSize)} rows because its values are large. Next continues from row {int(offset + loaded.length + 1)}.
+        </div>
+      )}
       <div className="browse__body">
         {err ? (
           <div className="browse__error"><Alert kind="danger" title="Could not load rows">{err.message}</Alert></div>
@@ -456,8 +471,8 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
             cellDirty={cellDirty}
             hasMore={false}
             loadingMore={allLoading}
-            rowNumberOffset={(all ? 0 : page * pageSize) - nIns}
-            scrollKey={`${all}:${page}:${pageSize}`}
+            rowNumberOffset={(all ? 0 : offset) - nIns}
+            scrollKey={`${all}:${offset}:${pageSize}`}
             sort={st.sort}
             onSort={onSort}
             editable={editable}
@@ -497,10 +512,10 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
 
       <div className="browse__foot">
         <Pager
-          all={all} loading={allLoading} capped={allCapped} loaded={loaded.length} page={page} pageSize={pageSize} pages={pages}
+          all={all} loading={allLoading} capped={allCapped} clipped={allClipped} loaded={loaded.length} offset={offset} page={page} pageSize={pageSize} pages={pages}
           total={count.data ? `${count.data.exact ? "" : "≈ "}${int(count.data.rows)}` : count.isLoading ? "…" : ""}
           hasNext={hasNextPage} fetching={pageQ.isFetching && !all}
-          onPage={goPage} onPageSize={setPageSize} onAll={() => startAll()} onStop={() => setAllStopped(true)} onBack={backToPages} />
+          onPage={goPage} onNext={() => goOffset(offset + loaded.length)} onPrev={() => goOffset(offset - pageSize)} onPageSize={setPageSize} onAll={() => startAll()} onStop={() => setAllStopped(true)} onBack={backToPages} />
         {first?.sql && (
           <button className="browse__sql mono truncate" onClick={() => setSqlShown(!sqlShown)} title="Generated SQL">
             <ChevronRight className={sqlShown ? "rot" : ""} />{sqlShown ? first.sql : first.sql.slice(0, 120)}
@@ -650,9 +665,9 @@ function ColumnsMenu({ cols, hidden, onChange }: { cols: GridColumn[]; hidden: s
 
 // ---- Mobile card list ------------------------------------------------------------
 
-function Pager({ all, loading, capped, loaded, page, pageSize, pages, total, hasNext, fetching, onPage, onPageSize, onAll, onStop, onBack }: {
-  all: boolean; loading: boolean; capped: boolean; loaded: number; page: number; pageSize: number; pages?: number; total: string; hasNext: boolean; fetching: boolean;
-  onPage(n: number): void; onPageSize(n: number): void; onAll(): void; onStop(): void; onBack(): void;
+function Pager({ all, loading, capped, clipped, loaded, offset, page, pageSize, pages, total, hasNext, fetching, onPage, onNext, onPrev, onPageSize, onAll, onStop, onBack }: {
+  all: boolean; loading: boolean; capped: boolean; clipped: boolean; loaded: number; offset: number; page: number; pageSize: number; pages?: number; total: string; hasNext: boolean; fetching: boolean;
+  onPage(n: number): void; onNext(): void; onPrev(): void; onPageSize(n: number): void; onAll(): void; onStop(): void; onBack(): void;
 }) {
   const [draft, setDraft] = useState(String(page + 1));
   useEffect(() => setDraft(String(page + 1)), [page]);
@@ -666,6 +681,7 @@ function Pager({ all, loading, capped, loaded, page, pageSize, pages, total, has
       <div className="pager" role="group" aria-label="Rows">
         <span className="tnum pager__range">
           {loading ? <>Loading {int(loaded)}{total ? <span className="faint"> of {total}</span> : null}…</>
+            : clipped ? <>First {int(loaded)} rows <span className="faint">· the values are large; export for the rest</span></>
             : capped ? <>First {int(loaded)} rows <span className="faint">· the browser limit; export for the rest</span></>
             : <>All {int(loaded)} rows</>}
         </span>
@@ -674,24 +690,24 @@ function Pager({ all, loading, capped, loaded, page, pageSize, pages, total, has
       </div>
     );
   }
-  const from = loaded ? page * pageSize + 1 : 0;
+  const from = loaded ? offset + 1 : 0;
   return (
     <div className="pager" role="group" aria-label="Pages">
       <span className="tnum pager__range">
         {loaded ? `${int(from)}–${int(from + loaded - 1)}` : "0"}{total ? <span className="faint"> of {total}</span> : null}
       </span>
-      <Button size="sm" variant="ghost" icon disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Previous page"><ChevronLeft /></Button>
+      <Button size="sm" variant="ghost" icon disabled={offset === 0} onClick={onPrev} aria-label="Previous page"><ChevronLeft /></Button>
       <label className="pager__page">
         <input className="input tnum" value={draft} inputMode="numeric" aria-label="Page"
           onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))} onBlur={jump} onKeyDown={(e) => e.key === "Enter" && jump()} />
         {pages !== undefined && <span className="faint tnum">/ {int(pages)}</span>}
       </label>
-      <Button size="sm" variant="ghost" icon disabled={!hasNext} onClick={() => onPage(page + 1)} aria-label="Next page"><ChevronRight /></Button>
+      <Button size="sm" variant="ghost" icon disabled={!hasNext} onClick={onNext} aria-label="Next page"><ChevronRight /></Button>
       {fetching && <Spinner />}
       <select className="select pager__size" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} aria-label="Rows per page">
         {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} per page</option>)}
       </select>
-      <Button size="sm" variant="ghost" onClick={onAll} disabled={!hasNext && page === 0}>Load all</Button>
+      <Button size="sm" variant="ghost" onClick={onAll} disabled={!hasNext && offset === 0}>Load all</Button>
     </div>
   );
 }

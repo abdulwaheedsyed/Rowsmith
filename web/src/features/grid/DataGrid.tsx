@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import * as RContext from "@radix-ui/react-context-menu";
 import { ArrowDown, ArrowUp, KeyRound, Link2, Copy, Filter, Trash2, Ban, Eye, CornerDownRight } from "lucide-react";
 import type { Cell, ForeignKey, Sort, ValueKind } from "../../lib/types";
-import { cellText, csvEscape } from "../../lib/format";
+import { cellText, csvEscape, partialCell } from "../../lib/format";
+import { toast } from "../../lib/store";
 import { CellView, alignFor, cellChars } from "./cells";
 import "./grid.css";
 
@@ -256,6 +257,12 @@ export function DataGrid(props: DataGridProps) {
   const startEdit = (r: number, c: number, seed?: string) => {
     if (!canEdit(c) || !rows[r] || props.rowState?.(r) === "deleted") return;
     const v = rows[r][c];
+    const partial = partialCell(v);
+    if (partial) {
+      toast.info("This cell can't be edited here", `${partial} Change it with SQL so the full value is kept.`);
+      props.onInspect?.(r, c);
+      return;
+    }
     const initial = v === null || v === undefined ? "" : typeof v === "object" && v && ("$geo" in v) ? ((v as any).wkt ?? JSON.stringify((v as any).$geo)) : cellText(v);
     setEditing({ r, c, value: seed ?? initial, initial });
   };

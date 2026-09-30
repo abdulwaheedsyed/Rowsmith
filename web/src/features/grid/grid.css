@@ -404,3 +404,8 @@ select.g-editor__input {
 .g-editor__null:hover {
   border-color: var(--accent-line);
 }
+.c-geo__note {
+  font-size: 10px;
+  color: var(--info);
+  letter-spacing: 0.03em;
+}

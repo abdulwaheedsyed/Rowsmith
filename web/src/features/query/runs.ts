@@ -4,7 +4,7 @@ import type { Cell, QueryError, ResultColumn, StatementKind, Plan, PendingStatem
 export interface ResultSet {
   columns: ResultColumn[];
   rows: Cell[][];
-  summary?: { rowCount: number; rowsAffected?: number; truncated: boolean; durationMs: number; bytesProcessed?: number };
+  summary?: { rowCount: number; rowsAffected?: number; truncated: boolean; clipped?: boolean; durationMs: number; bytesProcessed?: number };
 }
 
 export interface StmtRun {

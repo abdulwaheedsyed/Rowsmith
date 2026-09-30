@@ -147,7 +147,9 @@ export function Results({ run, conn, database, schema }: { run: RunState; conn: 
         {pane.kind === "set" && current && (
           <>
             {current.rs.summary?.truncated && (
-              <div className="results__notice"><Ban size={13} /> Showing the first {int(current.rs.rows.length)} rows. Raise the limit or add a LIMIT clause to see others.</div>
+              <div className="results__notice"><Ban size={13} /> {current.rs.summary?.clipped
+                ? <>Showing the first {int(current.rs.rows.length)} rows: the values are large, so the result stopped early. Use Export to get every row.</>
+                : <>Showing the first {int(current.rs.rows.length)} rows. Raise the limit or add a LIMIT clause to see others.</>}</div>
             )}
             <div className="results__grid">
               {view === "map" && geo ? (

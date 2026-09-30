@@ -1,5 +1,5 @@
 import type { Cell, ValueKind, GeoJSON } from "../../lib/types";
-import { bytes, isNumericKind } from "../../lib/format";
+import { bytes, int, isNumericKind } from "../../lib/format";
 
 // Rendering of a single value inside the grid. Each kind gets a distinct,
 // quiet treatment so a column can be scanned without reading every cell.
@@ -76,7 +76,8 @@ export function CellView({ value, kind }: { value: Cell; kind: ValueKind }) {
       <span className="c-geo">
         <span className="c-geo__glyph" data-type={g.type} />
         <span className="c-tag">{g.type}</span>
-        <span className="c-geo__sum">{geoSummary(g)}</span>
+        <span className="c-geo__sum">{o.display === "extent" ? `extent of ${o.points ? int(o.points) + " points" : "a large geometry"}` : geoSummary(g)}</span>
+        {o.display === "simplified" && <span className="c-geo__note">simplified</span>}
       </span>
     );
   }

@@ -90,7 +90,7 @@ export type StreamEvent =
   | { t: "stmt"; i: number; sql: string; line: number; kind: string }
   | { t: "cols"; cols: import("./types").ResultColumn[] }
   | { t: "rows"; rows: import("./types").Cell[][] }
-  | { t: "end"; summary: { rowCount: number; rowsAffected?: number; truncated: boolean; durationMs: number; bytesProcessed?: number } }
+  | { t: "end"; summary: { rowCount: number; rowsAffected?: number; truncated: boolean; clipped?: boolean; durationMs: number; bytesProcessed?: number } }
   | { t: "notice"; level: string; text: string }
   | { t: "stmtEnd"; ms: number; error?: QueryError }
   | { t: "done"; ms: number; inTx: boolean; console: string; error?: QueryError };

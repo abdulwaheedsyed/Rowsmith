@@ -76,6 +76,7 @@ func CollectRows(d Dialect, rows *sql.Rows, max int) (*driver.Result, error) {
 	}
 	cols, kinds := Columns(d, cts)
 	res := &driver.Result{Columns: cols, Rows: [][]any{}}
+	size := 0
 	for rows.Next() {
 		if max > 0 && len(res.Rows) >= max {
 			res.Truncated = true
@@ -87,6 +88,10 @@ func CollectRows(d Dialect, rows *sql.Rows, max int) (*driver.Result, error) {
 		}
 		driver.PreviewRow(r) // collected results are for display
 		res.Rows = append(res.Rows, r)
+		if size += driver.RowSize(r); size > driver.BrowseBudget {
+			res.Truncated, res.Clipped = true, true
+			break
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

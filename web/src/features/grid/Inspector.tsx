@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Copy, Check, Download } from "lucide-react";
 import type { Cell, GeoJSON } from "../../lib/types";
-import { bytes, cellText } from "../../lib/format";
+import { bytes, cellText, partialCell } from "../../lib/format";
 import { Button } from "../../components/ui";
 import type { GridColumn } from "./DataGrid";
 import { MapView } from "../map/MapView";
@@ -85,10 +85,11 @@ export function Inspector({ column, value, editable, onChange, onClose }: {
           <>
             <MapView compact columns={[{ name: column?.name ?? "geom", kind: "geometry" }]} rows={[[value]]} />
             <div className="inspector__meta">{(o.$geo as GeoJSON).type}{o.srid ? ` · SRID ${o.srid}` : ""}</div>
+            {partialCell(value) && <div className="inspector__partial">{partialCell(value)} Query it with SQL to see or change every vertex.</div>}
             {o.wkt && <pre className="inspector__code">{o.wkt}</pre>}
             <pre className="inspector__code">{text}</pre>
           </>
-        ) : editable && onChange ? (
+        ) : editable && onChange && !partialCell(value) ? (
           <>
             <textarea className="textarea inspector__edit" value={draft ?? text} onChange={(e) => setDraft(e.target.value)} spellCheck={false} />
             <div className="row gap-3">
@@ -99,7 +100,10 @@ export function Inspector({ column, value, editable, onChange, onClose }: {
             </div>
           </>
         ) : (
-          <pre className="inspector__code">{text}</pre>
+          <>
+            {partialCell(value) && <div className="inspector__partial">{partialCell(value)} Query it with SQL to see or change the whole value.</div>}
+            <pre className="inspector__code">{text}</pre>
+          </>
         )}
       </div>
     </aside>
