@@ -390,7 +390,7 @@ var design = driver.TableDesign{
 	Columns: true, ReorderColumns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true,
 	Generated: true, GeneratedVirtual: true, OnUpdate: true, Checks: true, PrimaryKey: true, ForeignKeys: true,
 	Indexes: true, IndexLengths: true,
-	IndexTypes: []string{"BTREE", "FULLTEXT", "SPATIAL"},
+	IndexTypes: []string{"btree", "fulltext", "spatial"},
 	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "RESTRICT"},
 	Options: []driver.Field{
 		{Key: "engine", Label: "Storage engine", Type: driver.FieldSelect, Span: 3, Options: []driver.Option{

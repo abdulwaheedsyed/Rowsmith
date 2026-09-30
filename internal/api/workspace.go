@@ -538,5 +538,5 @@ func (s *Server) wsDDL(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	if stmts == nil {
 		stmts = []string{}
 	}
-	writeJSON(w, 200, map[string]any{"statements": stmts})
+	writeJSON(w, 200, map[string]any{"statements": stmts, "script": sqlsplit.Join(x.info.Dialect, stmts)})
 }

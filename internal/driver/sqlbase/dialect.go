@@ -129,7 +129,10 @@ func GenericEncode(v any, kind driver.ValueKind) any {
 	case float64:
 		return driver.EncodeFloat(x)
 	case float32:
-		return driver.EncodeFloat(float64(x))
+		// Widen through the shortest decimal form so 0.1 stays 0.1 rather
+		// than becoming 0.10000000149011612.
+		f, _ := strconv.ParseFloat(strconv.FormatFloat(float64(x), 'g', -1, 32), 64)
+		return driver.EncodeFloat(f)
 	case bool:
 		return x
 	}

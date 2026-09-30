@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"rowsmith/internal/config"
 	"rowsmith/internal/driver"
 	"rowsmith/internal/session"
+	"rowsmith/internal/spool"
 	"rowsmith/internal/store"
 	"rowsmith/internal/tunnel"
 	"rowsmith/internal/vault"
@@ -45,6 +47,7 @@ type Server struct {
 	setupToken string
 
 	cookieName string
+	spool      *spool.Spool
 }
 
 type Deps struct {
@@ -60,6 +63,11 @@ type Deps struct {
 func New(d Deps) *Server {
 	s := &Server{cfg: d.Config, store: d.Store, vault: d.Vault, sessions: d.Sessions, tunnels: d.Tunnels, log: d.Log, static: d.Static,
 		loginIP: auth.NewLimiter(20, 10), loginAcct: auth.NewLimiter(10, 5), mfaLimit: auth.NewLimiter(10, 5)}
+	if sp, err := spool.New(filepath.Join(d.Config.DataDir, "spool"), 15*time.Minute); err == nil {
+		s.spool = sp
+	} else {
+		d.Log.Error("spool directory unavailable; exports and imports are disabled", "err", err)
+	}
 	s.cookieName = "rowsmith_session"
 	if d.Config.BasePath == "/" && !d.Config.Insecure {
 		// __Host- cookies must be Secure, host-only and Path=/, which blocks
@@ -169,6 +177,11 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("POST /api/c/{id}/query/cancel", s.wsCancel)
 	full("POST /api/c/{id}/console/close", s.wsCloseConsole)
 	full("POST /api/c/{id}/disconnect", s.wsDisconnect)
+	full("POST /api/c/{id}/export", s.wsExport)
+	full("GET /api/files/{id}", s.fileDownload)
+	full("POST /api/uploads", s.upload)
+	full("POST /api/c/{id}/import/preview", s.wsImportPreview)
+	full("POST /api/c/{id}/import", s.wsImport)
 	full("POST /api/c/{id}/analyze", s.wsAnalyze)
 	full("POST /api/c/{id}/explain", s.wsExplain)
 	full("GET /api/c/{id}/processes", s.wsProcesses)

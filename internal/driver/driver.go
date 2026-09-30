@@ -155,6 +155,27 @@ type Definer interface {
 	Definition(ctx context.Context, ref ObjectRef) (string, error)
 }
 
+// BrowseQuerier returns a console statement (with bind arguments) that
+// selects every row a browse request matches, in order and without paging.
+// Exports run it through a Session to stream whole tables.
+type BrowseQuerier interface {
+	BrowseQuery(ctx context.Context, t *Table, req BrowseRequest) (query string, args []any, err error)
+}
+
+// BulkImporter loads rows into a table inside one transaction.
+type BulkImporter interface {
+	// BeginImport starts loading into cols of t; empty deletes existing rows first.
+	BeginImport(ctx context.Context, t *Table, cols []string, empty bool) (RowImporter, error)
+}
+
+// RowImporter receives rows whose values are in column order and shaped like
+// grid edits (strings, numbers, booleans, nil, {"$bin": …}, GeoJSON…).
+type RowImporter interface {
+	Insert(ctx context.Context, rows [][]any) error
+	Commit() error
+	Rollback() error
+}
+
 // Dumper writes a portable script (DDL and/or data) for export.
 type Dumper interface {
 	Dump(ctx context.Context, req DumpRequest, w DumpWriter) error

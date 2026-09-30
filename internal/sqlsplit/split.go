@@ -79,10 +79,14 @@ func (sp *splitter) run() []Statement {
 	for {
 		// Line-oriented client commands are recognized at the beginning of a line.
 		if lx.i == 0 || (lx.i <= len(sp.s) && lx.i > 0 && sp.s[lx.i-1] == '\n') {
-			if n, ok := sp.lineCommand(lx.i, stmtStart < 0); ok {
+			onlyComments := stmtStart < 0 || !hasCode(sp.s[stmtStart:lx.i], sp.d)
+			if n, ok := sp.lineCommand(lx.i, onlyComments); ok {
 				switch n.kind {
 				case cmdDelimiter:
 					sp.delim = n.arg
+					if onlyComments {
+						stmtStart = -1 // comments before a client command belong to neither statement
+					}
 				case cmdBatch, cmdSlash:
 					flush(lastEndOr(lastEnd, lx.i))
 				}

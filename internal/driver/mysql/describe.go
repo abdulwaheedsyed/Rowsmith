@@ -258,7 +258,11 @@ func (c *conn) describeIndexes(ctx context.Context, t *driver.Table) error {
 			col = "(" + expr.String + ")"
 		}
 		ix.Columns = append(ix.Columns, col)
-		ix.Lengths = append(ix.Lengths, int(sub.Int64))
+		n := int(sub.Int64)
+		if strings.EqualFold(typ.String, "SPATIAL") {
+			n = 0 // reported as 32, but spatial keys take no prefix length
+		}
+		ix.Lengths = append(ix.Lengths, n)
 		ix.Desc = append(ix.Desc, coll.String == "D")
 	}
 	for _, n := range order {

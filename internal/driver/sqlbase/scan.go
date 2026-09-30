@@ -85,6 +85,7 @@ func CollectRows(d Dialect, rows *sql.Rows, max int) (*driver.Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		driver.PreviewRow(r) // collected results are for display
 		res.Rows = append(res.Rows, r)
 	}
 	if err := rows.Err(); err != nil {

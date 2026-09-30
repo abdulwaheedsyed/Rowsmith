@@ -3,6 +3,7 @@ package driver
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"math"
 	"net/http"
 	"strconv"
@@ -48,10 +49,39 @@ func EncodeFloat(f float64) any {
 }
 
 func EncodeText(s string) any {
+	if !utf8.ValidString(s) {
+		s = strings.ToValidUTF8(s, "�")
+	}
 	if len(s) <= MaxTextCell {
-		if !utf8.ValidString(s) {
-			return strings.ToValidUTF8(s, "�")
-		}
+		return s
+	}
+	return LongText{Text: s}
+}
+
+func EncodeBinary(b []byte) any {
+	if b == nil {
+		return nil
+	}
+	if len(b) <= MaxBinaryPreview {
+		return binaryPreview(b)
+	}
+	return LargeBinary{Data: b}
+}
+
+// LongText is a text cell too long to send inline. It marshals as a preview
+// ({"$text": prefix, "size": n}); exports read the full Text.
+type LongText struct{ Text string }
+
+func (t LongText) MarshalJSON() ([]byte, error) { return json.Marshal(textPreview(t.Text)) }
+
+// LargeBinary is a binary cell too large to send inline. It marshals as a
+// preview ({"$bin": prefix, "size": n}); exports read the full Data.
+type LargeBinary struct{ Data []byte }
+
+func (b LargeBinary) MarshalJSON() ([]byte, error) { return json.Marshal(binaryPreview(b.Data)) }
+
+func textPreview(s string) any {
+	if len(s) <= MaxTextCell {
 		return s
 	}
 	cut := s[:MaxTextCell]
@@ -61,10 +91,7 @@ func EncodeText(s string) any {
 	return map[string]any{"$text": cut, "size": len(s)}
 }
 
-func EncodeBinary(b []byte) any {
-	if b == nil {
-		return nil
-	}
+func binaryPreview(b []byte) map[string]any {
 	preview := b
 	if len(preview) > MaxBinaryPreview {
 		preview = preview[:MaxBinaryPreview]
@@ -74,6 +101,40 @@ func EncodeBinary(b []byte) any {
 		out["mime"] = mime
 	}
 	return out
+}
+
+// Preview replaces a large cell with its inline preview so the full value can
+// be released.
+func Preview(v any) any {
+	switch x := v.(type) {
+	case LongText:
+		return textPreview(x.Text)
+	case LargeBinary:
+		return binaryPreview(x.Data)
+	}
+	return v
+}
+
+// PreviewRow applies Preview to every cell of a row in place.
+func PreviewRow(row []any) {
+	for i, v := range row {
+		switch v.(type) {
+		case LongText, LargeBinary:
+			row[i] = Preview(v)
+		}
+	}
+}
+
+// FullValueSink is implemented by sinks that need complete cell values
+// (exports). Other sinks receive previews of large text and binary cells.
+type FullValueSink interface {
+	FullValues() bool
+}
+
+// WantsFullValues reports whether sink asked for complete cell values.
+func WantsFullValues(sink Sink) bool {
+	f, ok := sink.(FullValueSink)
+	return ok && f.FullValues()
 }
 
 // EncodeUUIDBytes renders a 16-byte value as a canonical UUID string.

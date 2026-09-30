@@ -126,6 +126,14 @@ func (c *conn) CreateTableSQL(def driver.TableDef) ([]string, error) {
 	if schema == "" {
 		schema = "public"
 	}
+	if of, bound := def.Options["partition_of"], def.Options["partition_bound"]; of != "" && bound != "" {
+		// A partition takes its columns, keys and indexes from the parent.
+		out := []string{"CREATE TABLE " + refName(def.Ref) + " PARTITION OF " + of + " " + bound}
+		if def.Comment != "" {
+			out = append(out, "COMMENT ON TABLE "+refName(def.Ref)+" IS "+literal(def.Comment))
+		}
+		return out, nil
+	}
 	var lines []string
 	for _, col := range def.Columns {
 		d, err := colDef(col.Column)
@@ -143,7 +151,15 @@ func (c *conn) CreateTableSQL(def driver.TableDef) ([]string, error) {
 	for _, ch := range def.Checks {
 		lines = append(lines, "CONSTRAINT "+quote(ch.Name)+" CHECK ("+ch.Expression+")")
 	}
-	out := []string{"CREATE TABLE " + refName(def.Ref) + " (\n  " + strings.Join(lines, ",\n  ") + "\n)"}
+	create := "CREATE TABLE "
+	if def.Options["unlogged"] == "true" {
+		create = "CREATE UNLOGGED TABLE "
+	}
+	create += refName(def.Ref) + " (\n  " + strings.Join(lines, ",\n  ") + "\n)"
+	if by := def.Options["partition_by"]; by != "" {
+		create += " PARTITION BY " + by
+	}
+	out := []string{create}
 	for _, ix := range def.Indexes {
 		if !ix.Primary {
 			out = append(out, indexStmt(def.Ref, ix))

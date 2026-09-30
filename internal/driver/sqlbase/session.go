@@ -190,6 +190,7 @@ func (s *Session) runOne(ctx context.Context, st sqlsplit.Statement, opts driver
 // StreamRows forwards every result set of rows to sink in batches.
 func StreamRows(ctx context.Context, d Dialect, rows *sql.Rows, maxRows int, start time.Time, sink driver.Sink) error {
 	sawResult := false
+	full := driver.WantsFullValues(sink)
 	for {
 		cts, err := rows.ColumnTypes()
 		if err != nil {
@@ -213,6 +214,9 @@ func StreamRows(ctx context.Context, d Dialect, rows *sql.Rows, maxRows int, sta
 				r, err := ScanRow(d, rows, cts, kinds)
 				if err != nil {
 					return err
+				}
+				if !full {
+					driver.PreviewRow(r)
 				}
 				batch = append(batch, r)
 				count++

@@ -10,26 +10,26 @@ import { Alert, Button, Dialog, Field, Spinner } from "../../components/ui";
  *  the console so read-only rules, confirmations and the audit log apply. */
 export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Connection; action: "drop" | "truncate"; target: ObjectRef; onClose(): void; onDone?(): void }) {
   const qc = useQueryClient();
-  const [stmts, setStmts] = useState<string[] | null>(null);
+  const [script, setScript] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [typed, setTyped] = useState("");
   const [cascade, setCascade] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setStmts(null);
-    post<{ statements: string[] }>(`c/${conn.id}/ddl`, { action, ref: target, cascade })
-      .then((r) => setStmts(r.statements))
+    setScript(null);
+    post<{ script: string }>(`c/${conn.id}/ddl`, { action, ref: target, cascade })
+      .then((r) => setScript(r.script))
       .catch((e) => setError(e instanceof ApiError ? e.message : String(e)));
   }, [conn.id, action, target, cascade]);
 
   const run = async () => {
-    if (!stmts) return;
+    if (!script) return;
     setBusy(true);
     setError("");
     try {
       let failed = "";
-      for await (const ev of stream(`c/${conn.id}/query`, { tab: `ddl-${target.name}`, database: target.database, schema: target.schema, sql: stmts.join(";\n"), confirm: true })) {
+      for await (const ev of stream(`c/${conn.id}/query`, { tab: `ddl-${target.name}`, database: target.database, schema: target.schema, sql: script, confirm: true })) {
         if (ev.t === "stmtEnd" && ev.error) failed = ev.error.message;
       }
       if (failed) throw new Error(failed);
@@ -52,14 +52,14 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="danger" loading={busy} disabled={!stmts || typed !== target.name} onClick={run}>
+          <Button variant="danger" loading={busy} disabled={!script || typed !== target.name} onClick={run}>
             {action === "drop" ? <Trash2 /> : <Scissors />} {verb} {target.name}
           </Button>
         </>
       }>
       <div className="col gap-4">
         {conn.environment === "production" && <Alert kind="danger" title="This is a production connection">{conn.name}</Alert>}
-        {stmts ? <pre className="ddlpreview mono">{stmts.join(";\n") + ";"}</pre> : !error && <Spinner />}
+        {script ? <pre className="ddlpreview mono">{script.trim()}</pre> : !error && <Spinner />}
         {action === "drop" && conn.driver === "postgres" && (
           <label className="check"><input type="checkbox" checked={cascade} onChange={(e) => setCascade(e.target.checked)} /> Also drop dependent objects (CASCADE)</label>
         )}

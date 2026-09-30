@@ -48,6 +48,19 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	if persistence == "u" {
 		t.Options["unlogged"] = "true"
 	}
+	var partKey, parent, bound sql.NullString
+	if db.QueryRowContext(ctx, `SELECT CASE WHEN c.relkind = 'p' THEN pg_get_partkeydef(c.oid) END,
+		(SELECT quote_ident(pn.nspname) || '.' || quote_ident(pc.relname) FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent
+			JOIN pg_namespace pn ON pn.oid = pc.relnamespace WHERE i.inhrelid = c.oid AND c.relispartition LIMIT 1),
+		CASE WHEN c.relispartition THEN pg_get_expr(c.relpartbound, c.oid) END
+		FROM pg_class c WHERE c.oid = $1`, oid).Scan(&partKey, &parent, &bound) == nil {
+		if partKey.Valid {
+			t.Options["partition_by"] = partKey.String
+		}
+		if parent.Valid && bound.Valid {
+			t.Options["partition_of"], t.Options["partition_bound"] = parent.String, bound.String
+		}
+	}
 
 	if err := describeColumns(ctx, db, oid, t); err != nil {
 		return nil, err

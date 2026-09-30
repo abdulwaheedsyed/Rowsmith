@@ -339,7 +339,11 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 		CASE WHEN c.reltuples >= 0 THEN c.reltuples::bigint END,
 		CASE WHEN c.relkind IN ('r','m','p','t') THEN pg_total_relation_size(c.oid) END,
 		COALESCE(obj_description(c.oid, 'pg_class'), ''),
-		CASE WHEN c.relispartition THEN 'partition of ' || (SELECT pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent WHERE i.inhrelid = c.oid LIMIT 1) ELSE '' END
+		CASE WHEN c.relispartition THEN 'partition of ' || (SELECT pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent WHERE i.inhrelid = c.oid LIMIT 1) ELSE '' END,
+		COALESCE((SELECT e.extname FROM pg_depend d JOIN pg_extension e ON e.oid = d.refobjid
+			WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.refclassid = 'pg_extension'::regclass AND d.deptype = 'e' LIMIT 1), ''),
+		CASE WHEN c.relkind = 'S' THEN COALESCE((SELECT CASE d.deptype WHEN 'i' THEN 'identity' ELSE 'serial' END FROM pg_depend d
+			WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.refclassid = 'pg_class'::regclass AND d.deptype IN ('a', 'i') LIMIT 1), '') ELSE '' END
 		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 		WHERE n.nspname = $1 AND c.relkind IN ('r','p','v','m','f','S')
 		ORDER BY c.relname`, schema)
@@ -350,7 +354,7 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 		var o driver.Object
 		var kind string
 		var n, size sql.NullInt64
-		if err := rows.Scan(&o.Name, &kind, &n, &size, &o.Comment, &o.Extra); err != nil {
+		if err := rows.Scan(&o.Name, &kind, &n, &size, &o.Comment, &o.Extra, &o.Extension, &o.OwnedBy); err != nil {
 			rows.Close()
 			return nil, err
 		}

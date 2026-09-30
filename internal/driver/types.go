@@ -164,6 +164,12 @@ type Object struct {
 	Collation string `json:"collation,omitempty"`
 	Updated   string `json:"updated,omitempty"`
 	Extra     string `json:"extra,omitempty"` // e.g. routine signature
+	// Extension names the extension that owns the object (PostgreSQL);
+	// dumps leave such objects to CREATE EXTENSION.
+	Extension string `json:"extension,omitempty"`
+	// OwnedBy is set for sequences created by an identity or serial column
+	// ("identity" or "serial"), which the column recreates.
+	OwnedBy string `json:"ownedBy,omitempty"`
 }
 
 type Column struct {

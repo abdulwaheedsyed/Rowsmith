@@ -31,6 +31,9 @@ type Config struct {
 
 	// Insecure disables the Secure cookie flag and HSTS. Only for local http development.
 	Insecure bool
+
+	// MaxUpload caps import file uploads, in bytes.
+	MaxUpload int64
 }
 
 func Load() (*Config, error) {
@@ -43,6 +46,7 @@ func Load() (*Config, error) {
 		SessionIdle:     durEnv("ROWSMITH_SESSION_IDLE", 8*time.Hour),
 		SessionAbsolute: durEnv("ROWSMITH_SESSION_MAX", 72*time.Hour),
 		Insecure:        boolEnv("ROWSMITH_INSECURE_COOKIES", false),
+		MaxUpload:       int64(intEnv("ROWSMITH_MAX_UPLOAD_MB", 1024)) << 20,
 		BasePath:        "/",
 	}
 	if c.MasterKeyFile == "" && c.MasterKey == "" {
@@ -107,4 +111,16 @@ func durEnv(k string, def time.Duration) time.Duration {
 		return def
 	}
 	return d
+}
+
+func intEnv(k string, def int) int {
+	v := strings.TrimSpace(os.Getenv(k))
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }

@@ -83,6 +83,17 @@ func (b *queryBuilder) arg(v any) string {
 
 // BuildSelect renders the SELECT used by the data browser.
 func (e *Engine) BuildSelect(t *driver.Table, req driver.BrowseRequest, count bool) (string, []any, error) {
+	return e.buildSelect(t, req, count, false)
+}
+
+// ExportQuery returns the browse query for every matching row: same columns,
+// filters and order as the grid, without paging or the hidden row key. It
+// implements driver.BrowseQuerier for the engines built on Engine.
+func (e *Engine) ExportQuery(t *driver.Table, req driver.BrowseRequest) (string, []any, error) {
+	return e.buildSelect(t, req, false, true)
+}
+
+func (e *Engine) buildSelect(t *driver.Table, req driver.BrowseRequest, count, export bool) (string, []any, error) {
 	d := e.D
 	b := &queryBuilder{d: d}
 	byName := map[string]*driver.Column{}
@@ -108,7 +119,7 @@ func (e *Engine) BuildSelect(t *driver.Table, req driver.BrowseRequest, count bo
 			}
 			sel = append(sel, expr)
 		}
-		if t.RowKeyKind == "rowid" && e.RowIDExpr != "" {
+		if t.RowKeyKind == "rowid" && e.RowIDExpr != "" && !export {
 			sel = append(sel, e.RowIDExpr+" AS "+d.QuoteIdent(HiddenRowKey))
 		}
 		if len(sel) == 0 {
@@ -181,6 +192,9 @@ func (e *Engine) BuildSelect(t *driver.Table, req driver.BrowseRequest, count bo
 	if len(order) > 0 {
 		q.WriteString(" ORDER BY ")
 		q.WriteString(strings.Join(order, ", "))
+	}
+	if export {
+		return q.String(), b.args, nil
 	}
 	limit := req.Limit
 	if limit <= 0 || limit > 100000 {
