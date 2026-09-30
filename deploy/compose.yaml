@@ -29,6 +29,10 @@ services:
       - rowsmith_master_key
     volumes:
       - rowsmith-data:/data
+      # A database on this host that listens on 127.0.0.1 only can be reached
+      # through its Unix socket: mount the socket's directory, then enter the
+      # socket path (e.g. /run/mysqld/mysqld.sock) as the connection's host.
+      # - /run/mysqld:/run/mysqld:ro
     ports:
       - "127.0.0.1:8095:8080"   # only the local reverse proxy can reach it
     extra_hosts:

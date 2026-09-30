@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -47,6 +49,7 @@ var types = []string{
 
 func (d *mysqlDriver) Info() driver.Info {
 	fields := driver.NetworkFields(3306, "Database", false)
+	fields[0].Help = "A host name or IP address, or the path of a Unix socket mounted into the Rowsmith container, such as /run/mysqld/mysqld.sock."
 	fields = append(fields, driver.TLSFields("prefer")...)
 	fields = append(fields,
 		driver.Field{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
@@ -61,6 +64,17 @@ func (d *mysqlDriver) Info() driver.Info {
 			ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"mysql", "mariadb"}, QuoteChar: "`",
 	}
+}
+
+// checkSocket accepts only an existing Unix socket, so the host field cannot
+// be used to probe other paths inside the container.
+func checkSocket(path string) error {
+	if filepath.Clean(path) == path {
+		if st, err := os.Stat(path); err == nil && st.Mode()&os.ModeSocket != 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("no MySQL socket at %s: the socket's directory must be mounted into the Rowsmith container", path)
 }
 
 type conn struct {
@@ -79,8 +93,19 @@ func (d *mysqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Con
 		return nil, errors.New("host is required")
 	}
 	cfg := my.NewConfig()
-	cfg.Net = "tcp"
-	cfg.Addr = fmt.Sprintf("%s:%d", host, port)
+	socket := strings.HasPrefix(host, "/")
+	if socket {
+		if p.Dial != nil {
+			return nil, errors.New("a Unix socket cannot be used through an SSH tunnel: enter a host name, or turn the tunnel off")
+		}
+		if err := checkSocket(host); err != nil {
+			return nil, err
+		}
+		cfg.Net, cfg.Addr = "unix", host
+	} else {
+		cfg.Net = "tcp"
+		cfg.Addr = fmt.Sprintf("%s:%d", host, port)
+	}
 	cfg.User = p.String("user")
 	cfg.Passwd = p.Secret("password")
 	cfg.DBName = p.String("database")
@@ -99,7 +124,11 @@ func (d *mysqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Con
 		dial := p.Dial
 		cfg.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) { return dial(ctx, "tcp", addr) }
 	}
-	switch mode := p.String("tls"); mode {
+	mode := p.String("tls")
+	if socket {
+		mode = "disable" // the traffic never leaves the machine
+	}
+	switch mode {
 	case "", "disable":
 	case "prefer":
 		cfg.TLSConfig = "preferred"

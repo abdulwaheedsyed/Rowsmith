@@ -18,7 +18,7 @@ function target(c: Connection) {
   const p = c.params as Record<string, any>;
   if (p.project) return `${p.project}${p.dataset ? "." + p.dataset : ""}`;
   if (p.file) return String(p.file);
-  const host = p.host ? `${p.host}${p.port ? ":" + p.port : ""}` : "";
+  const host = p.host ? `${p.host}${p.port && !String(p.host).startsWith("/") ? ":" + p.port : ""}` : "";
   const db = p.database || p.service || "";
   return [host, db].filter(Boolean).join(" / ");
 }

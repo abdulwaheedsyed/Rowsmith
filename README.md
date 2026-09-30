@@ -160,7 +160,7 @@ docker logs rowsmith 2>&1 | grep "setup code"
 
 [`deploy/Caddyfile.example`](deploy/Caddyfile.example) shows Caddy on its own subdomain or under a path such as `/sql`. Keep `flush_interval -1` so query results stream. A subdomain is the stronger choice: under a shared hostname, other apps on that hostname share Rowsmith's browser origin.
 
-To reach a database on the Docker host, use `host.docker.internal` as the host name. The database must listen on an address other than `127.0.0.1`.
+To reach a database on the Docker host, use `host.docker.internal` as the host name. The database must listen on an address other than `127.0.0.1`. For a MySQL or MariaDB server that listens on `127.0.0.1` only, mount its socket directory instead (see the commented volume in `deploy/compose.yaml`) and enter the socket path, such as `/run/mysqld/mysqld.sock`, as the host. The server then sees a local login, so `user@localhost` accounts work.
 
 ### Command line
 
