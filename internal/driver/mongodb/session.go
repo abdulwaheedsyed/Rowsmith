@@ -134,6 +134,9 @@ func argInt(args []any, i int) int64 {
 func (s *session) run(ctx context.Context, cmd command, opts driver.ExecOptions, sink driver.Sink) error {
 	start := time.Now()
 	db := s.c.client.Database(s.db)
+	if cmd.database != "" {
+		db = s.c.client.Database(cmd.database)
+	}
 	if cmd.use != "" {
 		s.db = cmd.use
 		sink.Notice("info", "switched to db "+cmd.use)

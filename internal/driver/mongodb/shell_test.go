@@ -75,9 +75,11 @@ func TestClassify(t *testing.T) {
 		"db.t.updateOne({a: 1}, {$set: {b: 2}})":          driver.StmtWrite,
 		"db.t.createIndex({a: 1})":                        driver.StmtDDL,
 		"db.runCommand({ ping: 1 })":                      driver.StmtRead,
-		"db.runCommand({ dropDatabase: 1 })":              driver.StmtWrite,
-		"show dbs":                                        driver.StmtRead,
-		"use x":                                           driver.StmtSession,
+		"db.runCommand({ dropDatabase: 1 })":              driver.StmtDDL,
+		"db.runCommand({ collMod: 'x', validator: {} })":  driver.StmtDDL,
+		"db.runCommand({ insert: 'x', documents: [] })":   driver.StmtWrite,
+		"show dbs": driver.StmtRead,
+		"use x":    driver.StmtSession,
 	}
 	for src, want := range cases {
 		cmds, err := parseScript(src)

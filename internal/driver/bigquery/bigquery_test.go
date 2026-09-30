@@ -27,6 +27,8 @@ var (
 	_ driver.Definer        = (*conn)(nil)
 	_ driver.Catalog        = (*conn)(nil)
 	_ driver.Classifier     = (*conn)(nil)
+	_ driver.DDLGenerator   = (*conn)(nil)
+	_ driver.SchemaDDL      = (*conn)(nil)
 )
 
 func rat(s string) *big.Rat {
@@ -46,7 +48,7 @@ func TestInfo(t *testing.T) {
 	if info.Name != "BigQuery" || info.Order != 70 || info.Dialect != "bigquery" || info.QuoteChar != "`" || info.SSH {
 		t.Fatalf("info = %+v", info)
 	}
-	want := driver.Caps{Schemas: true, SQL: true, Explain: true, Processes: true, Geometry: true, CostEstimate: true}
+	want := driver.Caps{Schemas: true, SQL: true, DDL: true, Explain: true, Processes: true, Geometry: true, CostEstimate: true}
 	if info.Caps != want {
 		t.Fatalf("caps = %+v", info.Caps)
 	}

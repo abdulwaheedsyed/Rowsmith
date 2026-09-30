@@ -64,8 +64,9 @@ func (bqDriver) Info() driver.Info {
 		ID: "bigquery", Name: "BigQuery", Order: 70,
 		Description: "Google BigQuery (GoogleSQL) with dry-run cost estimates and free table previews",
 		Dialect:     "bigquery", Fields: fields, SSH: false,
-		Caps:  driver.Caps{Schemas: true, SQL: true, Explain: true, Processes: true, Geometry: true, CostEstimate: true},
+		Caps:  driver.Caps{Schemas: true, SQL: true, DDL: true, Explain: true, Processes: true, Geometry: true, CostEstimate: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"bigquery"}, QuoteChar: "`",
+		Design: &design,
 	}
 }
 

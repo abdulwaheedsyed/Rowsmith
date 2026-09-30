@@ -79,7 +79,11 @@ func (c *conn) Explain(ctx context.Context, s driver.Scope, stmt string, analyze
 		verbosity = "executionStats"
 	}
 	var out bson.D
-	if err := c.db(s.Database).RunCommand(ctx, bson.D{{Key: "explain", Value: inner}, {Key: "verbosity", Value: verbosity}}).Decode(&out); err != nil {
+	database := s.Database
+	if cmd.database != "" {
+		database = cmd.database
+	}
+	if err := c.db(database).RunCommand(ctx, bson.D{{Key: "explain", Value: inner}, {Key: "verbosity", Value: verbosity}}).Decode(&out); err != nil {
 		return nil, mapError(err)
 	}
 	raw, _ := bson.MarshalExtJSONIndent(out, false, false, "", "  ")

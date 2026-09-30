@@ -4,7 +4,6 @@ package mongodb
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -55,10 +54,11 @@ func (mongoDriver) Info() driver.Info {
 			{Key: "tlsCA", Label: "CA certificate (PEM)", Type: driver.FieldFile, Section: "tls", ShowIf: map[string][]string{"tls": {"require", "verify-ca", "verify-full"}}},
 			{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
 		},
-		Caps: driver.Caps{Databases: true, Documents: true, EditRows: true, Explain: true, Processes: true, Variables: true, Users: true,
-			Geometry: true, CreateDatabase: false},
-		Kinds: kinds,
-		Types: []string{"string", "int", "long", "double", "decimal", "bool", "date", "objectId", "object", "array", "binData"},
+		Caps: driver.Caps{Databases: true, Documents: true, EditRows: true, DDL: true, Explain: true, Processes: true, Variables: true,
+			Users: true, Geometry: true, CreateDatabase: false},
+		Kinds:  kinds,
+		Design: &design,
+		Types:  []string{"string", "int", "long", "double", "decimal", "bool", "date", "objectId", "object", "array", "binData"},
 	}
 }
 
@@ -363,9 +363,10 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 		for _, e := range o {
 			switch e.Key {
 			case "validator":
-				b, _ := bson.MarshalExtJSON(bson.D{{Key: "v", Value: e.Value}}, false, false)
-				t.Options["validator"] = strings.TrimSuffix(strings.TrimPrefix(string(b), `{"v":`), "}")
-			case "capped", "size", "max", "expireAfterSeconds", "viewOn":
+				t.Options["validator"] = shellLiteralIndent(e.Value)
+			case "size", "max", "expireAfterSeconds":
+				t.Options[e.Key] = numText(e.Value)
+			case "capped", "viewOn", "validationLevel", "validationAction":
 				t.Options[e.Key] = fmt.Sprint(e.Value)
 			case "timeseries":
 				b, _ := bson.MarshalExtJSON(e.Value, false, false)
@@ -407,35 +408,7 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 			var ixs []bson.D
 			_ = icur.All(ctx, &ixs)
 			for _, ix := range ixs {
-				idx := driver.Index{}
-				for _, e := range ix {
-					switch e.Key {
-					case "name":
-						idx.Name = fmt.Sprint(e.Value)
-					case "unique":
-						idx.Unique, _ = e.Value.(bool)
-					case "key":
-						if kd, ok := e.Value.(bson.D); ok {
-							for _, k := range kd {
-								idx.Columns = append(idx.Columns, k.Key)
-								dir := fmt.Sprint(k.Value)
-								idx.Desc = append(idx.Desc, dir == "-1")
-								if dir != "1" && dir != "-1" {
-									idx.Type = dir // 2dsphere, text, hashed…
-								}
-							}
-						}
-					case "partialFilterExpression":
-						b, _ := bson.MarshalExtJSON(e.Value, false, false)
-						idx.Where = string(b)
-					case "expireAfterSeconds":
-						idx.Comment = "TTL " + fmt.Sprint(e.Value) + "s"
-					}
-				}
-				if idx.Name == "_id_" {
-					idx.Primary, idx.Unique = true, true
-				}
-				t.Indexes = append(t.Indexes, idx)
+				t.Indexes = append(t.Indexes, describeIndex(ref.Name, ix))
 			}
 		}
 		t.PrimaryKey = []string{"_id"}
@@ -447,8 +420,7 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 
 // recreateScript renders shell commands that recreate the collection.
 func recreateScript(name, kind string, opts bson.D, idx []driver.Index) string {
-	var b strings.Builder
-	q, _ := json.Marshal(name)
+	q := quoteStr(name)
 	if kind == "view" {
 		var on string
 		var pipeline any = bson.A{}
@@ -460,42 +432,18 @@ func recreateScript(name, kind string, opts bson.D, idx []driver.Index) string {
 				pipeline = e.Value
 			}
 		}
-		pj, _ := bson.MarshalExtJSON(bson.D{{Key: "p", Value: pipeline}}, false, false)
-		onq, _ := json.Marshal(on)
-		fmt.Fprintf(&b, "db.createView(%s, %s, %s)", q, onq, strings.TrimSuffix(strings.TrimPrefix(string(pj), `{"p":`), "}"))
-		return b.String()
+		return "db.createView(" + q + ", " + quoteStr(on) + ", " + shellLiteral(pipeline) + ")"
 	}
-	oj := "{}"
+	var b strings.Builder
+	b.WriteString("db.createCollection(" + q)
 	if len(opts) > 0 {
-		if raw, err := bson.MarshalExtJSON(opts, false, false); err == nil {
-			oj = string(raw)
-		}
+		b.WriteString(", " + shellLiteral(opts))
 	}
-	fmt.Fprintf(&b, "db.createCollection(%s, %s)", q, oj)
+	b.WriteString(")")
 	for _, ix := range idx {
-		if ix.Primary {
-			continue
+		if !ix.Primary && ix.Definition != "" {
+			b.WriteString("\n" + ix.Definition)
 		}
-		keys := make([]string, len(ix.Columns))
-		for i, k := range ix.Columns {
-			kq, _ := json.Marshal(k)
-			dir := "1"
-			if ix.Type != "" {
-				dir = strconv.Quote(ix.Type)
-			} else if i < len(ix.Desc) && ix.Desc[i] {
-				dir = "-1"
-			}
-			keys[i] = string(kq) + ": " + dir
-		}
-		nq, _ := json.Marshal(ix.Name)
-		extra := ""
-		if ix.Unique {
-			extra = ", unique: true"
-		}
-		if ix.Where != "" {
-			extra += ", partialFilterExpression: " + ix.Where
-		}
-		fmt.Fprintf(&b, "\ndb.getCollection(%s).createIndex({%s}, {name: %s%s})", q, strings.Join(keys, ", "), nq, extra)
 	}
 	return b.String()
 }

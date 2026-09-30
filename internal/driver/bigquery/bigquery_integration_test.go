@@ -401,3 +401,78 @@ func checkAda(t *testing.T, cn driver.Conn, ref driver.ObjectRef) {
 		t.Errorf("payload = %#v", row[idx["payload"]])
 	}
 }
+
+// TestIntegrationDDL creates a table from generated DDL on the emulator and
+// checks that its described structure round-trips without statements. The
+// emulator accepts most ALTER TABLE actions without applying them, rejects
+// RENAME COLUMN, SET DATA TYPE and DROP SCHEMA, and ignores DROP TABLE, so
+// changes are covered by the unit tests.
+func TestIntegrationDDL(t *testing.T) {
+	ep := os.Getenv("ROWSMITH_TEST_BQ_ENDPOINT")
+	if ep == "" {
+		t.Skip("set ROWSMITH_TEST_BQ_ENDPOINT to run against the BigQuery emulator")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	d, _ := driver.Get("bigquery")
+	cn, err := d.Open(ctx, driver.OpenParams{Params: map[string]any{"project": "rowsmith-dev", "dataset": "analytics", "endpoint": ep}})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer cn.Close()
+	gen := cn.(driver.DDLGenerator)
+	sess, err := cn.NewSession(ctx, driver.Scope{Schema: "analytics"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+
+	table := "it_ddl_" + strconv.FormatInt(time.Now().UnixNano()%1_000_000_000, 36)
+	ref := driver.ObjectRef{Schema: "analytics", Name: table, Kind: "table"}
+	stmts, err := gen.CreateTableSQL(driver.TableDef{Ref: ref, Comment: "Generated",
+		Columns: []driver.ColumnDef{
+			{Column: driver.Column{Name: "id", Type: "INT64", Comment: "key"}},
+			{Column: driver.Column{Name: "name", Type: "STRING", Nullable: true, Default: strp("'anon'")}},
+			{Column: driver.Column{Name: "amount", Type: "NUMERIC(12, 2)", Nullable: true}},
+			{Column: driver.Column{Name: "tags", Type: "ARRAY<STRING>"}},
+			{Column: driver.Column{Name: "address", Type: "STRUCT<city STRING, zip INT64>", Nullable: true}},
+			{Column: driver.Column{Name: "day", Type: "DATE", Nullable: true}},
+		},
+		PrimaryKey: []string{"id"},
+		Options:    map[string]string{"partition_by": "day", "cluster_by": "id", "labels": "env=test"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustOK(t, exec(t, sess, strings.Join(stmts, ";\n"), driver.ExecOptions{}))
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := cn.(*conn).client.Dataset("analytics").Table(table).Delete(ctx); err != nil {
+			t.Errorf("cleanup: %v", err)
+		}
+	}()
+
+	from, err := cn.Describe(ctx, ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The emulator keeps names and types but drops NOT NULL, defaults,
+	// descriptions, parameterized precision and keys.
+	if len(from.Columns) != 6 || from.Columns[4].Type != "STRUCT<city STRING, zip INT64>" {
+		t.Fatalf("described columns = %+v", from.Columns)
+	}
+	if again, err := gen.AlterTableSQL(from, defFromTable(from)); err != nil || len(again) != 0 {
+		t.Fatalf("unchanged table produced %q, %v", again, err)
+	}
+
+	trunc, err := gen.TruncateSQL(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustOK(t, exec(t, sess, "INSERT INTO `rowsmith-dev.analytics."+table+"` (id, tags) VALUES (1, ['a'])", driver.ExecOptions{}))
+	mustOK(t, exec(t, sess, strings.Join(trunc, ";\n"), driver.ExecOptions{}))
+	if n, err := cn.Count(ctx, driver.BrowseRequest{Ref: ref}); err != nil || n.Rows != 0 {
+		t.Errorf("rows after TRUNCATE = %+v, %v", n, err)
+	}
+}
