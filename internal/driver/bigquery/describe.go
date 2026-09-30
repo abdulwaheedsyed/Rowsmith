@@ -325,11 +325,11 @@ func buildDDL(path string, t *driver.Table, md *bigquery.TableMetadata) string {
 		b.WriteString("\n(\n")
 		for i, fs := range md.Schema {
 			b.WriteString("  " + quote(fs.Name) + " " + typeName(fs))
+			if fs.DefaultValueExpression != "" { // GoogleSQL wants DEFAULT before NOT NULL
+				b.WriteString(" DEFAULT " + fs.DefaultValueExpression)
+			}
 			if fs.Required && !fs.Repeated {
 				b.WriteString(" NOT NULL")
-			}
-			if fs.DefaultValueExpression != "" {
-				b.WriteString(" DEFAULT " + fs.DefaultValueExpression)
 			}
 			if fs.Description != "" {
 				b.WriteString(" OPTIONS(description=" + strconv.Quote(fs.Description) + ")")
