@@ -129,6 +129,7 @@ func (c *conn) describeColumns(ctx context.Context, db string, id int64, t *driv
 		switch {
 		case isComputed:
 			col.Generated = unwrapParens(computed)
+			col.GeneratedStored = persisted
 		case col.BaseType == "timestamp":
 			col.Generated = "row version, set by the server"
 		case defExpr != "":
@@ -266,12 +267,13 @@ func (c *conn) describeIndexes(ctx context.Context, db string, id int64, t *driv
 			byID[ixID] = i
 		}
 		ix := &x.indexes[i]
+		rowstore := ix.Type == "clustered" || ix.Type == "nonclustered"
 		switch {
-		case included:
-			ix.included = append(ix.included, col)
-		case keyOrdinal > 0 || strings.Contains(ix.Type, "columnstore"):
+		case keyOrdinal > 0 || !rowstore: // columnstore, XML and spatial columns have no key ordinal
 			ix.Columns = append(ix.Columns, col)
 			ix.Desc = append(ix.Desc, desc)
+		case included:
+			ix.included = append(ix.included, col)
 		}
 	}
 	if err := rows.Err(); err != nil {

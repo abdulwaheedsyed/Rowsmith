@@ -64,10 +64,21 @@ func (mssqlDriver) Info() driver.Info {
 		ID: "mssql", Name: "SQL Server", Order: 30,
 		Description: "Microsoft SQL Server 2012+, Azure SQL Database and Managed Instance",
 		Dialect:     "mssql", DefaultPort: 1433, Fields: fields, SSH: true,
-		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, Transactions: true, EditRows: true, ForeignKeys: true,
-			Explain: true, Processes: true, Variables: true, Users: true, Geometry: true},
+		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, Transactions: true, EditRows: true, DDL: true,
+			CreateDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"sqlserver", "mssql"}, QuoteChar: "[",
+		Design: &design,
 	}
+}
+
+var design = driver.TableDesign{
+	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true,
+	GeneratedVirtual: true, Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	// Index.Type as Describe reports it; the first is the default.
+	IndexTypes: []string{"nonclustered", "clustered", "nonclustered columnstore", "clustered columnstore"},
+	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "SET DEFAULT"},
+	Note: "SQL Server adds new columns at the end and cannot make an existing column IDENTITY. " +
+		"Changing a computed column, or a column it reads, drops and re-adds the computed column.",
 }
 
 // conn is one pool per server: every catalog query names its database

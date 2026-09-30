@@ -330,6 +330,21 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("DDL round trip", func(t *testing.T) {
+		// An unchanged definition of every fixture table produces no DDL.
+		for _, r := range []driver.ObjectRef{ref("customers"), ref("orders"), ref("audit_log"), ref("keyless"),
+			{Database: dbName, Schema: "sales", Name: "regions"}} {
+			tb, err := c.Describe(ctx, r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stmts, err := c.AlterTableSQL(tb, defOf(tb))
+			if err != nil || len(stmts) > 0 {
+				t.Errorf("%s: %v %q", r.Name, err, stmts)
+			}
+		}
+	})
+
 	t.Run("Definition", func(t *testing.T) {
 		want := map[string][2]string{
 			"greet":            {"procedure", "PRINT N'hello '"},
