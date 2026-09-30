@@ -131,6 +131,7 @@ func serve() error {
 	go func() {
 		for range time.Tick(15 * time.Minute) {
 			_ = st.store.PurgeExpiredSessions(context.Background(), time.Now().Add(-st.cfg.SessionIdle).UnixMilli())
+			_ = st.store.PruneNotifications(context.Background(), time.Now().Add(-90*24*time.Hour).UnixMilli())
 		}
 	}()
 
@@ -362,6 +363,20 @@ func rewrapAll(ctx context.Context, st *store.Store, v *vault.Vault) (int, error
 			continue // an unreadable key only loses that one result file
 		}
 		if err := st.SetRunFileKey(ctx, run.ID, re); err != nil {
+			return n, err
+		}
+		n++
+	}
+	results, err := st.AllShareResults(ctx)
+	if err != nil {
+		return n, err
+	}
+	for shareID, sealed := range results {
+		re, err := v.Rewrap(sealed, (&store.QueryShare{ID: shareID}).ResultAAD())
+		if err != nil {
+			continue // an unreadable snapshot only loses that one result
+		}
+		if err := st.SetShareResult(ctx, shareID, re); err != nil {
 			return n, err
 		}
 		n++

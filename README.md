@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, and scheduled queries are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Shareable query links and comments are next. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, and shared query links with comments are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Database migration between servers and engines is next. See [Roadmap](#roadmap).
 
 ---
 
@@ -19,6 +19,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | **Safety rails for production** | Statements are classified before they run. On production connections, anything that may modify data needs confirmation. `DROP`, `TRUNCATE`, and `DELETE` or `UPDATE` without `WHERE` always need it. Read-only access is enforced by the database session and by Rowsmith. |
 | **An audit trail** | Sign-ins, connection changes, sharing, data edits and every data-modifying query are recorded with who, when and from where. |
 | **Spatial data on a map** | PostGIS, MySQL and MariaDB geometry is decoded to GeoJSON, ready to show on a map. |
+| **Discuss queries where they live** | Send a teammate a link to a query, optionally with its result. Comment on any line, @mention people, reply and resolve, and get notified in the app or by email. |
 | **Reports and alerts that run themselves** | Schedule any read-only query to email its result as Excel, CSV or JSON, post to Slack, Teams or any webhook, or alert only when a row count, a value or the whole result changes. |
 | **An assistant on your own terms** | Ask for queries in plain words, or have one explained, fixed or made faster. Bring your own Anthropic, OpenAI or OpenRouter key, or point it at a model you host with Ollama. It reads the schema, never changes data, and only sees rows if you allow it. |
 
@@ -48,6 +49,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
   - session management
   - first-run setup protected by a one-time code
 - **Query history and saved queries** (private or shared with the team), plus notes on connections and objects
+- **Shared query links**: share a query with the team or chosen people, optionally with a snapshot of its result and an expiry date. Teammates comment on the whole query or on a single line, reply, resolve threads and @mention each other. A bell collects shares, mentions and replies. See [Sharing and comments](#sharing-and-comments).
 - **Scheduled queries**: run a query every few minutes, hourly, on chosen weekdays or monthly (or with a cron expression), in any time zone. Send the result by email (attached, with a preview in the message) or to a webhook, or alert only when a condition is met. Each run is kept with its file for download. See [Schedules](#schedules).
 - **AI assistant** in every query tab (`Ctrl+I`): write queries from a description, explain them, fix a failed statement from its error, or speed one up from its plan. Answers stream with SQL you can insert, replace or run. See [AI assistant](#ai-assistant).
 
@@ -85,7 +87,8 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Import and export (SQL dump, CSV, TSV, JSON, NDJSON, Excel)
 - [x] AI SQL assistant: write, explain, fix and speed up queries from your schema, with Anthropic, OpenAI, OpenRouter or a self-hosted model
 - [x] Scheduled queries and exports with email and webhook delivery and threshold alerts
-- [ ] Shareable query links and comments
+- [x] Shareable query links and comments
+- [ ] Database migration between servers and across engines (schema translation, data copy, verification)
 
 ## Architecture
 
@@ -155,6 +158,15 @@ Schedule a query from its query tab (the calendar button), from a saved query, o
 - **History**: every run is recorded with its row count, what was sent, and any error. Result files are encrypted at rest (XChaCha20-Poly1305 per 64 KiB chunk, key sealed with the master key) and deleted after 14 days by default.
 
 An admin sets up email under **Administration → Email & schedules**: an SMTP server (STARTTLS, TLS, or a trusted relay without encryption), with presets for common providers and a test message. The same page sets who may receive results: team members only, team members plus listed domains, or anyone. It also controls whether webhooks are allowed, and whether they may reach private network addresses (blocked by default, including names that resolve to them).
+
+## Sharing and comments
+
+The link button in a query tab (or **Share** on a saved query) creates a link to the query exactly as it is. Later edits in the tab don't change it, so line comments always point at the right code.
+
+- **Who can open it**: everyone on the team, or chosen people, who are notified. Links only open for people signed in to your Rowsmith, and can expire after 1, 7 or 30 days. The author can change this or delete the link. Admins can open and delete any link.
+- **Result snapshot**: optionally, Rowsmith runs the query once more on a read-only session and keeps up to 500 rows, sealed with the master key. Only people who can read that connection see the result or can open the query in a tab. Others see the SQL and the discussion. Sharing never grants data access.
+- **Comments**: click a line number to start a thread on that line, or comment on the query as a whole. Comments support `inline code`, ```sql blocks```, links and @mentions (only of people who can see the link). The thread's author or the query's author can resolve a thread.
+- **Notifications**: shares, mentions, replies in your threads and comments on your queries appear under the bell. When email is set up, they are also emailed, at most once every five minutes per query. Everyone can turn the emails off under **Account → Notifications**.
 
 ## AI assistant
 

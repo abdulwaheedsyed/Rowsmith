@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, ShieldOff, KeyRound, Monitor, Moon, Sun, LogOut } from "lucide-react";
-import { ApiError, del, get, post } from "../../lib/api";
+import { ApiError, del, get, patch, post } from "../../lib/api";
 import type { Me } from "../../lib/types";
 import { ago } from "../../lib/format";
 import { toast, useUI } from "../../lib/store";
@@ -91,6 +91,24 @@ export function Account({ me }: { me: Me }) {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="card pcard">
+          <h2 className="pcard__title">Notifications</h2>
+          <p className="pcard__desc">Shares, mentions and comments on your queries always appear under the bell. Emails need a mail server set up by an admin, and come at most once every few minutes per query.</p>
+          <label className="switch">
+            <input type="checkbox" checked={me.user.prefs?.notifyEmail !== false} onChange={async (e) => {
+              const prefs = { ...(me.user.prefs ?? {}), notifyEmail: e.target.checked };
+              try {
+                await patch("me/prefs", prefs);
+                qc.setQueryData(["me"], { ...me, user: { ...me.user, prefs } });
+                toast.success(e.target.checked ? "You'll get notification emails" : "Notification emails are off");
+              } catch (err) {
+                toast.error("Could not save", err instanceof ApiError ? err.message : String(err));
+              }
+            }} />
+            Email me when someone shares a query with me, mentions me, or comments on my queries
+          </label>
         </section>
 
         <section className="card pcard">

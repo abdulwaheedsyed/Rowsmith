@@ -54,6 +54,7 @@ type Server struct {
 	aiLimit    *auth.Limiter
 	sched      *schedule.Runner
 	schedLimit *auth.Limiter
+	talkLimit  *auth.Limiter
 }
 
 type Deps struct {
@@ -79,6 +80,7 @@ func New(d Deps) *Server {
 	s.sched = &schedule.Runner{Store: d.Store, Vault: d.Vault, Sessions: d.Sessions, Log: d.Log,
 		Dir: filepath.Join(d.Config.DataDir, "results"), BaseURL: s.baseURL(), Settings: s.scheduleSettings}
 	s.schedLimit = auth.NewLimiter(10, 5) // manual and test runs per minute, per person
+	s.talkLimit = auth.NewLimiter(30, 15) // shares and comments per minute, per person
 	s.cookieName = "rowsmith_session"
 	if d.Config.BasePath == "/" && !d.Config.Insecure {
 		// __Host- cookies must be Secure, host-only and Path=/, which blocks
@@ -220,6 +222,18 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("GET /api/schedules/{id}/runs", s.listRuns)
 	full("GET /api/schedules/{id}/runs/{run}/file", s.runFile)
 	full("POST /api/admin/mail/test", s.testMail)
+
+	full("GET /api/shares", s.listShares)
+	full("POST /api/shares", s.createShare)
+	full("GET /api/shares/{id}", s.getShare)
+	full("PATCH /api/shares/{id}", s.updateShare)
+	full("DELETE /api/shares/{id}", s.deleteShare)
+	full("POST /api/shares/{id}/comments", s.addComment)
+	full("PATCH /api/comments/{id}", s.editComment)
+	full("DELETE /api/comments/{id}", s.deleteComment)
+	full("POST /api/comments/{id}/resolve", s.resolveComment)
+	full("GET /api/notifications", s.listNotifications)
+	full("POST /api/notifications/read", s.readNotifications)
 
 	full("GET /api/history", s.listHistory)
 	full("GET /api/saved-queries", s.listSaved)

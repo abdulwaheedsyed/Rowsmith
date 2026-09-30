@@ -158,24 +158,36 @@ const KEYWORDS = new Set(("select from where and or not in is null as join left 
   "begin commit rollback explain analyze top fetch first rows only nulls lateral using natural recursive filter").split(" "));
 
 /** Tokenizes SQL for display: keywords, strings, numbers, comments. */
-export function highlightSQL(code: string): ReactNode[] {
-  const out: ReactNode[] = [];
+/** SQL split into highlighted tokens; cls is "" for plain text. */
+export function sqlTokens(code: string): { cls: string; text: string }[] {
+  const out: { cls: string; text: string }[] = [];
   const re = /(--[^\n]*|\/\*[\s\S]*?\*\/)|('(?:[^']|'')*'?)|("(?:[^"]|"")*"|`[^`]*`|\[[^\]\n]*\])|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_$]*)/g;
   let last = 0;
   let m: RegExpExecArray | null;
-  let n = 0;
   while ((m = re.exec(code))) {
-    if (m.index > last) out.push(code.slice(last, m.index));
+    if (m.index > last) out.push({ cls: "", text: code.slice(last, m.index) });
     const s = m[0];
-    const k = n++;
-    if (m[1]) out.push(<span key={k} className="hl-comment">{s}</span>);
-    else if (m[2]) out.push(<span key={k} className="hl-string">{s}</span>);
-    else if (m[3]) out.push(<span key={k} className="hl-ident">{s}</span>);
-    else if (m[4]) out.push(<span key={k} className="hl-number">{s}</span>);
-    else if (KEYWORDS.has(s.toLowerCase())) out.push(<span key={k} className="hl-keyword">{s}</span>);
-    else out.push(s);
+    const cls = m[1] ? "hl-comment" : m[2] ? "hl-string" : m[3] ? "hl-ident" : m[4] ? "hl-number" : KEYWORDS.has(s.toLowerCase()) ? "hl-keyword" : "";
+    out.push({ cls, text: s });
     last = m.index + s.length;
   }
-  if (last < code.length) out.push(code.slice(last));
+  if (last < code.length) out.push({ cls: "", text: code.slice(last) });
   return out;
+}
+
+export function highlightSQL(code: string): ReactNode[] {
+  return sqlTokens(code).map((t, i) => (t.cls ? <span key={i} className={t.cls}>{t.text}</span> : t.text));
+}
+
+/** Highlighted SQL, one entry per line, keeping multi-line tokens intact. */
+export function highlightLines(code: string): ReactNode[][] {
+  const lines: ReactNode[][] = [[]];
+  let k = 0;
+  for (const t of sqlTokens(code)) {
+    t.text.split("\n").forEach((piece, i) => {
+      if (i > 0) lines.push([]);
+      if (piece) lines[lines.length - 1].push(t.cls ? <span key={k++} className={t.cls}>{piece}</span> : piece);
+    });
+  }
+  return lines;
 }

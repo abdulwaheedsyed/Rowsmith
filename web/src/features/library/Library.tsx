@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookMarked, History, Search, Trash2, Play, Users, Lock, CheckCircle2, CircleAlert, Ban, CalendarClock } from "lucide-react";
+import { BookMarked, History, Search, Trash2, Play, Users, Lock, CheckCircle2, CircleAlert, Ban, CalendarClock, Link2 } from "lucide-react";
 import { del, get, qs } from "../../lib/api";
 import { useConnections } from "../../lib/queries";
 import type { HistoryEntry, SavedQuery } from "../../lib/types";
@@ -10,22 +10,32 @@ import { Button, Dialog, Empty, Env, Spinner } from "../../components/ui";
 import { newQueryTab } from "../workspace/actions";
 import { openNewSchedule } from "../schedules/ScheduleDialog";
 import { usePolicy } from "../schedules/api";
+import { SharedList } from "../shares/SharedList";
+import { openShareDialog } from "../shares/ShareDialog";
 
 export function Library() {
-  const [tab, setTab] = useState<"saved" | "history">("saved");
+  const [tab, setTabState] = useState<"saved" | "history" | "shared">(() => {
+    const t = new URLSearchParams(location.search).get("tab");
+    return t === "shared" || t === "history" ? t : "saved";
+  });
+  const setTab = (t: "saved" | "history" | "shared") => {
+    setTabState(t);
+    history.replaceState(history.state, "", t === "saved" ? location.pathname : `${location.pathname}?tab=${t}`);
+  };
   return (
     <div className="page">
       <header className="page__head">
         <div>
           <h1 className="page__title display">Library</h1>
-          <p className="page__sub">Queries you saved or that your team shared, and everything you have run.</p>
+          <p className="page__sub">Queries you saved, links shared for discussion, and everything you have run.</p>
         </div>
       </header>
       <div className="page__tabs" role="tablist">
         <button className="page__tab" role="tab" aria-selected={tab === "saved"} onClick={() => setTab("saved")}><BookMarked /> Saved queries</button>
+        <button className="page__tab" role="tab" aria-selected={tab === "shared"} onClick={() => setTab("shared")}><Link2 /> Shared with the team</button>
         <button className="page__tab" role="tab" aria-selected={tab === "history"} onClick={() => setTab("history")}><History /> History</button>
       </div>
-      {tab === "saved" ? <Saved /> : <HistoryList />}
+      {tab === "saved" ? <Saved /> : tab === "shared" ? <SharedList /> : <HistoryList />}
     </div>
   );
 }
@@ -67,6 +77,9 @@ function Saved() {
                 </div>
                 <Button size="sm" variant="primary" disabled={!conn} onClick={() => conn && newQueryTab(conn, { sql: s.body, title: s.name, database: s.database || undefined, savedQueryId: s.id })}>
                   <Play /> Open
+                </Button>
+                <Button size="sm" variant="ghost" disabled={!conn} onClick={() => conn && openShareDialog({ connectionId: conn.id, connectionName: conn.name, database: s.database || undefined, title: s.name, body: s.body, canResult: true })}>
+                  <Link2 /> Share
                 </Button>
                 {canSchedule && <Button size="sm" variant="ghost" disabled={!conn} onClick={() => conn && openNewSchedule({ connectionId: conn.id, database: s.database, name: s.name, body: s.body })}>
                   <CalendarClock /> Schedule

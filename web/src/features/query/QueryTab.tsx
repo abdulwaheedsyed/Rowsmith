@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format as formatSQL } from "sql-formatter";
-import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert, Sparkles, CalendarClock } from "lucide-react";
+import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert, Sparkles, CalendarClock, Link2 } from "lucide-react";
 import { ApiError, get, post, put, stream } from "../../lib/api";
 import { useCatalog, useDriver, useDatabases, useSchemas } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
@@ -12,6 +12,7 @@ import { SqlEditor, byteOffset, statementAround, type EditorHandle, type Stateme
 import { AssistantPanel } from "../ai/AssistantPanel";
 import { openNewSchedule } from "../schedules/ScheduleDialog";
 import { usePolicy } from "../schedules/api";
+import { openShareDialog } from "../shares/ShareDialog";
 import { useAssistant, type EditorContext } from "../ai/store";
 import { Results } from "./Results";
 import { errorText, useRuns, type RunState, type StmtRun } from "./runs";
@@ -346,6 +347,15 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
         )}
         <Tip label={<>Save query <Kbd>{modKey()}S</Kbd></>}>
           <Button size="sm" variant="ghost" icon onClick={() => setSaveOpen(true)} aria-label="Save query"><Save /></Button>
+        </Tip>
+        <Tip label="Share a link to discuss this query">
+          <Button size="sm" variant="ghost" icon aria-label="Share this query" onClick={() => {
+            const view = editor.current?.view;
+            const sel = view?.state.selection.main;
+            const text = view && sel && !sel.empty ? view.state.sliceDoc(sel.from, sel.to) : sql;
+            if (!text.trim()) return toast.info("Write a query first", "Then share a link to it.");
+            openShareDialog({ connectionId: conn.id, connectionName: conn.name, database, schema, title: tab.title, body: text, canResult: true });
+          }}><Link2 /></Button>
         </Tip>
         {schedPolicy.data?.canCreate && <Tip label="Schedule: run it on a timetable and send the result or an alert">
           <Button size="sm" variant="ghost" icon aria-label="Schedule this query" onClick={() => {

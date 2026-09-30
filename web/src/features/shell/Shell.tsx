@@ -20,6 +20,9 @@ import { ConnectionDialog } from "../connections/ConnectionForm";
 import { Library } from "../library/Library";
 import { Schedules } from "../schedules/Schedules";
 import { ScheduleDialogHost } from "../schedules/ScheduleDialog";
+import { SharePage } from "../shares/SharePage";
+import { ShareDialogHost } from "../shares/ShareDialog";
+import { NotificationBell } from "../shares/Notifications";
 import { Admin } from "../admin/Admin";
 import { Account } from "../account/Account";
 import { StatusBar } from "./StatusBar";
@@ -91,6 +94,7 @@ export function Shell({ me }: { me: Me }) {
             <Route path="/schedules/*?">
               <Schedules me={me} />
             </Route>
+            <Route path="/q/:id">{(p) => <SharePage key={p.id} id={p.id} />}</Route>
             <Route path="/admin/*?">
               <Admin me={me} />
             </Route>
@@ -109,6 +113,7 @@ export function Shell({ me }: { me: Me }) {
       <DisconnectDialog />
       <TransferDialogs />
       <ScheduleDialogHost />
+      <ShareDialogHost />
       {editing.open && <ConnectionDialog conn={editing.conn} initialDriver={editing.driver} onClose={() => setEditing({ open: false })} />}
     </div>
   );
@@ -188,6 +193,7 @@ function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAd
         )}
       </div>
       <div className="rail__foot">
+        <NotificationBell />
         <Tip label="Saved queries & history" side="right">
           <Link href="/library" className={`rail__icon ${location.startsWith("/library") ? "is-active" : ""}`} aria-label="Library">
             <BookMarked />
@@ -349,7 +355,7 @@ function TopBar({ me, conn, onMenu }: { me: Me; conn?: Connection; onMenu(): voi
       </div>
     );
   } else {
-    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : location.startsWith("/schedules") ? "Schedules" : "Connections";
+    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : location.startsWith("/schedules") ? "Schedules" : location.startsWith("/q/") ? "Shared query" : "Connections";
     title = <div className="topbar__title"><span className="topbar__name">{label}</span></div>;
   }
   return (
@@ -377,6 +383,7 @@ function TopBar({ me, conn, onMenu }: { me: Me; conn?: Connection; onMenu(): voi
         </Tip>
       )}
       <div className="topbar__account">
+        <NotificationBell side="bottom" />
         <AccountMenu me={me} />
       </div>
     </header>

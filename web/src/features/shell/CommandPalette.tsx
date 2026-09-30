@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles, CalendarClock } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles, CalendarClock, Link2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -210,6 +210,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                 <Command.Item value="home all connections" onSelect={run(() => go("/"))}><Home /> All connections</Command.Item>
                 <Command.Item value="library saved queries history" onSelect={run(() => go("/library"))}><BookMarked /> Saved queries & history</Command.Item>
                 <Command.Item value="schedules scheduled reports alerts" onSelect={run(() => go("/schedules"))}><CalendarClock /> Schedules</Command.Item>
+                <Command.Item value="shared queries links comments discussion" onSelect={run(() => go("/library?tab=shared"))}><Link2 /> Shared queries</Command.Item>
                 <Command.Item value="account security password two-step mfa" onSelect={run(() => go("/account"))}><UserRound /> Account & security</Command.Item>
                 {isAdmin && <Command.Item value="admin users team audit log settings" onSelect={run(() => go("/admin"))}><Shield /> Administration</Command.Item>}
                 {isAdmin && <Command.Item value="email smtp mail server settings schedules policy" onSelect={run(() => go("/admin/email"))}><Shield /> Email & schedule settings</Command.Item>}
