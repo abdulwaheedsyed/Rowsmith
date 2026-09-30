@@ -670,6 +670,8 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("DDLRoundTrip", func(t *testing.T) { ddlFixtureRoundTrip(t, c) })
+
 	t.Run("Session", func(t *testing.T) {
 		sess, err := c.NewSession(ctx, driver.Scope{})
 		if err != nil {
