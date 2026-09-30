@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** The backend core and the MySQL, MariaDB and PostgreSQL/PostGIS drivers are working and covered by an end-to-end test. The web UI, the remaining drivers and the collaboration features are being built now. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels and the team vault are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. The AI assistant, scheduled exports and the structure editor are next. See [Roadmap](#roadmap).
 
 ---
 
@@ -50,25 +50,34 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | MySQL 5.7 / 8.x / 9.x (incl. Percona, Aurora MySQL) | ✅ Working |
 | MariaDB 10.x / 11.x | ✅ Working |
 | PostgreSQL 10+ with PostGIS, TimescaleDB, Supabase, Neon, Aurora, AlloyDB, Cloud SQL | ✅ Working |
-| Microsoft SQL Server / Azure SQL | 🚧 In progress |
-| Oracle Database | 🚧 In progress |
-| SQLite | 🚧 In progress |
-| MongoDB | 🚧 In progress |
-| Google BigQuery | 🚧 In progress |
+| Microsoft SQL Server 2012+ / Azure SQL | ✅ Working |
+| Oracle Database 12c+ | ✅ Working |
+| SQLite 3 | ✅ Working |
+| MongoDB 5+ | ✅ Working |
+| Google BigQuery | ✅ Working |
 
 Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install is needed.
+
+**Engine notes**
+
+- **SQL Server**: `GO` batches, `PRINT` and `RAISERROR` messages as notices, showplan XML turned into a plan tree, read-only application intent for replicas, and `geometry`/`geography` on the map.
+- **Oracle**: connect by service name or SID, optional `SYSDBA`-style roles, PL/SQL blocks split on `/`, `DBMS_OUTPUT` shown as notices, and packages, synonyms and sequences in the navigator.
+- **SQLite**: databases are files on the Rowsmith server, so the driver only opens files inside `ROWSMITH_SQLITE_DIR`. `ATTACH` is disabled and Rowsmith's own metadata database is refused. Use `:memory:` for a scratch database.
+- **MongoDB**: a console that understands mongosh syntax (`db.orders.find({...}).sort(...)`, `aggregate`, CRUD, index and collection commands) without running JavaScript on the server. Field lists are inferred from a sample of documents, and edits keep BSON types.
+- **BigQuery**: sign in with a service-account key or Application Default Credentials. Every query is dry-run first; queries estimated to process more than the connection's limit (10 GB by default) are refused, and each job carries the limit. Table previews use the free `tabledata.list` API. The service account needs `roles/bigquery.jobUser` on the project and `roles/bigquery.dataViewer` (or `dataEditor`) on the datasets.
 
 ## Roadmap
 
 - [x] Backend core: vault, auth, store, driver interface, SSH tunnels, API
-- [x] MySQL, MariaDB and PostgreSQL/PostGIS drivers
-- [ ] Web UI: connection manager, navigator, virtualized data grid, SQL editor with schema-aware autocomplete, structure editor, plan viewer, map view, command palette, mobile layout
-- [ ] SQL Server, Oracle, SQLite, MongoDB and BigQuery drivers
+- [x] MySQL, MariaDB, PostgreSQL/PostGIS, SQL Server, Oracle, SQLite, MongoDB and BigQuery drivers
+- [x] Web UI: connection manager, navigator, virtualized data grid, SQL editor with schema-aware autocomplete, plan viewer, map view, command palette, mobile layout
+- [x] Relationship (ER) diagrams
+- [x] Production container image and reverse-proxy examples
+- [ ] Structure editor: create and alter tables from a form (DDL generation is done for MySQL and PostgreSQL)
 - [ ] Import and export (SQL dump, CSV, JSON, XLSX)
-- [ ] Relationship (ER) diagrams
 - [ ] AI SQL assistant (Claude): write, explain and fix queries from your schema
 - [ ] Scheduled queries and exports with email delivery and threshold alerts
-- [ ] Production container image and reverse-proxy examples
+- [ ] Shareable query links and comments
 
 ## Architecture
 
@@ -118,7 +127,36 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 | `ROWSMITH_SESSION_IDLE` | `8h` | Idle session timeout |
 | `ROWSMITH_SESSION_MAX` | `72h` | Absolute session lifetime |
 | `ROWSMITH_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `ROWSMITH_SQLITE_DIR` | `<data>/sqlite` | The only directory SQLite connections may open files from |
 | `ROWSMITH_INSECURE_COOKIES` | `false` | Local plain-HTTP development only |
+
+## Deployment
+
+The `Dockerfile` builds a 42 MB distroless image that runs as a non-root user. [`deploy/compose.yaml`](deploy/compose.yaml) runs it with a read-only root filesystem, all capabilities dropped, the master key as a Docker secret, and the port bound to `127.0.0.1` so only your reverse proxy can reach it.
+
+```bash
+sudo install -d -m 700 /etc/rowsmith
+```
+
+```bash
+openssl rand -base64 32 | sudo tee /etc/rowsmith/master.key >/dev/null && sudo chmod 444 /etc/rowsmith/master.key
+```
+
+```bash
+docker compose -f deploy/compose.yaml up -d --build
+```
+
+```bash
+docker logs rowsmith 2>&1 | grep "setup code"
+```
+
+1. Create the master key outside any web root, and back it up separately from the `rowsmith-data` volume.
+2. Set `ROWSMITH_PUBLIC_URL` in `deploy/compose.yaml`, then start the container.
+3. Open the public URL and enter the setup code from the log to create the owner account.
+
+[`deploy/Caddyfile.example`](deploy/Caddyfile.example) shows Caddy on its own subdomain or under a path such as `/sql`. Keep `flush_interval -1` so query results stream. A subdomain is the stronger choice: under a shared hostname, other apps on that hostname share Rowsmith's browser origin.
+
+To reach a database on the Docker host, use `host.docker.internal` as the host name. The database must listen on an address other than `127.0.0.1`.
 
 ### Command line
 
