@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format as formatSQL } from "sql-formatter";
-import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert, Sparkles } from "lucide-react";
+import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTree, PlayCircle, TextSelect, AlertTriangle, ShieldAlert, Sparkles, CalendarClock } from "lucide-react";
 import { ApiError, get, post, put, stream } from "../../lib/api";
 import { useCatalog, useDriver, useDatabases, useSchemas } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
@@ -10,6 +10,8 @@ import { modKey } from "../../lib/format";
 import { Alert, Button, Dialog, Field, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Tip } from "../../components/ui";
 import { SqlEditor, byteOffset, statementAround, type EditorHandle, type StatementMark } from "./SqlEditor";
 import { AssistantPanel } from "../ai/AssistantPanel";
+import { openNewSchedule } from "../schedules/ScheduleDialog";
+import { usePolicy } from "../schedules/api";
 import { useAssistant, type EditorContext } from "../ai/store";
 import { Results } from "./Results";
 import { errorText, useRuns, type RunState, type StmtRun } from "./runs";
@@ -244,6 +246,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
 
   // ---- assistant ------------------------------------------------------------------
   const aiOpen = useAssistant((s) => !!s.open[tab.id]);
+  const schedPolicy = usePolicy();
   const setAiOpen = (open: boolean) => useAssistant.getState().setOpen(tab.id, open);
   const me = qc.getQueryData<Me>(["me"]);
   const editorContext = (): EditorContext => {
@@ -344,6 +347,15 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
         <Tip label={<>Save query <Kbd>{modKey()}S</Kbd></>}>
           <Button size="sm" variant="ghost" icon onClick={() => setSaveOpen(true)} aria-label="Save query"><Save /></Button>
         </Tip>
+        {schedPolicy.data?.canCreate && <Tip label="Schedule: run it on a timetable and send the result or an alert">
+          <Button size="sm" variant="ghost" icon aria-label="Schedule this query" onClick={() => {
+            const view = editor.current?.view;
+            const sel = view?.state.selection.main;
+            const text = view && sel && !sel.empty ? view.state.sliceDoc(sel.from, sel.to) : sql;
+            if (!text.trim()) return toast.info("Write a query first", "Then schedule it to run on its own.");
+            openNewSchedule({ connectionId: conn.id, database, schema, name: tab.title, body: text });
+          }}><CalendarClock /></Button>
+        </Tip>}
         <Tip label={<>Ask the assistant <Kbd>{modKey()}I</Kbd></>}>
           <Button size="sm" variant={aiOpen ? "default" : "ghost"} onClick={() => setAiOpen(!aiOpen)} aria-pressed={aiOpen} className="query__ai"><Sparkles /> Ask AI</Button>
         </Tip>

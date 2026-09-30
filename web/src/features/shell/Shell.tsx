@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as RContext from "@radix-ui/react-context-menu";
 import {
   Plus, Search, Settings, LogOut, Moon, Sun, Monitor, UserRound, BookMarked, Shield, Menu as MenuIcon, X, Home as HomeIcon,
-  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil,
+  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil, CalendarClock,
 } from "lucide-react";
 import { post, setCsrf } from "../../lib/api";
 import { useConnections, useOpenConnections, useServer } from "../../lib/queries";
@@ -18,6 +18,8 @@ import { CItem, Navigator } from "../navigator/Navigator";
 import { CommandPalette } from "./CommandPalette";
 import { ConnectionDialog } from "../connections/ConnectionForm";
 import { Library } from "../library/Library";
+import { Schedules } from "../schedules/Schedules";
+import { ScheduleDialogHost } from "../schedules/ScheduleDialog";
 import { Admin } from "../admin/Admin";
 import { Account } from "../account/Account";
 import { StatusBar } from "./StatusBar";
@@ -86,6 +88,9 @@ export function Shell({ me }: { me: Me }) {
             <Route path="/library">
               <Library />
             </Route>
+            <Route path="/schedules/*?">
+              <Schedules me={me} />
+            </Route>
             <Route path="/admin/*?">
               <Admin me={me} />
             </Route>
@@ -103,6 +108,7 @@ export function Shell({ me }: { me: Me }) {
       <CommandPalette me={me} conn={conn} onNewConnection={() => setEditing({ open: true })} />
       <DisconnectDialog />
       <TransferDialogs />
+      <ScheduleDialogHost />
       {editing.open && <ConnectionDialog conn={editing.conn} initialDriver={editing.driver} onClose={() => setEditing({ open: false })} />}
     </div>
   );
@@ -185,6 +191,11 @@ function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAd
         <Tip label="Saved queries & history" side="right">
           <Link href="/library" className={`rail__icon ${location.startsWith("/library") ? "is-active" : ""}`} aria-label="Library">
             <BookMarked />
+          </Link>
+        </Tip>
+        <Tip label="Schedules" side="right">
+          <Link href="/schedules" className={`rail__icon ${location.startsWith("/schedules") ? "is-active" : ""}`} aria-label="Schedules">
+            <CalendarClock />
           </Link>
         </Tip>
         {(me.user.role === "owner" || me.user.role === "admin") && (
@@ -338,7 +349,7 @@ function TopBar({ me, conn, onMenu }: { me: Me; conn?: Connection; onMenu(): voi
       </div>
     );
   } else {
-    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : "Connections";
+    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : location.startsWith("/schedules") ? "Schedules" : "Connections";
     title = <div className="topbar__title"><span className="topbar__name">{label}</span></div>;
   }
   return (

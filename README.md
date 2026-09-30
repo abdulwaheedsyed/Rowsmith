@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, and the AI assistant are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Scheduled exports are next. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, and scheduled queries are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Shareable query links and comments are next. See [Roadmap](#roadmap).
 
 ---
 
@@ -19,6 +19,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | **Safety rails for production** | Statements are classified before they run. On production connections, anything that may modify data needs confirmation. `DROP`, `TRUNCATE`, and `DELETE` or `UPDATE` without `WHERE` always need it. Read-only access is enforced by the database session and by Rowsmith. |
 | **An audit trail** | Sign-ins, connection changes, sharing, data edits and every data-modifying query are recorded with who, when and from where. |
 | **Spatial data on a map** | PostGIS, MySQL and MariaDB geometry is decoded to GeoJSON, ready to show on a map. |
+| **Reports and alerts that run themselves** | Schedule any read-only query to email its result as Excel, CSV or JSON, post to Slack, Teams or any webhook, or alert only when a row count, a value or the whole result changes. |
 | **An assistant on your own terms** | Ask for queries in plain words, or have one explained, fixed or made faster. Bring your own Anthropic, OpenAI or OpenRouter key, or point it at a model you host with Ollama. It reads the schema, never changes data, and only sees rows if you allow it. |
 
 ## Features
@@ -47,6 +48,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
   - session management
   - first-run setup protected by a one-time code
 - **Query history and saved queries** (private or shared with the team), plus notes on connections and objects
+- **Scheduled queries**: run a query every few minutes, hourly, on chosen weekdays or monthly (or with a cron expression), in any time zone. Send the result by email (attached, with a preview in the message) or to a webhook, or alert only when a condition is met. Each run is kept with its file for download. See [Schedules](#schedules).
 - **AI assistant** in every query tab (`Ctrl+I`): write queries from a description, explain them, fix a failed statement from its error, or speed one up from its plan. Answers stream with SQL you can insert, replace or run. See [AI assistant](#ai-assistant).
 
 ### Engines
@@ -82,7 +84,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Structure editor for every engine
 - [x] Import and export (SQL dump, CSV, TSV, JSON, NDJSON, Excel)
 - [x] AI SQL assistant: write, explain, fix and speed up queries from your schema, with Anthropic, OpenAI, OpenRouter or a self-hosted model
-- [ ] Scheduled queries and exports with email delivery and threshold alerts
+- [x] Scheduled queries and exports with email and webhook delivery and threshold alerts
 - [ ] Shareable query links and comments
 
 ## Architecture
@@ -91,6 +93,8 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 cmd/rowsmith          entry point and CLI (serve, create-user, reset-password, rotate-key, healthcheck)
 internal/api          JSON + NDJSON streaming API, auth middleware, CSRF, security headers
 internal/ai           SQL assistant: Anthropic and OpenAI-compatible providers, read-only schema tools
+internal/schedule     scheduled queries: cron timetables, alerts, encrypted result files, email and webhook delivery
+internal/mail         SMTP client: STARTTLS/TLS, PLAIN/LOGIN sign-in, MIME with streamed attachments
 internal/auth         Argon2id, TOTP, recovery codes, session tokens, rate limiting
 internal/vault        envelope encryption for secrets at rest
 internal/store        embedded SQLite metadata store with migrations
@@ -138,6 +142,19 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 | `ROWSMITH_SQLITE_DIR` | `<data>/sqlite` | The only directory SQLite connections may open files from |
 | `ROWSMITH_MAX_UPLOAD_MB` | `1024` | Largest file accepted for import |
 | `ROWSMITH_INSECURE_COOKIES` | `false` | Local plain-HTTP development only |
+
+## Schedules
+
+Schedule a query from its query tab (the calendar button), from a saved query, or from the **Schedules** page. Choose when it runs, what to send, and who gets it. **Run the query** in the dialog shows what it returns and whether the alert would fire now, without sending anything.
+
+- **When**: every 5 to 30 minutes, every 1 to 12 hours, on chosen days of the week, on a day of the month (or the last day), or a five-field cron expression. Times follow the schedule's time zone, including daylight saving changes. Schedules run at most every 5 minutes. A run missed while Rowsmith was down runs once when it starts again.
+- **What**: the first result set, as Excel, CSV, TSV, JSON or NDJSON (optionally gzipped), up to 1,000,000 rows. Emails can attach the file (up to 10 MB) and show the first rows in the message.
+- **Alerts**: instead of sending every run, send only when the row count or a value in the first row passes a threshold, or when the result changes from the previous run. You can choose to be told once when a condition starts, not on every run while it lasts.
+- **Where**: email, and webhooks. Slack, Microsoft Teams, Google Chat and Discord get a message; other URLs get the result as JSON.
+- **Safety**: a schedule runs with its owner's access, in a read-only session, and only accepts statements that read. It pauses itself if the owner loses access or is disabled, or after 5 failures in a row. Admins see everyone's schedules and can pause or delete them, but only the owner can change one. Viewers can receive results but not create schedules.
+- **History**: every run is recorded with its row count, what was sent, and any error. Result files are encrypted at rest (XChaCha20-Poly1305 per 64 KiB chunk, key sealed with the master key) and deleted after 14 days by default.
+
+An admin sets up email under **Administration → Email & schedules**: an SMTP server (STARTTLS, TLS, or a trusted relay without encryption), with presets for common providers and a test message. The same page sets who may receive results: team members only, team members plus listed domains, or anyone. It also controls whether webhooks are allowed, and whether they may reach private network addresses (blocked by default, including names that resolve to them).
 
 ## AI assistant
 

@@ -454,3 +454,82 @@
     flex-basis: 100%;
   }
 }
+
+/* ---- Email & schedules settings ------------------------------------------ */
+.mailset .pcard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mailset .pcard .pcard__desc {
+  margin-bottom: 0;
+}
+.mailset .aiset__h3 {
+  margin: 8px 0 0;
+}
+.mailset__state {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--sunken);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.mailset__state svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.mailset__state .ok {
+  color: var(--success);
+}
+.mailset__state .warn {
+  color: var(--warn);
+}
+.mailset__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mailset__hint {
+  margin: -4px 0 0;
+  font-size: var(--fs-xs);
+}
+.mailset__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 10px;
+}
+.mailset__grid--even {
+  grid-template-columns: 1fr 1fr;
+}
+.mailset__radios {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mailset .radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.mailset .radio input {
+  accent-color: var(--accent);
+}
+.mailset__days.input {
+  width: 80px;
+}
+.mailset .aiset__actions {
+  margin-top: 4px;
+}
+@media (max-width: 640px) {
+  .mailset__grid--even {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

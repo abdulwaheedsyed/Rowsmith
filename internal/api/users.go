@@ -1,7 +1,11 @@
 package api
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	netmail "net/mail"
 	"strconv"
 	"strings"
 
@@ -271,15 +275,19 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request, rc *reqCt
 var settingKeys = map[string]bool{
 	"security.require_mfa": false,
 	"smtp.host":            false, "smtp.port": false, "smtp.username": false, "smtp.password": true, "smtp.from": false, "smtp.tls": false,
+	"schedules.email_domains": false, "schedules.webhooks": false, "schedules.private_webhooks": false, "schedules.retention_days": false,
 	"ai.enabled": false, "ai.provider": false, "ai.base_url": false, "ai.api_key": true, "ai.model": false, "ai.effort": false, "ai.data": false, "ai.production": false,
 	"map.tiles": false,
 }
 
 // settingValues restricts settings that take one of a few values.
 var settingValues = map[string]map[string]bool{
-	"ai.provider": {"anthropic": true, "openai": true},
-	"ai.effort":   {"low": true, "medium": true, "high": true},
-	"ai.data":   {"schema": true, "data": true},
+	"ai.provider":                {"anthropic": true, "openai": true},
+	"smtp.tls":                   {"starttls": true, "tls": true, "none": true},
+	"schedules.webhooks":         {"on": true, "off": true},
+	"schedules.private_webhooks": {"true": true, "false": true},
+	"ai.effort":                  {"low": true, "medium": true, "high": true},
+	"ai.data":                    {"schema": true, "data": true},
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
@@ -311,8 +319,11 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 		return
 	}
 	changed := []string{}
-	if moved, keyGiven := s.aiEndpointMoves(r, req); moved && !keyGiven {
-		req["ai.api_key"] = nil // a key is never sent to an endpoint it was not entered for
+	// A saved secret is never sent to a server it was not entered for.
+	for secret, dest := range secretDestinations {
+		if moved, given := s.destinationMoves(r, req, secret, dest); moved && !given {
+			req[secret] = nil
+		}
 	}
 	for k, v := range req {
 		secret, ok := settingKeys[k]
@@ -335,6 +346,10 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 				writeErr(w, 400, err.Error())
 				return
 			}
+		}
+		if err := checkSettingValue(k, val); err != nil {
+			writeErr(w, 400, err.Error())
+			return
 		}
 		if len(val) > 500 && !secret {
 			writeErr(w, 400, k+" is too long")
@@ -361,10 +376,16 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, rc *reqCtx)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-// aiEndpointMoves reports whether the request points the assistant at a
-// different provider or endpoint, and whether it carries a new key.
-func (s *Server) aiEndpointMoves(r *http.Request, req map[string]*string) (moved, keyGiven bool) {
-	for _, k := range []string{"ai.provider", "ai.base_url"} {
+// secretDestinations are the settings that say where each secret is sent.
+var secretDestinations = map[string][]string{
+	"ai.api_key":    {"ai.provider", "ai.base_url"},
+	"smtp.password": {"smtp.host", "smtp.username"},
+}
+
+// destinationMoves reports whether the request points a secret at a
+// different server, and whether it carries a new value for the secret.
+func (s *Server) destinationMoves(r *http.Request, req map[string]*string, secret string, keys []string) (moved, given bool) {
+	for _, k := range keys {
 		v, ok := req[k]
 		if !ok {
 			continue
@@ -377,17 +398,53 @@ func (s *Server) aiEndpointMoves(r *http.Request, req map[string]*string) (moved
 		if k == "ai.provider" && old == "" {
 			old = "anthropic"
 		}
-		if strings.TrimRight(old, "/") != strings.TrimRight(next, "/") {
+		if !strings.EqualFold(strings.TrimRight(old, "/"), strings.TrimRight(next, "/")) {
 			moved = true
 		}
 	}
-	key, ok := req["ai.api_key"]
-	return moved, ok && key != nil && *key != ""
+	val, ok := req[secret]
+	return moved, ok && val != nil && *val != ""
+}
+
+func checkSettingValue(k, v string) error {
+	if v == "" {
+		return nil
+	}
+	switch k {
+	case "smtp.port":
+		if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 65535 {
+			return errors.New("the port must be a number from 1 to 65535")
+		}
+	case "smtp.from":
+		if _, err := netmail.ParseAddress(v); err != nil {
+			return errors.New("the sender must be an address, e.g. Reports <reports@example.com>")
+		}
+	case "smtp.host":
+		if strings.ContainsAny(v, " /:@") {
+			return errors.New("enter only the mail server's host name, e.g. smtp.example.com")
+		}
+	case "schedules.retention_days":
+		if n, err := strconv.Atoi(v); err != nil || n < 1 || n > 365 {
+			return errors.New("keep result files for 1 to 365 days")
+		}
+	case "schedules.email_domains":
+		for _, d := range splitList(v) {
+			d = strings.TrimPrefix(d, "@")
+			if d != "*" && (!strings.Contains(d, ".") || strings.ContainsAny(d, "/:@ ")) {
+				return fmt.Errorf("%q is not a domain", d)
+			}
+		}
+	}
+	return nil
 }
 
 // SecretSetting returns a decrypted secret setting ("" when unset).
 func (s *Server) SecretSetting(r *http.Request, key string) string {
-	v, ok, _ := s.store.Setting(r.Context(), key)
+	return s.secretSetting(r.Context(), key)
+}
+
+func (s *Server) secretSetting(ctx context.Context, key string) string {
+	v, ok, _ := s.store.Setting(ctx, key)
 	if !ok || v == "" {
 		return ""
 	}

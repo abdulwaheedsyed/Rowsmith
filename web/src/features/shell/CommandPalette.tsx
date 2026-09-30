@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles, CalendarClock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -15,6 +15,15 @@ import { openExport, openImport } from "../transfer/store";
 import { kindIcon } from "../navigator/Navigator";
 import { requestDisconnect } from "../workspace/disconnect";
 import { useAIStatus, useAssistant } from "../ai/store";
+import { openNewSchedule } from "../schedules/ScheduleDialog";
+
+// scheduleFromActive schedules the current query tab's SQL, if there is one.
+function scheduleFromActive(conn: Connection) {
+  const ws = useWorkspace.getState();
+  const active = ws.tabs.find((t) => t.id === ws.active[conn.id]);
+  const sql = active?.kind === "query" ? active.sql ?? "" : "";
+  openNewSchedule({ connectionId: conn.id, database: active?.database, schema: active?.schema, name: active?.kind === "query" ? active.title : "", body: sql });
+}
 
 // askAI opens the assistant beside the current query tab, or a new one.
 function askAI(conn: Connection) {
@@ -112,6 +121,11 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                       <Sparkles /> Ask the assistant <span className="palette__meta">{ai.data.modelName}</span>
                     </Command.Item>
                   )}
+                  {me.user.role !== "viewer" && (
+                    <Command.Item value="schedule query report alert email cron" onSelect={run(() => scheduleFromActive(conn))}>
+                      <CalendarClock /> Schedule a query <span className="palette__meta">report or alert</span>
+                    </Command.Item>
+                  )}
                   <Command.Item value="overview server databases" onSelect={run(() => openPanel(conn, "overview"))}>
                     <Server /> Server overview
                   </Command.Item>
@@ -195,8 +209,10 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
               <Command.Group heading="Rowsmith">
                 <Command.Item value="home all connections" onSelect={run(() => go("/"))}><Home /> All connections</Command.Item>
                 <Command.Item value="library saved queries history" onSelect={run(() => go("/library"))}><BookMarked /> Saved queries & history</Command.Item>
+                <Command.Item value="schedules scheduled reports alerts" onSelect={run(() => go("/schedules"))}><CalendarClock /> Schedules</Command.Item>
                 <Command.Item value="account security password two-step mfa" onSelect={run(() => go("/account"))}><UserRound /> Account & security</Command.Item>
                 {isAdmin && <Command.Item value="admin users team audit log settings" onSelect={run(() => go("/admin"))}><Shield /> Administration</Command.Item>}
+                {isAdmin && <Command.Item value="email smtp mail server settings schedules policy" onSelect={run(() => go("/admin/email"))}><Shield /> Email & schedule settings</Command.Item>}
                 {isAdmin && <Command.Item value="ai assistant settings provider model api key openai openrouter ollama anthropic" onSelect={run(() => go("/admin/ai"))}><Sparkles /> AI assistant settings</Command.Item>}
                 <Command.Item value="theme dark mode" onSelect={run(() => setTheme("dark"))}><Moon /> Dark theme</Command.Item>
                 <Command.Item value="theme light mode" onSelect={run(() => setTheme("light"))}><Sun /> Light theme</Command.Item>

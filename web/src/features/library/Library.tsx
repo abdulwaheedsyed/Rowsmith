@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookMarked, History, Search, Trash2, Play, Users, Lock, CheckCircle2, CircleAlert, Ban } from "lucide-react";
+import { BookMarked, History, Search, Trash2, Play, Users, Lock, CheckCircle2, CircleAlert, Ban, CalendarClock } from "lucide-react";
 import { del, get, qs } from "../../lib/api";
 import { useConnections } from "../../lib/queries";
 import type { HistoryEntry, SavedQuery } from "../../lib/types";
@@ -8,6 +8,8 @@ import { ago, duration, int, temperForMs } from "../../lib/format";
 import { toast } from "../../lib/store";
 import { Button, Dialog, Empty, Env, Spinner } from "../../components/ui";
 import { newQueryTab } from "../workspace/actions";
+import { openNewSchedule } from "../schedules/ScheduleDialog";
+import { usePolicy } from "../schedules/api";
 
 export function Library() {
   const [tab, setTab] = useState<"saved" | "history">("saved");
@@ -34,6 +36,7 @@ function Saved() {
   const saved = useQuery({ queryKey: ["saved"], queryFn: () => get<SavedQuery[]>("saved-queries") });
   const [q, setQ] = useState("");
   const [removing, setRemoving] = useState<SavedQuery | null>(null);
+  const canSchedule = !!usePolicy().data?.canCreate;
   const list = useMemo(() => {
     const n = q.toLowerCase();
     return (saved.data ?? []).filter((s) => !n || `${s.name} ${s.description} ${s.tags.join(" ")} ${s.body}`.toLowerCase().includes(n));
@@ -65,6 +68,9 @@ function Saved() {
                 <Button size="sm" variant="primary" disabled={!conn} onClick={() => conn && newQueryTab(conn, { sql: s.body, title: s.name, database: s.database || undefined, savedQueryId: s.id })}>
                   <Play /> Open
                 </Button>
+                {canSchedule && <Button size="sm" variant="ghost" disabled={!conn} onClick={() => conn && openNewSchedule({ connectionId: conn.id, database: s.database, name: s.name, body: s.body })}>
+                  <CalendarClock /> Schedule
+                </Button>}
                 <Button size="sm" variant="ghost" icon aria-label="Delete" onClick={() => setRemoving(s)}><Trash2 /></Button>
               </div>
               {s.description && <p className="saved__desc">{s.description}</p>}

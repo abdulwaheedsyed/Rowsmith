@@ -9,7 +9,7 @@ import { sql, MySQL, MariaSQL, PostgreSQL, MSSQL, PLSQL, SQLite, StandardSQL, ty
 import { json } from "@codemirror/lang-json";
 import { javascript } from "@codemirror/lang-javascript";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
-import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { autocompletion, closeBrackets, closeBracketsKeymap, closeCompletion, completionKeymap, completionStatus } from "@codemirror/autocomplete";
 import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { tags as t } from "@lezer/highlight";
@@ -198,6 +198,11 @@ export function SqlEditor(props: Props) {
         bracketMatching(),
         closeBrackets(),
         autocompletion({ activateOnTyping: true, icons: true }),
+        // Suggestions that arrive after the editor lost focus (say, a dialog
+        // opened) would float over everything; close them.
+        EditorView.updateListener.of((u) => {
+          if (!u.view.hasFocus && completionStatus(u.state) !== null) setTimeout(() => closeCompletion(u.view));
+        }),
         rectangularSelection(),
         crosshairCursor(),
         highlightActiveLine(),

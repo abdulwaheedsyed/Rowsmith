@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, ScrollText, KeyRound, Settings2, LayoutDashboard, Sparkles, UserPlus, MoreHorizontal, ShieldOff, Trash2, RotateCcw, Ban, Check, Copy } from "lucide-react";
+import { Users, ScrollText, KeyRound, Settings2, LayoutDashboard, Sparkles, Mail, UserPlus, MoreHorizontal, ShieldOff, Trash2, RotateCcw, Ban, Check, Copy } from "lucide-react";
 import { ApiError, del, get, patch, post, put, qs } from "../../lib/api";
 import type { AuditEntry, Me, Role, User } from "../../lib/types";
 import { ago, int } from "../../lib/format";
 import { toast } from "../../lib/store";
 import { Alert, Button, Dialog, Empty, Field, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner } from "../../components/ui";
 import { AISettings } from "./AISettings";
+import { EmailSettings } from "./EmailSettings";
 import "./admin.css";
 
 const SECTIONS = [
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: "audit", label: "Audit log", icon: ScrollText },
   { id: "ssh", label: "SSH hosts", icon: KeyRound },
   { id: "settings", label: "Security", icon: Settings2 },
+  { id: "email", label: "Email & schedules", icon: Mail },
   { id: "ai", label: "AI assistant", icon: Sparkles },
 ];
 
@@ -30,7 +32,7 @@ export function Admin({ me }: { me: Me }) {
       <header className="page__head">
         <div>
           <h1 className="page__title display">Administration</h1>
-          <p className="page__sub">Team members, security policy, the AI assistant and the record of everything that happened.</p>
+          <p className="page__sub">Team members, security, email, the AI assistant and the record of everything that happened.</p>
         </div>
       </header>
       <nav className="page__tabs" aria-label="Administration sections">
@@ -45,6 +47,7 @@ export function Admin({ me }: { me: Me }) {
       {section === "audit" && <Audit />}
       {section === "ssh" && <SSHHosts />}
       {section === "settings" && <SecuritySettings />}
+      {section === "email" && <EmailSettings me={me} />}
       {section === "ai" && <AISettings />}
     </div>
   );

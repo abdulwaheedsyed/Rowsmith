@@ -22,6 +22,7 @@ import (
 	"rowsmith/internal/auth"
 	"rowsmith/internal/config"
 	"rowsmith/internal/driver"
+	"rowsmith/internal/schedule"
 	"rowsmith/internal/session"
 	"rowsmith/internal/spool"
 	"rowsmith/internal/store"
@@ -51,6 +52,8 @@ type Server struct {
 	spool      *spool.Spool
 	ai         *ai.Assistant
 	aiLimit    *auth.Limiter
+	sched      *schedule.Runner
+	schedLimit *auth.Limiter
 }
 
 type Deps struct {
@@ -73,6 +76,9 @@ func New(d Deps) *Server {
 	}
 	s.ai = ai.New()
 	s.aiLimit = auth.NewLimiter(12, 6) // questions per minute, per person
+	s.sched = &schedule.Runner{Store: d.Store, Vault: d.Vault, Sessions: d.Sessions, Log: d.Log,
+		Dir: filepath.Join(d.Config.DataDir, "results"), BaseURL: s.baseURL(), Settings: s.scheduleSettings}
+	s.schedLimit = auth.NewLimiter(10, 5) // manual and test runs per minute, per person
 	s.cookieName = "rowsmith_session"
 	if d.Config.BasePath == "/" && !d.Config.Insecure {
 		// __Host- cookies must be Secure, host-only and Path=/, which blocks
@@ -200,6 +206,20 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("GET /api/c/{id}/db-users", s.wsDBUsers)
 	full("GET /api/c/{id}/db-users/grants", s.wsDBUserGrants)
 	full("POST /api/c/{id}/ddl", s.wsDDL)
+
+	full("GET /api/schedules", s.listSchedules)
+	full("POST /api/schedules", s.createSchedule)
+	full("GET /api/schedules/policy", s.schedulePolicy)
+	full("POST /api/schedules/preview", s.previewSchedule)
+	full("POST /api/schedules/test", s.testSchedule)
+	full("GET /api/schedules/{id}", s.getSchedule)
+	full("PUT /api/schedules/{id}", s.updateSchedule)
+	full("PATCH /api/schedules/{id}", s.toggleSchedule)
+	full("DELETE /api/schedules/{id}", s.deleteSchedule)
+	full("POST /api/schedules/{id}/run", s.runSchedule)
+	full("GET /api/schedules/{id}/runs", s.listRuns)
+	full("GET /api/schedules/{id}/runs/{run}/file", s.runFile)
+	full("POST /api/admin/mail/test", s.testMail)
 
 	full("GET /api/history", s.listHistory)
 	full("GET /api/saved-queries", s.listSaved)

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // schedules name time zones: keep them working without system zone files
 
 	"rowsmith/internal/api"
 	"rowsmith/internal/auth"
@@ -133,6 +134,8 @@ func serve() error {
 		}
 	}()
 
+	srv.StartScheduler()
+
 	hs := &http.Server{
 		Addr:              st.cfg.Addr,
 		Handler:           srv.Handler(),
@@ -158,6 +161,7 @@ func serve() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	_ = hs.Shutdown(ctx)
+	srv.StopScheduler()
 	sessions.Shutdown()
 	tunnels.CloseAll()
 	return nil
@@ -327,6 +331,37 @@ func rewrapAll(ctx context.Context, st *store.Store, v *vault.Vault) (int, error
 			return n, fmt.Errorf("user %s: %w", u.Email, err)
 		}
 		if _, err := st.DB().ExecContext(ctx, `UPDATE users SET mfa_secret = ? WHERE id = ?`, re, u.ID); err != nil {
+			return n, err
+		}
+		n++
+	}
+	schedules, err := st.AllSchedules(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, x := range schedules {
+		if x.Webhook == "" {
+			continue
+		}
+		re, err := v.Rewrap(x.Webhook, x.WebhookAAD())
+		if err != nil {
+			return n, fmt.Errorf("schedule %s: %w", x.Name, err)
+		}
+		if err := st.SetScheduleWebhook(ctx, x.ID, re); err != nil {
+			return n, err
+		}
+		n++
+	}
+	runs, err := st.AllRunKeys(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, run := range runs {
+		re, err := v.Rewrap(run.FileKey, run.FileAAD())
+		if err != nil {
+			continue // an unreadable key only loses that one result file
+		}
+		if err := st.SetRunFileKey(ctx, run.ID, re); err != nil {
 			return n, err
 		}
 		n++
