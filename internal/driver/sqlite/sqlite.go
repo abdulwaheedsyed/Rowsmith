@@ -47,6 +47,21 @@ var types = []string{
 	"integer", "real", "text", "blob", "numeric", "boolean", "date", "datetime", "varchar(255)", "decimal(10,2)", "json",
 }
 
+// design describes the structure editor; ddlgen.go generates the SQL.
+var design = driver.TableDesign{
+	Columns: true, ReorderColumns: true, AutoIncrement: true, Collation: true, Generated: true, GeneratedVirtual: true,
+	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	FKActions: []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},
+	Options: []driver.Field{
+		{Key: "without_rowid", Label: "WITHOUT ROWID", Type: driver.FieldBool, Span: 3,
+			Help: "Store rows in primary key order, without the hidden rowid. Needs a primary key."},
+		{Key: "strict", Label: "STRICT", Type: driver.FieldBool, Span: 3,
+			Help: "Reject values that do not match the column type. Types must be INTEGER, INT, REAL, TEXT, BLOB or ANY."},
+	},
+	Note: "SQLite changes a table in place only to rename it, add, drop or rename columns, switch NOT NULL and add or drop named checks. " +
+		"Any other change rebuilds the table: the rows are copied into a new table with the new structure, and its indexes and triggers are recreated.",
+}
+
 func (sqliteDriver) Info() driver.Info {
 	return driver.Info{
 		ID: "sqlite", Name: "SQLite", Order: 50,
@@ -60,6 +75,7 @@ func (sqliteDriver) Info() driver.Info {
 		},
 		Caps:  driver.Caps{SQL: true, Transactions: true, EditRows: true, DDL: true, ForeignKeys: true, Explain: true, Variables: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"sqlite", "file"}, QuoteChar: `"`,
+		Design: &design,
 	}
 }
 
