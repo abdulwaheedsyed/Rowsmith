@@ -368,6 +368,11 @@ func (s *Server) authed(need stageReq, h handlerFunc) http.Handler {
 				return
 			}
 		}
+		// A temporary password only lets the user choose a new one.
+		if need == stageFull && user.MustChangePassword && r.URL.Path != "/api/me/password" {
+			writeErrDetail(w, 403, "password_change_required", "choose a new password to continue", nil)
+			return
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			if !s.sameOrigin(r) {
 				writeErr(w, 403, "cross-origin request blocked")

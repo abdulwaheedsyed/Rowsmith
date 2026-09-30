@@ -1,0 +1,23 @@
+# Option A — dedicated subdomain (recommended: Rowsmith gets its own origin,
+# so no other site on the domain can script it or read its cookies).
+db.example.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8095 {
+		flush_interval -1          # stream query results as they arrive
+		header_up X-Forwarded-Proto {scheme}
+	}
+	# Rowsmith sets its own CSP, HSTS and frame headers; do not add CORS headers.
+}
+
+# Option B — a path on an existing site. Put this handle BEFORE any
+# catch-all php_fastcgi/file_server, and set ROWSMITH_PUBLIC_URL to
+# https://example.com/sql. Everything under /sql goes to Rowsmith only.
+#
+# example.com {
+# 	handle /sql* {
+# 		reverse_proxy 127.0.0.1:8095 {
+# 			flush_interval -1
+# 		}
+# 	}
+# 	...
+# }

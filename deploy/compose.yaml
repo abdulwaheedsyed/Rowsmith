@@ -1,0 +1,48 @@
+# Production deployment of Rowsmith behind a reverse proxy on the same host.
+#
+#   1. Create the master key outside any web root, readable only by root:
+#        sudo install -d -m 700 /etc/rowsmith
+#        openssl rand -base64 32 | sudo tee /etc/rowsmith/master.key >/dev/null
+#        sudo chmod 444 /etc/rowsmith/master.key   # read by the container user; directory stays 700
+#      Back this file up separately from the rowsmith-data volume.
+#   2. Set ROWSMITH_PUBLIC_URL below, then:  docker compose -f deploy/compose.yaml up -d --build
+#   3. Read the one-time setup code:          docker logs rowsmith 2>&1 | grep "setup code"
+name: rowsmith
+
+services:
+  rowsmith:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: rowsmith:latest
+    container_name: rowsmith
+    restart: unless-stopped
+    environment:
+      ROWSMITH_PUBLIC_URL: https://db.example.com   # change me; a path such as https://example.com/sql also works
+      ROWSMITH_MASTER_KEY_FILE: /run/secrets/rowsmith_master_key
+      ROWSMITH_LOG_LEVEL: info
+    secrets:
+      - rowsmith_master_key
+    volumes:
+      - rowsmith-data:/data
+    ports:
+      - "127.0.0.1:8095:8080"   # only the local reverse proxy can reach it
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # reach databases on this host (must listen beyond 127.0.0.1)
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+secrets:
+  rowsmith_master_key:
+    file: /etc/rowsmith/master.key
+
+volumes:
+  rowsmith-data: {}
