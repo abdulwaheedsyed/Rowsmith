@@ -682,7 +682,7 @@ func streamCursor(ctx context.Context, cur *mongo.Cursor, maxRows int, sink driv
 	rc, rows := docsToRows(docs, cols, t)
 	// Keep a stable column set so later batches line up: always carry the
 	// trailing "…" column once any document had extra fields.
-	if err := sink.Columns(append(rc[:len(cols):len(cols)], driver.ResultColumn{Name: "…", Type: "other fields", Kind: driver.KindObject})); err != nil {
+	if err := sink.Columns(append(rc[:len(cols):len(cols)], driver.ResultColumn{Name: driver.OtherFields, Type: "other fields", Kind: driver.KindObject})); err != nil {
 		return err
 	}
 	pad := func(rs [][]any) [][]any {

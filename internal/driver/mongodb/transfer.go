@@ -82,6 +82,23 @@ func (d *docImporter) Insert(ctx context.Context, rows [][]any) error {
 			if i >= len(r) || r[i] == nil {
 				continue // absent field
 			}
+			if name == driver.OtherFields {
+				// Fields outside the known columns (a whole document copied
+				// from another collection) join the document as they are.
+				if other, ok := r[i].(driver.Doc); ok {
+					sub, err := decodeNested(other)
+					if err != nil {
+						return err
+					}
+					for _, e := range sub.(bson.D) {
+						if e.Key == "_id" {
+							id = e.Value
+						}
+						doc = append(doc, e)
+					}
+				}
+				continue
+			}
 			v, err := decodeCell(r[i], d.hints[name])
 			if err != nil {
 				return errors.New(name + ": " + err.Error())

@@ -5,8 +5,9 @@ import { Command } from "cmdk";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Table2, Eye, FunctionSquare, Zap, CalendarClock, Hash, Shapes, Puzzle, Search, RefreshCw,
-  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug, PencilRuler, Download, FileUp, Plus,
+  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug, PencilRuler, Download, FileUp, Plus, ArrowRightLeft,
 } from "lucide-react";
+import { go } from "../../lib/nav";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
 import { useWorkspace } from "../../lib/store";
 import type { Connection, DbObject, ObjectRef } from "../../lib/types";
@@ -122,6 +123,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             {canWrite && drv?.caps.editRows && ready && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", database: scope.database, schema: scope.schema })}>Import data…</MenuItem>}
             {canWrite && drv?.caps.sql && <MenuItem icon={<FileCode2 />} onSelect={() => openImport(conn, { kind: "sql", database: scope.database, schema: scope.schema })}>Run a SQL file…</MenuItem>}
             {drv?.caps.sql && drv?.caps.ddl && !drv.caps.documents && ready && <MenuItem icon={<Download />} onSelect={() => openExport(conn, { kind: "dump", database: scope.database, schema: scope.schema })}>Export as SQL dump…</MenuItem>}
+            {ready && <MenuItem icon={<ArrowRightLeft />} onSelect={() => go(`/migrate?from=${conn.id}${scope.database ? `&db=${encodeURIComponent(scope.database)}` : ""}${scope.schema ? `&schema=${encodeURIComponent(scope.schema)}` : ""}`)}>Migrate to another database…</MenuItem>}
             <MenuSep />
             <MenuItem icon={<RefreshCw />} onSelect={refresh}>Refresh</MenuItem>
             {conn.access === "manage" && <MenuItem icon={<Pencil />} onSelect={onEdit}>Edit connection</MenuItem>}

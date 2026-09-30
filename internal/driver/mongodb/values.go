@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -259,10 +260,106 @@ func decodeCell(v any, hint string) (any, error) {
 		raw, _ := json.Marshal(x)
 		return parseLiteral(string(raw))
 	case []any:
+		if encodedInside(x) {
+			return decodeNested(x)
+		}
 		b, _ := json.Marshal(x)
 		return parseLiteral(string(b))
+	case driver.Doc:
+		return decodeNested(x)
 	case string:
 		return stringFor(x, hint)
+	}
+	return v, nil
+}
+
+// encodedInside reports values that hold documents as encode produced
+// them (a whole document copied from another collection).
+func encodedInside(v any) bool {
+	switch x := v.(type) {
+	case driver.Doc:
+		return true
+	case []any:
+		for _, e := range x {
+			if encodedInside(e) {
+				return true
+			}
+		}
+	case map[string]any:
+		for k := range x {
+			if strings.HasPrefix(k, "$") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// decodeNested is the inverse of encode for whole values: documents keep
+// their field order, wrappers become BSON types again, and strings stay
+// strings rather than being read as shell literals.
+func decodeNested(v any) (any, error) {
+	switch x := v.(type) {
+	case driver.Doc:
+		d := make(bson.D, 0, len(x.Keys))
+		for _, k := range x.Keys {
+			e, err := decodeNested(x.Values[k])
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", k, err)
+			}
+			d = append(d, bson.E{Key: k, Value: e})
+		}
+		return d, nil
+	case []any:
+		a := make(bson.A, len(x))
+		for i, e := range x {
+			v, err := decodeNested(e)
+			if err != nil {
+				return nil, err
+			}
+			a[i] = v
+		}
+		return a, nil
+	case map[string]any:
+		if g, ok := x["$geo"]; ok {
+			b, _ := json.Marshal(g)
+			var d bson.D
+			if err := bson.UnmarshalExtJSON(b, false, &d); err != nil {
+				return nil, err
+			}
+			return d, nil
+		}
+		if _, ok := x["$bin"]; ok {
+			return decodeCell(x, "")
+		}
+		if _, ok := x["$uuid"]; ok {
+			return decodeCell(x, "")
+		}
+		for k := range x {
+			if strings.HasPrefix(k, "$") {
+				return decodeCell(x, "") // $oid, $date, $numberDecimal…
+			}
+		}
+		d := bson.D{}
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			e, err := decodeNested(x[k])
+			if err != nil {
+				return nil, err
+			}
+			d = append(d, bson.E{Key: k, Value: e})
+		}
+		return d, nil
+	case json.Number:
+		return numberFor(string(x), "")
+	case float64:
+		return x, nil
+	case driver.LongText:
+		return x.Text, nil
 	}
 	return v, nil
 }

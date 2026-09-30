@@ -4,7 +4,7 @@
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, and shared query links with comments are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. Database migration between servers and engines is next. See [Roadmap](#roadmap).
+> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, shared query links with comments, and database migration are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. See [Roadmap](#roadmap).
 
 ---
 
@@ -19,6 +19,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | **Safety rails for production** | Statements are classified before they run. On production connections, anything that may modify data needs confirmation. `DROP`, `TRUNCATE`, and `DELETE` or `UPDATE` without `WHERE` always need it. Read-only access is enforced by the database session and by Rowsmith. |
 | **An audit trail** | Sign-ins, connection changes, sharing, data edits and every data-modifying query are recorded with who, when and from where. |
 | **Spatial data on a map** | PostGIS, MySQL and MariaDB geometry is decoded to GeoJSON, ready to show on a map. |
+| **Move between servers and engines** | Migrate tables and rows from one server to another, or from MySQL to PostgreSQL, SQL Server to MySQL, MongoDB to SQL and back. Every column's type is mapped for you to review, and the copy is checked value by value. |
 | **Discuss queries where they live** | Send a teammate a link to a query, optionally with its result. Comment on any line, @mention people, reply and resolve, and get notified in the app or by email. |
 | **Reports and alerts that run themselves** | Schedule any read-only query to email its result as Excel, CSV or JSON, post to Slack, Teams or any webhook, or alert only when a row count, a value or the whole result changes. |
 | **An assistant on your own terms** | Ask for queries in plain words, or have one explained, fixed or made faster. Bring your own Anthropic, OpenAI or OpenRouter key, or point it at a model you host with Ollama. It reads the schema, never changes data, and only sees rows if you allow it. |
@@ -49,6 +50,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
   - session management
   - first-run setup protected by a one-time code
 - **Query history and saved queries** (private or shared with the team), plus notes on connections and objects
+- **Migration**: copy a database or schema to another connection, on the same engine or a different one, with every column type mapped and reviewable, rows streamed in chunks, keys and indexes added afterwards, and a value-by-value check of the result. See [Migration](#migration).
 - **Shared query links**: share a query with the team or chosen people, optionally with a snapshot of its result and an expiry date. Teammates comment on the whole query or on a single line, reply, resolve threads and @mention each other. A bell collects shares, mentions and replies. See [Sharing and comments](#sharing-and-comments).
 - **Scheduled queries**: run a query every few minutes, hourly, on chosen weekdays or monthly (or with a cron expression), in any time zone. Send the result by email (attached, with a preview in the message) or to a webhook, or alert only when a condition is met. Each run is kept with its file for download. See [Schedules](#schedules).
 - **AI assistant** in every query tab (`Ctrl+I`): write queries from a description, explain them, fix a failed statement from its error, or speed one up from its plan. Answers stream with SQL you can insert, replace or run. See [AI assistant](#ai-assistant).
@@ -88,7 +90,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] AI SQL assistant: write, explain, fix and speed up queries from your schema, with Anthropic, OpenAI, OpenRouter or a self-hosted model
 - [x] Scheduled queries and exports with email and webhook delivery and threshold alerts
 - [x] Shareable query links and comments
-- [ ] Database migration between servers and across engines (schema translation, data copy, verification)
+- [x] Database migration between servers and across engines (schema translation, data copy, verification)
 
 ## Architecture
 
@@ -97,6 +99,7 @@ cmd/rowsmith          entry point and CLI (serve, create-user, reset-password, r
 internal/api          JSON + NDJSON streaming API, auth middleware, CSRF, security headers
 internal/ai           SQL assistant: Anthropic and OpenAI-compatible providers, read-only schema tools
 internal/schedule     scheduled queries: cron timetables, alerts, encrypted result files, email and webhook delivery
+internal/migrate      migrations: type mapping across engines, plans, streamed copy, verification
 internal/mail         SMTP client: STARTTLS/TLS, PLAIN/LOGIN sign-in, MIME with streamed attachments
 internal/auth         Argon2id, TOTP, recovery codes, session tokens, rate limiting
 internal/vault        envelope encryption for secrets at rest
@@ -158,6 +161,18 @@ Schedule a query from its query tab (the calendar button), from a saved query, o
 - **History**: every run is recorded with its row count, what was sent, and any error. Result files are encrypted at rest (XChaCha20-Poly1305 per 64 KiB chunk, key sealed with the master key) and deleted after 14 days by default.
 
 An admin sets up email under **Administration → Email & schedules**: an SMTP server (STARTTLS, TLS, or a trusted relay without encryption), with presets for common providers and a test message. The same page sets who may receive results: team members only, team members plus listed domains, or anyone. It also controls whether webhooks are allowed, and whether they may reach private network addresses (blocked by default, including names that resolve to them).
+
+## Migration
+
+**Migrate** (in the rail, the command palette, or a connection's menu) copies tables from one connection to another: a MySQL server to a new one, MySQL to PostgreSQL, SQL Server or Oracle to MySQL, SQLite to PostgreSQL, BigQuery to anything, MongoDB to SQL and back. Choose the source and target (a connection plus database or schema), then review the plan before anything runs.
+
+- **The plan** lists every table and column with its source type and the type proposed on the target: `tinyint(1)` becomes `boolean`, `timestamptz` becomes `datetime(6)` in UTC, PostGIS geometry becomes MySQL `POINT SRID 4326`, a MongoDB `objectId` becomes `varchar(24)`, and so on. Anything that may lose information is flagged with the reason (a decimal without fixed precision, text shortened so it can be indexed, MongoDB dates keeping milliseconds). You can rename tables and columns, change types, leave out tables, columns, indexes and foreign keys, and preview the exact SQL for each table.
+- **Same engine** copies types, defaults, computed columns, collations and comments as they are, and can also copy views, routines, triggers, custom types and sequences.
+- **Across engines**, defaults are translated where there is an equivalent (`now()`, `CURRENT_TIMESTAMP(6)`, `GETDATE()`, `SYSDATE`; UUID generators; literals), enums become a native enum or a text column with a check, auto-numbering becomes the target's identity, and foreign key columns take the type of the key they reference. Check constraints, triggers and views written in the source's SQL are listed as not copied.
+- **The run** drops tables you chose to replace, creates each table with its primary key, streams the rows in batches (committing every 20,000 rows), then adds indexes and foreign keys and moves identity counters past the copied keys. Parents are loaded before the tables that reference them. Progress is live, and a run can be stopped; the chunk in flight is rolled back.
+- **Verification** counts the rows on both sides and, by default, reads the copy back and compares every column's values with the source after normalizing how each engine writes them (numbers, times and time zones, JSON, binary, intervals). A difference names the columns involved.
+
+Reading needs read access to the source; writing needs write access to the target. Replacing existing tables, and any migration into a production connection, asks you to type the target connection's name. Every run is kept with its report, and recorded in the audit log.
 
 ## Sharing and comments
 

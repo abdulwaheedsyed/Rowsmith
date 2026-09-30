@@ -239,6 +239,10 @@ func KindFromTypeName(t string) ValueKind {
 }
 
 // Doc is a sub-document cell that keeps its key order when marshalled.
+// OtherFields names the column that carries a document's fields outside
+// the inferred columns, when a collection is read as rows.
+const OtherFields = "…"
+
 type Doc struct {
 	Keys   []string
 	Values map[string]any

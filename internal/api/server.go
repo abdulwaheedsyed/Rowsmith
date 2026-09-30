@@ -55,6 +55,7 @@ type Server struct {
 	sched      *schedule.Runner
 	schedLimit *auth.Limiter
 	talkLimit  *auth.Limiter
+	migs       migrations
 }
 
 type Deps struct {
@@ -81,6 +82,10 @@ func New(d Deps) *Server {
 		Dir: filepath.Join(d.Config.DataDir, "results"), BaseURL: s.baseURL(), Settings: s.scheduleSettings}
 	s.schedLimit = auth.NewLimiter(10, 5) // manual and test runs per minute, per person
 	s.talkLimit = auth.NewLimiter(30, 15) // shares and comments per minute, per person
+	s.migs.jobs = map[string]*migrationJob{}
+	if err := d.Store.InterruptMigrations(context.Background()); err != nil {
+		d.Log.Error("could not mark interrupted migrations", "err", err)
+	}
 	s.cookieName = "rowsmith_session"
 	if d.Config.BasePath == "/" && !d.Config.Insecure {
 		// __Host- cookies must be Secure, host-only and Path=/, which blocks
@@ -234,6 +239,13 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("POST /api/comments/{id}/resolve", s.resolveComment)
 	full("GET /api/notifications", s.listNotifications)
 	full("POST /api/notifications/read", s.readNotifications)
+
+	full("POST /api/migrations/plan", s.planMigration)
+	full("POST /api/migrations/preview", s.previewMigration)
+	full("POST /api/migrations", s.startMigration)
+	full("GET /api/migrations", s.listMigrations)
+	full("GET /api/migrations/{id}", s.getMigration)
+	full("POST /api/migrations/{id}/cancel", s.cancelMigration)
 
 	full("GET /api/history", s.listHistory)
 	full("GET /api/saved-queries", s.listSaved)

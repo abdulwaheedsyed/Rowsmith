@@ -112,8 +112,12 @@ func (e *Engine) buildSelect(t *driver.Table, req driver.BrowseRequest, count, e
 				}
 			}
 		}
+		exact, _ := d.(ExactSelecter)
 		for _, c := range cols {
 			expr := d.SelectExpr(c)
+			if export && exact != nil {
+				expr = exact.ExactSelectExpr(c)
+			}
 			if expr != d.QuoteIdent(c.Name) {
 				expr += " AS " + d.QuoteIdent(c.Name)
 			}

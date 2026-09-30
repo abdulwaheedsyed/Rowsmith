@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as RContext from "@radix-ui/react-context-menu";
 import {
   Plus, Search, Settings, LogOut, Moon, Sun, Monitor, UserRound, BookMarked, Shield, Menu as MenuIcon, X, Home as HomeIcon,
-  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil, CalendarClock,
+  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil, CalendarClock, ArrowRightLeft,
 } from "lucide-react";
 import { post, setCsrf } from "../../lib/api";
 import { useConnections, useOpenConnections, useServer } from "../../lib/queries";
@@ -21,6 +21,7 @@ import { Library } from "../library/Library";
 import { Schedules } from "../schedules/Schedules";
 import { ScheduleDialogHost } from "../schedules/ScheduleDialog";
 import { SharePage } from "../shares/SharePage";
+import { Migrate } from "../migrate/Migrate";
 import { ShareDialogHost } from "../shares/ShareDialog";
 import { NotificationBell } from "../shares/Notifications";
 import { Admin } from "../admin/Admin";
@@ -93,6 +94,9 @@ export function Shell({ me }: { me: Me }) {
             </Route>
             <Route path="/schedules/*?">
               <Schedules me={me} />
+            </Route>
+            <Route path="/migrate/*?">
+              <Migrate me={me} />
             </Route>
             <Route path="/q/:id">{(p) => <SharePage key={p.id} id={p.id} />}</Route>
             <Route path="/admin/*?">
@@ -197,6 +201,11 @@ function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAd
         <Tip label="Saved queries & history" side="right">
           <Link href="/library" className={`rail__icon ${location.startsWith("/library") ? "is-active" : ""}`} aria-label="Library">
             <BookMarked />
+          </Link>
+        </Tip>
+        <Tip label="Migrate between databases" side="right">
+          <Link href="/migrate" className={`rail__icon ${location.startsWith("/migrate") ? "is-active" : ""}`} aria-label="Migrate">
+            <ArrowRightLeft />
           </Link>
         </Tip>
         <Tip label="Schedules" side="right">
@@ -355,7 +364,7 @@ function TopBar({ me, conn, onMenu }: { me: Me; conn?: Connection; onMenu(): voi
       </div>
     );
   } else {
-    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : location.startsWith("/schedules") ? "Schedules" : location.startsWith("/q/") ? "Shared query" : "Connections";
+    const label = location.startsWith("/admin") ? "Administration" : location.startsWith("/account") ? "Account & security" : location.startsWith("/library") ? "Library" : location.startsWith("/schedules") ? "Schedules" : location.startsWith("/q/") ? "Shared query" : location.startsWith("/migrate") ? "Migrate" : "Connections";
     title = <div className="topbar__title"><span className="topbar__name">{label}</span></div>;
   }
   return (

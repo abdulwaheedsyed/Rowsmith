@@ -163,6 +163,7 @@ func serve() error {
 	defer cancel()
 	_ = hs.Shutdown(ctx)
 	srv.StopScheduler()
+	srv.StopMigrations()
 	sessions.Shutdown()
 	tunnels.CloseAll()
 	return nil

@@ -90,6 +90,14 @@ func (dialect) SelectExpr(c driver.Column) string {
 	return quote(c.Name)
 }
 
+// ExactSelectExpr sends geometry whole, for exports.
+func (d dialect) ExactSelectExpr(c driver.Column) string {
+	if c.Kind == driver.KindGeometry {
+		return "ST_AsGeoJSON(" + quote(c.Name) + ")"
+	}
+	return d.SelectExpr(c)
+}
+
 func (dialect) TextExpr(c driver.Column) string {
 	switch c.Kind {
 	case driver.KindString, driver.KindText, driver.KindEnum:

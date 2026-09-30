@@ -43,6 +43,12 @@ type Dialect interface {
 	LimitOne() (prefix, suffix string)
 }
 
+// ExactSelecter is implemented by dialects whose SelectExpr shortens values
+// for display (large geometries); exports and migrations use the exact form.
+type ExactSelecter interface {
+	ExactSelectExpr(col driver.Column) string
+}
+
 // Base provides default implementations; engines embed it and override.
 type Base struct{}
 
