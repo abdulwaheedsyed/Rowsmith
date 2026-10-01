@@ -20,8 +20,8 @@ function Frame({ children, wide }: { children: ReactNode; wide?: boolean }) {
       </div>
       <main className={`auth__panel ${wide ? "auth__panel--wide" : ""}`}>
         <div className="auth__brand">
-          <AnvilMark size={34} />
-          <Wordmark size={22} />
+          <AnvilMark size={64} sparks="once" />
+          <Wordmark size={26} />
         </div>
         {children}
       </main>

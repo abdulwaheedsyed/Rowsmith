@@ -15,11 +15,13 @@ const STRIKE = { x: 19.5, y: 7 };
 /** The Rowsmith mark: an anvil built from table rows cut into cells. The face
  *  carries the temper gradient — the one place the brand uses it decoratively.
  *  Gaps are wider than in the full-size logo so they survive at 30px.
- *  `sparks` adds the logo's sparks, struck in bursts; they rest where the logo
- *  draws them when motion is reduced. Too fine to show below ~64px. */
-export function AnvilMark({ size = 28, sparks = false }: { size?: number; sparks?: boolean }) {
+ *  `sparks` adds the logo's sparks: "loop" strikes in bursts (loading), "once"
+ *  strikes on arrival and settles into the logo's still pose. With reduced
+ *  motion they rest where the logo draws them. Too fine to show below ~64px. */
+export function AnvilMark({ size = 28, sparks }: { size?: number; sparks?: "loop" | "once" }) {
+  const cls = sparks ? `anvil anvil--forge${sparks === "once" ? " anvil--struck" : ""}` : "anvil";
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={sparks ? "anvil anvil--forge" : "anvil"} overflow="visible">
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={cls} overflow="visible">
       <defs>
         <linearGradient id="rs-temper" x1="0" x2="1">
           <stop offset="0" style={{ stopColor: "var(--temper-straw)" }} />
@@ -55,7 +57,7 @@ export function AnvilMark({ size = 28, sparks = false }: { size?: number; sparks
           const length = (34 * weight + 10) * 0.0591; // the logo's streak length, on this grid
           const top = STRIKE.y - 0.6 - length;
           const rest = -(dist - 0.6 - length);
-          const style = { "--rest": `${rest.toFixed(2)}px`, "--fly": `${(rest - 2).toFixed(2)}px`, "--o": (1.2 - (dist / 0.0591) / 230).toFixed(2), animationDelay: `${i * 35}ms` } as CSSProperties;
+          const style = { "--rest": `${rest.toFixed(2)}px`, "--fly": `${(rest - 2).toFixed(2)}px`, "--o": (1.2 - (dist / 0.0591) / 230).toFixed(2), "--i": i } as CSSProperties;
           return (
             <g key={i} transform={`rotate(${angle} ${STRIKE.x} ${STRIKE.y})`}>
               <g className="anvil__spark" style={style}>

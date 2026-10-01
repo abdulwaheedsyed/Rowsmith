@@ -22,7 +22,7 @@ function Splash() {
   return (
     <div className="splash" role="status">
       <span className="sr-only">Loading Rowsmith</span>
-      <AnvilMark size={112} sparks />
+      <AnvilMark size={112} sparks="loop" />
     </div>
   );
 }

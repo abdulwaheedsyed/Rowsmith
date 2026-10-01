@@ -75,8 +75,8 @@
 .auth__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
+  gap: 12px;
+  margin: -6px 0 24px -6px;
 }
 .auth__title {
   font-size: var(--fs-2xl);
