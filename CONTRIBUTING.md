@@ -15,7 +15,7 @@ Remove passwords, connection strings, host names and data you can't share before
 
 ## Reporting a security problem
 
-Don't open a public issue. Report it privately on GitHub: open the **Security** tab, then **Report a vulnerability**. Include the steps to reproduce it and the impact you expect. You'll get a reply there.
+Don't open a public issue. Report it privately, as described in the [security policy](SECURITY.md).
 
 ## Setting up
 

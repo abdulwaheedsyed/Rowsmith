@@ -123,6 +123,8 @@ The frontend is compiled into the Go binary. Rowsmith keeps its own data (users,
 
 ## Security model
 
+To report a vulnerability, see the [security policy](SECURITY.md).
+
 - **Encryption at rest.** Each secret is encrypted with its own random data key using XChaCha20-Poly1305. That data key is then wrapped with a key-encryption key derived from the master key by HKDF-SHA256. Every envelope is bound to its record and field, so a ciphertext copied into another row will not decrypt.
 - **Master key.** Supply it as a Docker secret (`/run/secrets/rowsmith_master_key`), through `ROWSMITH_MASTER_KEY_FILE`, or through `ROWSMITH_MASTER_KEY`. If none is given, Rowsmith generates `<data>/keys/master.key` with `0600` permissions on first start. **Back the key up separately from the data directory.** Without it, saved secrets cannot be recovered. `rowsmith rotate-key` rotates it and re-wraps every stored secret.
 - **Exports and uploads** are written to `<data>/spool`, each encrypted with its own random key that exists only in memory, readable only by the user who created them, and deleted after 15 minutes (or when an import finishes). Exports always read through read-only database sessions.
