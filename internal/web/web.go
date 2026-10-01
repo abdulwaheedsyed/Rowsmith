@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
@@ -13,6 +14,11 @@ import (
 
 //go:embed all:dist
 var dist embed.FS
+
+func init() {
+	// Not in Go's built-in table, and distroless images have no mime.types.
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 // Handler serves static assets and falls back to index.html for client-side
 // routes. basePath is injected as <base href> so relative asset URLs resolve
