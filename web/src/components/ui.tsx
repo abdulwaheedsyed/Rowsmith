@@ -18,8 +18,7 @@ const STRIKE = { x: 19.5, y: 7 };
  *  `sparks` adds the logo's sparks: "loop" strikes in bursts (loading), "once"
  *  strikes on arrival and settles into the logo's still pose. With reduced
  *  motion they rest where the logo draws them. Too fine to show below ~64px.
- *  `tm` adds a ™ at the face's top-right corner, wherever the mark stands on
- *  its own; next to the wordmark, the wordmark carries it. */
+ *  `tm` adds a ™ at the face's top-right corner. */
 export function AnvilMark({ size = 28, sparks, tm }: { size?: number; sparks?: "loop" | "once"; tm?: boolean }) {
   const cls = sparks ? `anvil anvil--forge${sparks === "once" ? " anvil--struck" : ""}` : "anvil";
   return (

@@ -1,6 +1,6 @@
 # Security policy
 
-Rowsmith holds the keys to other people's databases, so security reports get priority over everything else.
+Rowsmith™ holds the keys to other people's databases, so security reports get priority over everything else.
 
 ## Reporting a vulnerability
 

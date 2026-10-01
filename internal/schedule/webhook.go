@@ -173,7 +173,7 @@ func webhookBody(kind string, ev Event, avatar string) any {
 	case "slack", "gchat", "teams":
 		return map[string]string{"text": text}
 	case "discord":
-		msg := map[string]string{"content": clip(text, 1900), "username": "Rowsmith"}
+		msg := map[string]string{"content": clip(text, 1900), "username": "Rowsmith™"}
 		if avatar != "" {
 			msg["avatar_url"] = avatar
 		}

@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something Rowsmith could do, or do better.
+description: Suggest something Rowsmith™ could do, or do better.
 labels: ["enhancement"]
 body:
   - type: markdown

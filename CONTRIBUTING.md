@@ -1,4 +1,4 @@
-# Contributing to Rowsmith
+# Contributing to Rowsmith™
 
 Thanks for helping. Bug reports, fixes, documentation and support for new engines are all welcome. For anything bigger than a small fix, open an issue first so we can agree on the approach before you spend time on it.
 

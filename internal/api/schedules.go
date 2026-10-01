@@ -606,7 +606,7 @@ func (s *Server) testMail(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	html := fmt.Sprintf(`<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;color:#1B1F24;">`+mail.Brand+`
 <p style="margin-top:18px;"><b>Email from Rowsmith works.</b></p><p>Scheduled reports and alerts will be sent from %s through %s.</p></div>`,
 		htmlEscape(cfg.From), htmlEscape(cfg.Host))
-	err := mail.Send(sctx, cfg, mail.Message{To: []string{rc.user.Email}, Subject: "Rowsmith test email",
+	err := mail.Send(sctx, cfg, mail.Message{To: []string{rc.user.Email}, Subject: "Rowsmith™ test email",
 		Text: "Email from Rowsmith works. Scheduled reports and alerts will be sent from " + cfg.From + " through " + cfg.Host + ".", HTML: html})
 	if err != nil {
 		writeErr(w, 502, err.Error())
