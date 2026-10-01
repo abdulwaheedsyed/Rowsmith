@@ -156,7 +156,7 @@ function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAd
     <nav className="rail" aria-label="Connections">
       <Tip label="All connections" side="right">
         <Link href="/" className={`rail__brand ${location === "/" ? "is-active" : ""}`} aria-label="Home">
-          <AnvilMark size={30} />
+          <AnvilMark size={30} tm />
         </Link>
       </Tip>
       <div className="rail__list">
