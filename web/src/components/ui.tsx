@@ -17,8 +17,10 @@ const STRIKE = { x: 19.5, y: 7 };
  *  Gaps are wider than in the full-size logo so they survive at 30px.
  *  `sparks` adds the logo's sparks: "loop" strikes in bursts (loading), "once"
  *  strikes on arrival and settles into the logo's still pose. With reduced
- *  motion they rest where the logo draws them. Too fine to show below ~64px. */
-export function AnvilMark({ size = 28, sparks }: { size?: number; sparks?: "loop" | "once" }) {
+ *  motion they rest where the logo draws them. Too fine to show below ~64px.
+ *  `tm` adds a ™ at the face's top-right corner, for the mark shown on its own
+ *  at a large size; next to the wordmark, the wordmark carries it. */
+export function AnvilMark({ size = 28, sparks, tm }: { size?: number; sparks?: "loop" | "once"; tm?: boolean }) {
   const cls = sparks ? `anvil anvil--forge${sparks === "once" ? " anvil--struck" : ""}` : "anvil";
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={cls} overflow="visible">
@@ -37,6 +39,10 @@ export function AnvilMark({ size = 28, sparks }: { size?: number; sparks?: "loop
         )}
       </defs>
       <path className="anvil__face" d="M3 7h26v4.7H13.05C9.5 11.7 6.67 10.3 3 7z" fill="url(#rs-temper)" />
+      {tm && (
+        // ™ drawn as strokes, as on the square logos, so it needs no font
+        <path d="M29.6 7.14h1.38M30.29 7v1.8M31.43 8.8V7.14L32.14 8.27L32.85 7.14V8.8" fill="none" stroke="var(--muted)" strokeWidth=".28" strokeMiterlimit="2" />
+      )}
       <g fill="var(--text-2)">
         <rect x="11.27" y="13" width="3.34" height="3.4" rx=".6" />
         <rect x="15.51" y="13" width="3.34" height="3.4" rx=".6" />
