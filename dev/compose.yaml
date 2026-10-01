@@ -109,7 +109,7 @@ services:
 
   mongo:
     profiles: [full]
-    image: mongo:8.0
+    image: mongo:8.3
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
