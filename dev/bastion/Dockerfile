@@ -1,5 +1,5 @@
 # Minimal SSH bastion for tunnel tests: password + key auth, TCP forwarding on.
-FROM alpine:3.22
+FROM alpine:3.24
 RUN apk add --no-cache openssh && ssh-keygen -A \
  && adduser -D -s /bin/sh tunnel \
  && sed -i -e 's/^#\?AllowTcpForwarding.*/AllowTcpForwarding yes/' \
