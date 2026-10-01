@@ -7,23 +7,36 @@ import { useToasts } from "../lib/store";
 
 // ---- Brand ----------------------------------------------------------------------
 
-/** The Rowsmith mark: an anvil built from stacked table rows. The face row
- *  carries the temper gradient — the one place the brand uses it decoratively. */
+/** The Rowsmith mark: an anvil built from table rows cut into cells. The face
+ *  carries the temper gradient — the one place the brand uses it decoratively.
+ *  Gaps are wider than in the full-size logo so they survive at 30px. */
 export function AnvilMark({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="anvil">
       <defs>
         <linearGradient id="rs-temper" x1="0" x2="1">
-          <stop offset="0" stopColor="#EBC76A" />
+          <stop offset="0" style={{ stopColor: "var(--temper-straw)" }} />
           <stop offset=".45" stopColor="#C4803F" />
           <stop offset=".75" stopColor="#93508A" />
           <stop offset="1" stopColor="#3D7AD4" />
         </linearGradient>
       </defs>
-      <path d="M3 7h26v4.5H12.5C8.8 11.5 6 10 3 7z" fill="url(#rs-temper)" />
-      <rect x="11" y="13.5" width="12" height="3.2" rx="1" fill="var(--text-2)" />
-      <rect x="13.5" y="18.4" width="7" height="3" rx="1" fill="var(--muted)" />
-      <rect x="7.5" y="23" width="19" height="3.4" rx="1" fill="var(--text-2)" />
+      <path d="M3 7h26v4.7H13.05C9.5 11.7 6.67 10.3 3 7z" fill="url(#rs-temper)" />
+      <g fill="var(--text-2)">
+        <rect x="11.27" y="13" width="3.34" height="3.4" rx=".6" />
+        <rect x="15.51" y="13" width="3.34" height="3.4" rx=".6" />
+        <rect x="19.75" y="13" width="3.34" height="3.4" rx=".6" />
+      </g>
+      <g fill="var(--muted)">
+        <rect x="13.64" y="17.5" width="3.1" height="2.8" rx=".6" />
+        <rect x="17.64" y="17.5" width="3.1" height="2.8" rx=".6" />
+      </g>
+      <g fill="var(--text-2)">
+        <rect x="7.73" y="21.4" width="4.05" height="3.8" rx=".6" />
+        <rect x="12.68" y="21.4" width="4.05" height="3.8" rx=".6" />
+        <rect x="17.63" y="21.4" width="4.05" height="3.8" rx=".6" />
+        <rect x="22.58" y="21.4" width="4.05" height="3.8" rx=".6" />
+      </g>
     </svg>
   );
 }
