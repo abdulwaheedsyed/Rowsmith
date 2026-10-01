@@ -1,13 +1,15 @@
 // Package mail sends email through an SMTP server: STARTTLS or implicit
-// TLS, PLAIN or LOGIN sign-in, and MIME messages with text, HTML and
-// streamed attachments.
+// TLS, PLAIN or LOGIN sign-in, and MIME messages with text, HTML, embedded
+// images and streamed attachments.
 package mail
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -21,6 +23,7 @@ import (
 	"net/smtp"
 	"net/textproto"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -68,12 +71,44 @@ type Attachment struct {
 	Open        func() (io.ReadCloser, error)
 }
 
+// Inline is an image the HTML shows by its content ID (src="cid:…"), so it
+// displays without loading anything from the network.
+type Inline struct {
+	CID         string
+	ContentType string
+	Data        []byte
+}
+
 type Message struct {
 	To          []string
 	Subject     string
 	Text        string
 	HTML        string
+	Inline      []Inline
 	Attachments []Attachment
+}
+
+//go:embed logo.png
+var logoPNG []byte
+
+// LogoCID is the content ID of the Rowsmith logo: HTML that shows
+// src="cid:logo@rowsmith" gets the logo embedded in the message.
+const LogoCID = "logo@rowsmith"
+
+// Brand is the logo and wordmark as email HTML, for the top of a message.
+const Brand = `<table role="presentation" cellpadding="0" cellspacing="0"><tr>` +
+	`<td style="vertical-align:middle;"><img src="cid:` + LogoCID + `" width="28" height="28" alt="" style="display:block;border:0;"></td>` +
+	`<td style="padding-left:9px;vertical-align:middle;font-size:17px;font-weight:800;letter-spacing:-.02em;color:#1B1F24;">rowsmith</td>` +
+	`</tr></table>`
+
+// inlines lists the images to embed: m's own, plus the logo when the HTML
+// shows it.
+func (m Message) inlines() []Inline {
+	out := m.Inline
+	if strings.Contains(m.HTML, "cid:"+LogoCID) && !slices.ContainsFunc(out, func(x Inline) bool { return x.CID == LogoCID }) {
+		out = append(slices.Clone(out), Inline{CID: LogoCID, ContentType: "image/png", Data: logoPNG})
+	}
+	return out
 }
 
 // Send delivers m through the server in c.
@@ -242,32 +277,13 @@ func write(w io.Writer, from *mail.Address, m Message) error {
 		return err
 	}
 	if len(m.Attachments) > 0 {
-		inner := multipart.NewWriter(nil)
-		part, err := mixed.CreatePart(textproto.MIMEHeader{"Content-Type": {fmt.Sprintf("multipart/alternative; boundary=%q", inner.Boundary())}})
-		if err != nil {
+		var err error
+		if alt, err = nested(mixed, "multipart/alternative"); err != nil {
 			return err
 		}
-		alt = multipart.NewWriter(part)
-		_ = alt.SetBoundary(inner.Boundary())
 	}
-	for _, body := range []struct{ typ, text string }{{"text/plain", m.Text}, {"text/html", m.HTML}} {
-		if body.text == "" {
-			continue
-		}
-		part, err := alt.CreatePart(textproto.MIMEHeader{
-			"Content-Type":              {body.typ + "; charset=utf-8"},
-			"Content-Transfer-Encoding": {"quoted-printable"},
-		})
-		if err != nil {
-			return err
-		}
-		qp := quotedprintable.NewWriter(part)
-		if _, err := io.WriteString(qp, body.text); err != nil {
-			return err
-		}
-		if err := qp.Close(); err != nil {
-			return err
-		}
+	if err := writeBodies(alt, m); err != nil {
+		return err
 	}
 	if alt != mixed {
 		if err := alt.Close(); err != nil {
@@ -303,6 +319,79 @@ func write(w io.Writer, from *mail.Address, m Message) error {
 		}
 	}
 	return mixed.Close()
+}
+
+// writeBodies writes the text and HTML versions. With embedded images the
+// HTML goes in a multipart/related part alongside them.
+func writeBodies(alt *multipart.Writer, m Message) error {
+	if m.Text != "" {
+		if err := writeQP(alt, "text/plain", m.Text); err != nil {
+			return err
+		}
+	}
+	if m.HTML == "" {
+		return nil
+	}
+	images := m.inlines()
+	if len(images) == 0 {
+		return writeQP(alt, "text/html", m.HTML)
+	}
+	rel, err := nested(alt, `multipart/related; type="text/html"`)
+	if err != nil {
+		return err
+	}
+	if err := writeQP(rel, "text/html", m.HTML); err != nil {
+		return err
+	}
+	for _, img := range images {
+		part, err := rel.CreatePart(textproto.MIMEHeader{
+			"Content-Type":              {img.ContentType},
+			"Content-ID":                {"<" + img.CID + ">"},
+			"Content-Disposition":       {"inline"},
+			"Content-Transfer-Encoding": {"base64"},
+		})
+		if err != nil {
+			return err
+		}
+		lw := &lineWriter{w: part}
+		enc := base64.NewEncoder(base64.StdEncoding, lw)
+		if _, err := io.Copy(enc, bytes.NewReader(img.Data)); err != nil {
+			return err
+		}
+		if err := enc.Close(); err != nil {
+			return err
+		}
+		if err := lw.end(); err != nil {
+			return err
+		}
+	}
+	return rel.Close()
+}
+
+// nested opens a multipart part of the given type inside parent.
+func nested(parent *multipart.Writer, typ string) (*multipart.Writer, error) {
+	boundary := multipart.NewWriter(nil).Boundary()
+	part, err := parent.CreatePart(textproto.MIMEHeader{"Content-Type": {fmt.Sprintf("%s; boundary=%q", typ, boundary)}})
+	if err != nil {
+		return nil, err
+	}
+	w := multipart.NewWriter(part)
+	return w, w.SetBoundary(boundary)
+}
+
+func writeQP(w *multipart.Writer, typ, text string) error {
+	part, err := w.CreatePart(textproto.MIMEHeader{
+		"Content-Type":              {typ + "; charset=utf-8"},
+		"Content-Transfer-Encoding": {"quoted-printable"},
+	})
+	if err != nil {
+		return err
+	}
+	qp := quotedprintable.NewWriter(part)
+	if _, err := io.WriteString(qp, text); err != nil {
+		return err
+	}
+	return qp.Close()
 }
 
 // lineWriter breaks base64 into 76-character lines.

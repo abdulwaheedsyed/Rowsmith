@@ -151,3 +151,46 @@ func TestSendRefusesUnsafeSetups(t *testing.T) {
 		t.Fatalf("header injection should be refused: %v", err)
 	}
 }
+
+// TestLogoIsEmbedded checks that HTML showing the logo carries it as a
+// related part, next to the HTML and inside the alternative with the text.
+func TestLogoIsEmbedded(t *testing.T) {
+	var buf bytes.Buffer
+	m := Message{To: []string{"a@example.com"}, Subject: "s", Text: "plain", HTML: "<p>" + Brand + "</p>",
+		Attachments: []Attachment{{Name: "r.csv", ContentType: "text/csv", Open: func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("a,b")), nil }}}}
+	if err := write(&buf, &mail.Address{Address: "from@example.com"}, m); err != nil {
+		t.Fatal(err)
+	}
+	msg, err := mail.ReadMessage(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tree []string
+	var walk func(r io.Reader, ctype, indent string)
+	walk = func(r io.Reader, ctype, indent string) {
+		mt, params, _ := mime.ParseMediaType(ctype)
+		tree = append(tree, indent+mt)
+		if !strings.HasPrefix(mt, "multipart/") {
+			return
+		}
+		mr := multipart.NewReader(r, params["boundary"])
+		for {
+			p, err := mr.NextPart()
+			if err != nil {
+				return
+			}
+			if cid := p.Header.Get("Content-ID"); cid != "" {
+				data, _ := io.ReadAll(base64.NewDecoder(base64.StdEncoding, p))
+				if cid != "<"+LogoCID+">" || !bytes.Equal(data, logoPNG) {
+					t.Errorf("inline part %s: %d bytes", cid, len(data))
+				}
+			}
+			walk(p, p.Header.Get("Content-Type"), indent+"  ")
+		}
+	}
+	walk(msg.Body, msg.Header.Get("Content-Type"), "")
+	want := []string{"multipart/mixed", "  multipart/alternative", "    text/plain", "    multipart/related", "      text/html", "      image/png", "  text/csv"}
+	if strings.Join(tree, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("structure:\n%s", strings.Join(tree, "\n"))
+	}
+}

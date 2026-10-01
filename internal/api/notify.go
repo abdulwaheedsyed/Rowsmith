@@ -102,7 +102,8 @@ var noteHTML = template.Must(template.New("note").Parse(`<!doctype html>
 <body style="margin:0;padding:0;background:#EEF0F2;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF0F2;padding:24px 12px;"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF;border:1px solid #DADDE1;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1B1F24;">
-<tr><td style="padding:22px 26px 4px;">
+<tr><td style="padding:22px 26px 0;">` + mail.Brand + `</td></tr>
+<tr><td style="padding:18px 26px 4px;">
   <div style="font-size:15px;color:#3D434B;">{{.Headline}}</div>
   <div style="font-size:20px;font-weight:700;margin-top:4px;line-height:1.3;">{{.Title}}</div>
 </td></tr>

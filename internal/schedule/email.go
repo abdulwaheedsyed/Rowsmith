@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"strings"
 	texttemplate "text/template"
+
+	"rowsmith/internal/mail"
 )
 
 // emailData fills the report, alert and failure emails.
@@ -58,7 +60,8 @@ var htmlEmail = template.Must(template.New("email").Parse(`<!doctype html>
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#FFFFFF;border-radius:10px;border:1px solid #DADDE1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1B1F24;">
 <tr><td style="height:4px;background:{{.Accent}};border-radius:10px 10px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
-<tr><td style="padding:22px 26px 6px;">
+<tr><td style="padding:20px 26px 0;">` + mail.Brand + `</td></tr>
+<tr><td style="padding:18px 26px 6px;">
   <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{.Accent}};">{{.Label}}</div>
   <div style="font-size:21px;font-weight:700;margin:6px 0 2px;line-height:1.3;">{{.Name}}</div>
   <div style="font-size:15px;color:#3D434B;line-height:1.5;">{{.Headline}}</div>

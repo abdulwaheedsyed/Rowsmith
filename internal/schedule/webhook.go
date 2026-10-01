@@ -130,7 +130,9 @@ type EventRef struct {
 	URL  string `json:"url,omitempty"`
 }
 
-func postWebhook(ctx context.Context, raw string, allowPrivate bool, ev Event) error {
+// postWebhook sends ev. avatar is the logo's URL, shown as the sender on
+// Discord (the only chat service that lets a message set it); may be "".
+func postWebhook(ctx context.Context, raw string, allowPrivate bool, ev Event, avatar string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return err
@@ -138,20 +140,7 @@ func postWebhook(ctx context.Context, raw string, allowPrivate bool, ev Event) e
 	if err := ValidateWebhook(raw, allowPrivate); err != nil {
 		return err
 	}
-	text := ev.Text
-	if ev.Schedule.URL != "" {
-		text += "\n" + ev.Schedule.URL
-	}
-	var body any
-	switch webhookKind(u) {
-	case "slack", "gchat", "teams":
-		body = map[string]string{"text": text}
-	case "discord":
-		body = map[string]string{"content": clip(text, 1900)}
-	default:
-		body = ev
-	}
-	b, _ := json.Marshal(body)
+	b, _ := json.Marshal(webhookBody(webhookKind(u), ev, avatar))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, raw, bytes.NewReader(b))
 	if err != nil {
 		return err
@@ -171,6 +160,26 @@ func postWebhook(ctx context.Context, raw string, allowPrivate bool, ev Event) e
 		return fmt.Errorf("the webhook answered %d %s", resp.StatusCode, strings.TrimSpace(string(msg)))
 	}
 	return nil
+}
+
+// webhookBody is what each kind of webhook expects: chat tools get the
+// summary line, anything else the whole event.
+func webhookBody(kind string, ev Event, avatar string) any {
+	text := ev.Text
+	if ev.Schedule.URL != "" {
+		text += "\n" + ev.Schedule.URL
+	}
+	switch kind {
+	case "slack", "gchat", "teams":
+		return map[string]string{"text": text}
+	case "discord":
+		msg := map[string]string{"content": clip(text, 1900), "username": "Rowsmith"}
+		if avatar != "" {
+			msg["avatar_url"] = avatar
+		}
+		return msg
+	}
+	return ev
 }
 
 func clip(s string, n int) string {

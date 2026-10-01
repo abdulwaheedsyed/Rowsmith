@@ -535,6 +535,14 @@ type deliveryRecord struct {
 	Note       string   `json:"note,omitempty"`
 }
 
+// icon is the logo's public URL, or "" without a public URL.
+func (r *Runner) icon() string {
+	if r.BaseURL == "" {
+		return ""
+	}
+	return r.BaseURL + "icon-512.png"
+}
+
 func (r *Runner) link(x *store.Schedule) string {
 	if r.BaseURL == "" {
 		return ""
@@ -654,7 +662,7 @@ func (r *Runner) deliver(ctx context.Context, x *store.Schedule, cfg Config, set
 			ev.Preview = out.preview[:min(len(out.preview), cfg.Output.Preview)]
 		}
 		wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		err = postWebhook(wctx, string(raw), set.PrivateWebhooks, ev)
+		err = postWebhook(wctx, string(raw), set.PrivateWebhooks, ev, r.icon())
 		cancel()
 		if err != nil {
 			d.Webhook = err.Error()
@@ -692,7 +700,7 @@ func (r *Runner) notifyOwner(ctx context.Context, x *store.Schedule, run *store.
 				RanAt: time.UnixMilli(run.StartedAt).UTC().Format(time.RFC3339), Error: run.Error,
 				Text: fmt.Sprintf("Failed: %s. %s", x.Name, clip(run.Error, 300))}
 			wctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			if err := postWebhook(wctx, string(raw), set.PrivateWebhooks, ev); err != nil {
+			if err := postWebhook(wctx, string(raw), set.PrivateWebhooks, ev, r.icon()); err != nil {
 				d.Webhook = err.Error()
 			} else {
 				d.Webhook = "sent"

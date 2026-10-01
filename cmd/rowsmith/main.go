@@ -117,7 +117,7 @@ func serve() error {
 	tunnels := tunnel.NewManager(hostKeys{st.store}, log)
 	sessions := session.New(st.store, st.vault, tunnels, log)
 	srv := api.New(api.Deps{Config: st.cfg, Store: st.store, Vault: st.vault, Sessions: sessions, Tunnels: tunnels, Log: log,
-		Static: web.Handler(st.cfg.BasePath)})
+		Static: web.Handler(st.cfg.BasePath, publicBase(st.cfg))})
 
 	if n, err := st.store.CountUsers(context.Background()); err == nil && n == 0 {
 		token := strings.ToUpper(base64.RawStdEncoding.EncodeToString(id.Token(9)))
@@ -401,4 +401,12 @@ func rewrapAll(ctx context.Context, st *store.Store, v *vault.Vault) (int, error
 		n++
 	}
 	return n, nil
+}
+
+// publicBase is the public URL ending in "/", or "" when it is not configured.
+func publicBase(c *config.Config) string {
+	if u := c.PublicURL; u != nil && u.Host != "" {
+		return u.Scheme + "://" + u.Host + c.BasePath
+	}
+	return ""
 }

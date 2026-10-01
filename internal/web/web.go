@@ -4,6 +4,7 @@ package web
 import (
 	"bytes"
 	"embed"
+	"html"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -22,8 +23,9 @@ func init() {
 
 // Handler serves static assets and falls back to index.html for client-side
 // routes. basePath is injected as <base href> so relative asset URLs resolve
-// from any deep link.
-func Handler(basePath string) http.Handler {
+// from any deep link. publicBase (the public URL ending in "/", or "") lets
+// link previews show the social card, which needs an absolute URL.
+func Handler(basePath, publicBase string) http.Handler {
 	sub, err := fs.Sub(dist, "dist")
 	if err != nil {
 		panic(err)
@@ -33,6 +35,12 @@ func Handler(basePath string) http.Handler {
 		index = []byte("<!doctype html><title>Rowsmith</title><p>The web UI was not built into this binary.</p>")
 	}
 	index = bytes.Replace(index, []byte(`<base href="/">`), []byte(`<base href="`+basePath+`">`), 1)
+	if publicBase != "" {
+		card := html.EscapeString(publicBase + "social-preview.png")
+		tags := `<meta property="og:image" content="` + card + `" /><meta property="og:image:width" content="1280" />` +
+			`<meta property="og:image:height" content="640" /><meta name="twitter:image" content="` + card + `" />`
+		index = bytes.Replace(index, []byte("</head>"), []byte(tags+"</head>"), 1)
+	}
 	files := http.FileServer(http.FS(sub))
 	started := time.Now()
 
