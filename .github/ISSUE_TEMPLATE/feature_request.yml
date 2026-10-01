@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest something Rowsmith could do, or do better.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Describe the problem first. A clear problem often leads to a better solution than the first one that comes to mind.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      placeholder: Every Monday I export the same three tables to send to finance, and it takes half an hour.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Rowsmith to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried instead?
+      description: Workarounds, other tools, or other ways Rowsmith could solve it.
+  - type: dropdown
+    id: engines
+    attributes:
+      label: Which databases does this involve?
+      multiple: true
+      options:
+        - MySQL
+        - MariaDB
+        - PostgreSQL / PostGIS
+        - SQL Server
+        - Oracle
+        - MongoDB
+        - BigQuery
+        - SQLite
+        - All of them
+        - A database Rowsmith doesn't support yet
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this myself. (See the [contributing guide](https://github.com/abdulwaheedsyed/Rowsmith/blob/main/CONTRIBUTING.md).)

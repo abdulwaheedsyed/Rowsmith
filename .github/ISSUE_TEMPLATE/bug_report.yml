@@ -1,0 +1,91 @@
+name: Bug report
+description: Something in Rowsmith doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Remove passwords, keys, connection strings, host names and private data before you submit.
+
+        Found a security problem? Don't report it here. Follow the [security policy](https://github.com/abdulwaheedsyed/Rowsmith/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include any error message shown in Rowsmith.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a MySQL connection
+        2. Browse the orders table
+        3. Filter by created_at
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Rowsmith version and commit
+      description: "`rowsmith version` prints the version (in a container: `docker exec rowsmith /rowsmith version`). If you built it yourself, add the commit from `git rev-parse --short HEAD`."
+      placeholder: 0.1.0, commit 7b27d16
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How do you run Rowsmith?
+      options:
+        - Container (Docker or Podman)
+        - Binary
+        - The development stack in dev/
+    validations:
+      required: true
+  - type: dropdown
+    id: engines
+    attributes:
+      label: Which databases are involved?
+      multiple: true
+      options:
+        - MySQL
+        - MariaDB
+        - PostgreSQL / PostGIS
+        - SQL Server
+        - Oracle
+        - MongoDB
+        - BigQuery
+        - SQLite
+        - None in particular
+  - type: input
+    id: engine-version
+    attributes:
+      label: Database version
+      placeholder: PostgreSQL 16.4 with PostGIS 3.4
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: For problems in the web app.
+      placeholder: Firefox 131 on Windows 11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server logs
+      description: Lines from the server's log around the time of the problem (`docker logs rowsmith`). This is formatted as code automatically.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed passwords, keys, connection strings and private data from this report.
+          required: true
+        - label: I searched the existing issues and didn't find this problem.

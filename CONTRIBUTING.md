@@ -2,14 +2,11 @@
 
 Thanks for helping. Bug reports, fixes, documentation and support for new engines are all welcome. For anything bigger than a small fix, open an issue first so we can agree on the approach before you spend time on it.
 
+Everyone taking part in the project follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 ## Reporting a bug
 
-Open an issue with:
-
-- the Rowsmith version or commit, and how you run it (container, binary)
-- the database engine and its version
-- the browser, for problems in the UI
-- the steps that cause the problem, what you expected, and what happened instead
+[Open an issue](https://github.com/abdulwaheedsyed/Rowsmith/issues/new/choose) with the bug report form. It asks for the Rowsmith version and commit, how you run it, the databases involved, the steps that cause the problem, and what you expected. For ideas, use the feature request form.
 
 Remove passwords, connection strings, host names and data you can't share before you post logs or screenshots.
 
