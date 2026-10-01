@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <title>Rowsmith</title>
   <defs>
+    
     <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="540" cy="470" r="500">
       <stop offset="0" stop-color="rgb(224,160,60)" stop-opacity="0.11"/><stop offset="1" stop-color="rgb(224,160,60)" stop-opacity="0"/>
     </radialGradient>
@@ -8,6 +9,7 @@
       <stop offset="0" stop-color="rgb(61,122,212)" stop-opacity="0.08"/><stop offset="1" stop-color="rgb(61,122,212)" stop-opacity="0"/>
     </radialGradient>
   </defs>
+  <g>
   <rect width="1024" height="1024" fill="#eef1f6"/>
   <rect width="1024" height="1024" fill="url(#cool)"/>
   <rect width="1024" height="1024" fill="url(#glow)"/>
@@ -61,5 +63,8 @@
       <line x1="1003.5" y1="104.7" x2="984.0" y2="71.0" stroke="url(#tail5)" stroke-width="2.9" stroke-linecap="round"/>
       <circle cx="984.0" cy="71.0" r="1.6" fill="#ffbf47" opacity="0.71"/>
     </g>
+  </g>
+  
+  <path d="M866 352.82h19.88235294117647M875.9411764705883 351v26M892.2905882352942 377V352.82L902.7058823529412 369.3529411764706L913.1211764705882 352.82V377" fill="none" stroke="#556074" stroke-width="3.64" stroke-linejoin="miter" stroke-miterlimit="2" aria-label="trademark"/>
   </g>
 </svg>
