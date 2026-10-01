@@ -1,6 +1,9 @@
 # Rowsmith
 
-![Rowsmith: a self-hosted web workspace for MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, MongoDB, BigQuery and SQLite](docs/social-preview.png)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/social-preview-light.png">
+  <img alt="Rowsmith: a self-hosted web workspace for MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, MongoDB, BigQuery and SQLite" src="docs/social-preview-dark.png">
+</picture>
 
 **A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
 
