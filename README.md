@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/public/favicon.svg" alt="" width="112" height="112">
+  <img src="docs/icon.svg" alt="" width="112" height="112">
 </p>
 
 <h1 align="center">Rowsmith<sup>™</sup></h1>
