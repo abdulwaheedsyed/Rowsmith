@@ -20,7 +20,7 @@ import (
 var design = driver.TableDesign{
 	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Generated: true, GeneratedVirtual: true,
 	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true,
-	IndexTypes: []string{"btree", "bitmap", "btree (reverse)"},
+	IndexTypes: []string{"btree", "bitmap", "btree (reverse)", "spatial"},
 	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL"},
 	Note: "Oracle cannot move existing columns; new columns are added at the end. Identity (auto-increment) can only be set " +
 		"when a column is created, generated columns are always virtual, and foreign keys have no ON UPDATE rule.",
@@ -160,6 +160,35 @@ func keyPart(key string, desc bool, columns map[string]bool) string {
 }
 
 // indexType maps Index.Type (as Describe reports it) to the kinds DDL knows.
+func isGeometry(col driver.Column) bool {
+	t := strings.ToUpper(strings.TrimSpace(col.Type))
+	return t == "SDO_GEOMETRY" || t == "MDSYS.SDO_GEOMETRY"
+}
+
+// spatialMetadata registers a geometry column in USER_SDO_GEOM_METADATA,
+// which Oracle Spatial needs before the column can have a spatial index:
+// longitude and latitude bounds for geodetic SRIDs, wide planar bounds
+// otherwise. An earlier row for the column is replaced.
+func spatialMetadata(table, column string, srid int) string {
+	sridSQL := "NULL"
+	if srid > 0 {
+		sridSQL = strconv.Itoa(srid)
+	}
+	t, c := literal(table), literal(column)
+	return "DECLARE\n  geodetic NUMBER := 0;\nBEGIN\n" +
+		"  IF " + sridSQL + " IS NOT NULL THEN\n" +
+		"    SELECT COUNT(*) INTO geodetic FROM MDSYS.SDO_COORD_REF_SYS WHERE SRID = " + sridSQL + " AND COORD_REF_SYS_KIND LIKE 'GEOGRAPHIC%';\n" +
+		"  END IF;\n" +
+		"  DELETE FROM USER_SDO_GEOM_METADATA WHERE TABLE_NAME = " + t + " AND COLUMN_NAME = " + c + ";\n" +
+		"  IF geodetic > 0 THEN\n" +
+		"    INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES (" + t + ", " + c + ",\n" +
+		"      SDO_DIM_ARRAY(SDO_DIM_ELEMENT('Longitude', -180, 180, 0.05), SDO_DIM_ELEMENT('Latitude', -90, 90, 0.05)), " + sridSQL + ");\n" +
+		"  ELSE\n" +
+		"    INSERT INTO USER_SDO_GEOM_METADATA (TABLE_NAME, COLUMN_NAME, DIMINFO, SRID) VALUES (" + t + ", " + c + ",\n" +
+		"      SDO_DIM_ARRAY(SDO_DIM_ELEMENT('X', -1E12, 1E12, 0.0005), SDO_DIM_ELEMENT('Y', -1E12, 1E12, 0.0005)), " + sridSQL + ");\n" +
+		"  END IF;\nEND;"
+}
+
 func indexType(t string) string {
 	switch s := strings.ToLower(strings.TrimSpace(t)); s {
 	case "", "btree", "normal":
@@ -202,6 +231,12 @@ func (c *conn) createIndex(table, schema string, ix driver.Index, keys []string,
 	case "btree":
 	case "btree (reverse)":
 		suffix = " REVERSE"
+	case "spatial":
+		if ix.Unique || len(keys) != 1 {
+			return "", fmt.Errorf("index %s: a spatial index covers one geometry column and cannot be unique", ix.Name)
+		}
+		// Needs the column's row in USER_SDO_GEOM_METADATA (see spatialMetadata).
+		return "CREATE INDEX " + c.objectName(schema, ix.Name) + " ON " + table + " (" + quote(keys[0]) + ") INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2", nil
 	case "bitmap":
 		if ix.Unique {
 			return "", fmt.Errorf("index %s: a bitmap index cannot be unique", ix.Name)
@@ -386,6 +421,11 @@ func (c *conn) CreateTableSQL(def driver.TableDef) ([]string, error) {
 		lines = append(lines, s)
 	}
 	out := []string{"CREATE TABLE " + table + " (\n  " + strings.Join(lines, ",\n  ") + "\n)"}
+	for _, col := range def.Columns {
+		if isGeometry(col.Column) && strings.EqualFold(schema, c.user) {
+			out = append(out, spatialMetadata(def.Ref.Name, col.Name, col.SRID))
+		}
+	}
 	for _, ix := range def.Indexes {
 		if ix.Primary {
 			continue

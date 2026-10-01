@@ -43,6 +43,9 @@ func TestTypeMapping(t *testing.T) {
 		{Postgres, driver.Column{Type: "geography(Point,4326)", BaseType: "geography", Kind: driver.KindGeometry, SRID: 4326, GeometryType: "point"}, my, use{}, "point SRID 4326"},
 		{Postgres, driver.Column{Type: "geometry(MultiPolygon,3857)", BaseType: "geometry", Kind: driver.KindGeometry, SRID: 3857, GeometryType: "multipolygon"}, target{Engine: MariaDB}, use{}, "multipolygon REF_SYSTEM_ID=3857"},
 		{Postgres, driver.Column{Type: "bytea", BaseType: "bytea", Kind: driver.KindBinary}, ora, use{}, "BLOB"},
+		{Postgres, driver.Column{Type: "geometry(Point,4326)", BaseType: "geometry", Kind: driver.KindGeometry, SRID: 4326}, target{Engine: Oracle, Version: 23, Spatial: true}, use{}, "SDO_GEOMETRY"},
+		{Postgres, driver.Column{Type: "geometry(Point,4326)", BaseType: "geometry", Kind: driver.KindGeometry, SRID: 4326}, ora, use{}, "CLOB"},
+		{Oracle, driver.Column{Type: "SDO_GEOMETRY", BaseType: "sdo_geometry", Kind: driver.KindGeometry, SRID: 4326}, pg, use{}, "geometry(Geometry,4326)"},
 		{MSSQL, driver.Column{Type: "tinyint", BaseType: "tinyint", Kind: driver.KindInt}, pg, use{}, "smallint"},
 		{MSSQL, driver.Column{Type: "nvarchar(max)", BaseType: "nvarchar", Kind: driver.KindText}, pg, use{}, "text"},
 		{MSSQL, driver.Column{Type: "datetimeoffset(3)", BaseType: "datetimeoffset", Kind: driver.KindTimestamp, Scale: i64(3)}, pg, use{}, "timestamptz(3)"},
@@ -195,9 +198,13 @@ func TestNormalizeMatchesAcrossEngines(t *testing.T) {
 		{canon{T: "blob"}, map[string]any{"$bin": "3q2+7w==", "size": 4}, driver.LargeBinary{Data: []byte{0xde, 0xad, 0xbe, 0xef}}},
 		{canon{T: "char"}, "ab   ", "ab"},
 		{canon{T: "varchar"}, "", nil},
+		{canon{T: "varbinary"}, map[string]any{"$bin": "", "size": 0}, nil},
+		{canon{T: "binary"}, "0x", nil},
 		{canon{T: "object"}, driver.Doc{Keys: []string{"x"}, Values: map[string]any{"x": int64(1)}}, `{"x": 1}`},
 		{canon{T: "text"}, driver.LongText{Text: "long"}, "long"},
 		{canon{T: "interval"}, "+01 02:03:04.000000", "1 day 02:03:04"},
+		{canon{T: "geometry"}, map[string]any{"$geo": json.RawMessage(`{"type":"Point","coordinates":[24.71360000001,46.6753]}`), "srid": 4326}, "POINT (24.7136 46.6753)"},
+		{canon{T: "geometry"}, "SRID=4326;POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", `{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1],[0,0]]]}`},
 		{canon{T: "interval"}, "P1DT2H3M4S", "1 day 02:03:04"},
 		{canon{T: "interval"}, "+01-02", "1 year 2 mons"},
 		{canon{T: "interval"}, "-00 00:00:30.500000", "-00:00:30.5"},
@@ -215,6 +222,8 @@ func TestNormalizeMatchesAcrossEngines(t *testing.T) {
 		{canon{T: "datetime"}, "2024-02-29 23:59:59.999999", "2024-03-01 00:00:00"},
 		{canon{T: "text"}, "héllo", "hello"},
 		{canon{T: "bool"}, true, false},
+		{canon{T: "geometry"}, "POINT (24.7136 46.6753)", "POINT (46.6753 24.7136)"},
+		{canon{T: "geometry"}, "POINT (1 2)", nil},
 	}
 	for i, c := range differ {
 		if normalize(c.a, c.k) == normalize(c.b, c.k) {

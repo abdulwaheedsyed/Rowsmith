@@ -421,7 +421,7 @@ var quotedName = regexp.MustCompile(`^"([^"]+)"$`)
 
 func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, cons constraints) error {
 	pkIndex := cons.pkIndex
-	rows, err := c.db.QueryContext(ctx, `SELECT i.OWNER, i.INDEX_NAME, i.INDEX_TYPE, i.UNIQUENESS, ic.COLUMN_NAME, ic.DESCEND, e.COLUMN_EXPRESSION
+	rows, err := c.db.QueryContext(ctx, `SELECT i.OWNER, i.INDEX_NAME, i.INDEX_TYPE, i.UNIQUENESS, ic.COLUMN_NAME, ic.DESCEND, e.COLUMN_EXPRESSION, i.ITYP_NAME
 		FROM ALL_INDEXES i
 		JOIN ALL_IND_COLUMNS ic ON ic.INDEX_OWNER = i.OWNER AND ic.INDEX_NAME = i.INDEX_NAME
 		LEFT JOIN ALL_IND_EXPRESSIONS e ON e.INDEX_OWNER = ic.INDEX_OWNER AND e.INDEX_NAME = ic.INDEX_NAME AND e.COLUMN_POSITION = ic.COLUMN_POSITION
@@ -441,14 +441,17 @@ func (c *conn) describeIndexes(ctx context.Context, t *driver.Table, cons constr
 	}
 	var list []*entry
 	for rows.Next() {
-		var owner, name, typ, uniq, col, desc, expr sql.NullString
-		if err := rows.Scan(&owner, &name, &typ, &uniq, &col, &desc, &expr); err != nil {
+		var owner, name, typ, uniq, col, desc, expr, ityp sql.NullString
+		if err := rows.Scan(&owner, &name, &typ, &uniq, &col, &desc, &expr, &ityp); err != nil {
 			return err
 		}
 		if n := len(list); n == 0 || list[n-1].ix.Name != name.String {
 			it := indexTypes[typ.String]
 			if it == "" {
 				it = strings.ToLower(typ.String)
+			}
+			if strings.HasPrefix(ityp.String, "SPATIAL_INDEX") {
+				it = "spatial"
 			}
 			list = append(list, &entry{owner: owner.String, ix: driver.Index{Name: name.String, Unique: uniq.String == "UNIQUE",
 				Primary: pkIndex != "" && name.String == pkIndex, Type: it}})
@@ -511,14 +514,16 @@ func indexDDL(owner string, ix driver.Index, t *driver.Table, columns map[string
 		}
 		parts = append(parts, p)
 	}
-	kw := "INDEX"
+	kw, suffix := "INDEX", ""
 	switch {
 	case ix.Unique:
 		kw = "UNIQUE INDEX"
 	case ix.Type == "bitmap":
 		kw = "BITMAP INDEX"
+	case ix.Type == "spatial":
+		suffix = " INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2"
 	}
-	return "CREATE " + kw + " " + qualify(owner, ix.Name) + " ON " + qualify(t.Ref.Schema, t.Ref.Name) + " (" + strings.Join(parts, ", ") + ")"
+	return "CREATE " + kw + " " + qualify(owner, ix.Name) + " ON " + qualify(t.Ref.Schema, t.Ref.Name) + " (" + strings.Join(parts, ", ") + ")" + suffix
 }
 
 const fkQuery = `SELECT c.CONSTRAINT_NAME, c.OWNER, c.TABLE_NAME, cc.COLUMN_NAME, r.OWNER, r.TABLE_NAME, rc.COLUMN_NAME, c.DELETE_RULE

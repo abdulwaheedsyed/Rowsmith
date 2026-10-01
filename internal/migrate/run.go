@@ -157,6 +157,7 @@ type run struct {
 	srcSess  driver.Session
 	dstSess  driver.Session
 	byName   map[string]*TablePlan // included tables by source name
+	existing map[string]string     // target objects at the start, lower-cased name → name
 	created  map[string]*driver.Table
 	digests  map[string]*digest
 	canons   map[string][]canon // source canon per copied column, by table
@@ -227,6 +228,14 @@ func (r *run) all(ctx context.Context) error {
 		return ErrNothing
 	}
 	order = parentsFirst(order, r.byName)
+	// Listing objects is slow on some engines (Oracle's dictionary), so read
+	// the target's names once and keep them current as tables come and go.
+	r.existing = map[string]string{}
+	if objs, err := r.dst.Conn.Objects(ctx, r.dst.Scope); err == nil {
+		for _, o := range objs {
+			r.existing[strings.ToLower(o.Name)] = o.Name
+		}
+	}
 
 	// Replace: drop the existing tables first, children before parents, so
 	// foreign keys between them do not block the drops.
@@ -383,16 +392,8 @@ func (s *errSink) EndStatement(err error) error {
 }
 
 func (r *run) dropExisting(ctx context.Context, order []*TablePlan) {
-	objs, err := r.dst.Conn.Objects(ctx, r.dst.Scope)
-	if err != nil {
-		return
-	}
-	existing := map[string]string{}
-	for _, o := range objs {
-		existing[strings.ToLower(o.Name)] = o.Name
-	}
 	for i := len(order) - 1; i >= 0; i-- {
-		name, ok := existing[strings.ToLower(order[i].Target)]
+		name, ok := r.existing[strings.ToLower(order[i].Target)]
 		if !ok {
 			continue
 		}
@@ -416,6 +417,7 @@ func (r *run) drop(ctx context.Context, ref driver.ObjectRef) error {
 	if err := r.exec(ctx, stmts); err != nil {
 		return err
 	}
+	delete(r.existing, strings.ToLower(ref.Name))
 	r.j.log("info", "%s: dropped the existing table", ref.Name)
 	return nil
 }
@@ -558,14 +560,9 @@ func (r *run) table(ctx context.Context, tp *TablePlan) error {
 	r.j.setTable(name, func(t *TableRun) { t.Status, t.Started = "creating", time.Now().UnixMilli() })
 	gen := r.dst.Conn.(driver.DDLGenerator)
 	ref := r.targetRef(tp)
-	exists := false
-	if objs, err := r.dst.Conn.Objects(ctx, r.dst.Scope); err == nil {
-		for _, o := range objs {
-			if strings.EqualFold(o.Name, tp.Target) {
-				exists = true
-				ref.Name = o.Name
-			}
-		}
+	name0, exists := r.existing[strings.ToLower(tp.Target)]
+	if exists {
+		ref.Name = name0
 	}
 	keep := false
 	switch {
@@ -587,6 +584,7 @@ func (r *run) table(ctx context.Context, tp *TablePlan) error {
 		if err := r.exec(ctx, stmts); err != nil {
 			return fmt.Errorf("could not create %s: %w", tp.Target, err)
 		}
+		r.existing[strings.ToLower(ref.Name)] = ref.Name
 	}
 	dt, err := r.dst.Conn.Describe(ctx, ref)
 	if err != nil {
@@ -917,13 +915,36 @@ func (r *run) keys(ctx context.Context, tp *TablePlan) {
 	})
 	gen := r.dst.Conn.(driver.DDLGenerator)
 	ref := r.created[name].Ref
-	// Each key is its own change, built on the table as it is now, so a
-	// failure only costs that key.
-	for _, ix := range r.indexes(tp) {
+	indexes := r.indexes(tp)
+	var fks []driver.ForeignKey
+	if r.p.Options.ForeignKeys && r.dst.engine() != MongoDB {
+		fks = r.foreignKeys(tp)
+	}
+	if len(indexes) == 0 && len(fks) == 0 {
+		return
+	}
+	from, err := r.dst.Conn.Describe(ctx, ref)
+	if err != nil {
+		r.note(name, "could not read the table to add its keys: "+err.Error())
+		return
+	}
+	// Usually every key goes on in one change.
+	to := defFrom(from)
+	to.Indexes = append(to.Indexes, indexes...)
+	to.ForeignKeys = append(to.ForeignKeys, fks...)
+	if err := r.alter(ctx, gen, from, to); err == nil {
+		return
+	}
+	// Something failed: add the rest one at a time, each on the table as it
+	// now is, so a failure only costs that key.
+	for _, ix := range indexes {
 		from, err := r.dst.Conn.Describe(ctx, ref)
 		if err != nil {
 			r.note(name, "could not read the table to add its keys: "+err.Error())
 			return
+		}
+		if hasIndex(from, ix.Name) {
+			continue
 		}
 		to := defFrom(from)
 		to.Indexes = append(to.Indexes, ix)
@@ -931,14 +952,14 @@ func (r *run) keys(ctx context.Context, tp *TablePlan) {
 			r.note(name, "index "+ix.Name+" was not created: "+err.Error())
 		}
 	}
-	if !r.p.Options.ForeignKeys || r.dst.engine() == MongoDB {
-		return
-	}
-	for _, fk := range r.foreignKeys(tp) {
+	for _, fk := range fks {
 		from, err := r.dst.Conn.Describe(ctx, ref)
 		if err != nil {
 			r.note(name, "could not read the table to add its keys: "+err.Error())
 			return
+		}
+		if hasFK(from, fk.Name) {
+			continue
 		}
 		to := defFrom(from)
 		to.ForeignKeys = append(to.ForeignKeys, fk)
@@ -946,6 +967,14 @@ func (r *run) keys(ctx context.Context, tp *TablePlan) {
 			r.note(name, "foreign key "+fk.Name+" was not created: "+err.Error())
 		}
 	}
+}
+
+func hasIndex(t *driver.Table, name string) bool {
+	return slices.ContainsFunc(t.Indexes, func(ix driver.Index) bool { return strings.EqualFold(ix.Name, name) })
+}
+
+func hasFK(t *driver.Table, name string) bool {
+	return slices.ContainsFunc(t.ForeignKeys, func(fk driver.ForeignKey) bool { return strings.EqualFold(fk.Name, name) })
 }
 
 // defFrom is a table's current definition, to change one thing at a time.

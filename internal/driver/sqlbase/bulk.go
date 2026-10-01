@@ -57,7 +57,9 @@ func (e *Engine) BeginImport(ctx context.Context, t *driver.Table, cols []string
 			}
 		}
 	case sqlsplit.Oracle:
-		im.maxParams, im.maxRows = 1000, 1
+		// Oracle has no multi-row VALUES before 23ai; INSERT ALL loads a
+		// batch in one statement on every version.
+		im.maxParams, im.maxRows, im.insertAll = 4000, 200, true
 	case sqlsplit.SQLite:
 		im.maxParams, im.maxRows = 30000, 500
 	case sqlsplit.Postgres:
@@ -69,6 +71,7 @@ func (e *Engine) BeginImport(ctx context.Context, t *driver.Table, cols []string
 		im.maxParams, im.maxRows = 60000, 1000
 	}
 	im.prefix = "INSERT INTO " + target + " (" + strings.Join(names, ", ") + ") " + values + " "
+	im.into = "INTO " + target + " (" + strings.Join(names, ", ") + ") VALUES "
 	if empty {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+target); err != nil {
 			tx.Rollback()
@@ -84,6 +87,8 @@ type importer struct {
 	tx        *sql.Tx
 	cols      []*driver.Column
 	prefix    string
+	into      string // INSERT ALL form (Oracle)
+	insertAll bool
 	after     string
 	maxParams int
 	maxRows   int
@@ -95,9 +100,16 @@ func (im *importer) Insert(ctx context.Context, rows [][]any) error {
 		end := min(start+per, len(rows))
 		b := &queryBuilder{d: im.e.D}
 		var q strings.Builder
-		q.WriteString(im.prefix)
+		if im.insertAll {
+			q.WriteString("INSERT ALL")
+		} else {
+			q.WriteString(im.prefix)
+		}
 		for i, r := range rows[start:end] {
-			if i > 0 {
+			switch {
+			case im.insertAll:
+				q.WriteString(" " + im.into)
+			case i > 0:
 				q.WriteString(", ")
 			}
 			q.WriteByte('(')
@@ -116,6 +128,9 @@ func (im *importer) Insert(ctx context.Context, rows [][]any) error {
 				q.WriteString(b.bind(expr, arg))
 			}
 			q.WriteByte(')')
+		}
+		if im.insertAll {
+			q.WriteString(" SELECT 1 FROM DUAL")
 		}
 		if _, err := im.tx.ExecContext(ctx, q.String(), b.args...); err != nil {
 			return err

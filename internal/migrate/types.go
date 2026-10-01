@@ -668,6 +668,7 @@ type target struct {
 	Engine  string
 	Version int  // major version, where types depend on it (Oracle)
 	PostGIS bool // PostgreSQL target has PostGIS
+	Spatial bool // Oracle target has Oracle Spatial (SDO_GEOMETRY)
 }
 
 // use says how a column is used, which limits some type choices.
@@ -1147,8 +1148,12 @@ func oracleType(t target, k canon, u use, m *mapped) {
 			m.note(false, "JSON is stored as text")
 		}
 	case "geometry":
+		if t.Spatial {
+			m.Type = "SDO_GEOMETRY"
+			return
+		}
 		m.Type = "CLOB"
-		m.note(true, "shapes are stored as GeoJSON text")
+		m.note(true, "Oracle Spatial is not installed on the target, so shapes are stored as GeoJSON text")
 	default:
 		m.Type = "CLOB"
 	}

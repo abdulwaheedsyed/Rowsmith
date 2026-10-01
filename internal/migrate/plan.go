@@ -156,8 +156,11 @@ func targetOf(dst Endpoint) target {
 		}
 		t.Version, _ = strconv.Atoi(v)
 		for k := range dst.Server.Extras {
-			if strings.EqualFold(k, "PostGIS") {
+			switch {
+			case strings.EqualFold(k, "PostGIS"):
 				t.PostGIS = true
+			case strings.EqualFold(k, "Spatial") && family(dst.engine()) == Oracle:
+				t.Spatial = true
 			}
 		}
 	}
@@ -367,6 +370,10 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 				k.Unsigned = false
 				cp.Notes = append(cp.Notes, "auto-numbered, so stored as a signed bigint")
 			}
+			if family(sEng) == Oracle && k.T == "geometry" && k.SRID == 8307 {
+				k.SRID = 4326 // Oracle's own code for WGS 84 longitude/latitude
+				cp.Notes = append(cp.Notes, "Oracle SRID 8307 (WGS 84) becomes EPSG 4326")
+			}
 			m := typeFor(t, k, use{Indexed: indexed[c.Name]})
 			cp.Type, cp.Notes, cp.Lossy = m.Type, append(cp.Notes, m.Notes...), m.Lossy
 			cp.SRID = k.SRID
@@ -403,6 +410,10 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 				cp.Target = "_id"
 				cp.Notes = append(cp.Notes, "becomes the document _id")
 			}
+		}
+		if dEng == Oracle && !same && !cp.Nullable && emptyIsNull(k) && !slices.Contains(st.PrimaryKey, c.Name) {
+			cp.Nullable = true
+			cp.Notes = append(cp.Notes, "allows NULL: Oracle stores empty values as NULL")
 		}
 		if sEng == MongoDB && dEng != MongoDB && c.Name == "_id" && !colNames["id"] {
 			cp.Target = applyCase("id", opts.NameCase)
@@ -447,6 +458,13 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 			}
 			if byName[c].Kind == driver.KindGeometry {
 				geo = true
+				// Shapes stored as text on the target cannot have a spatial index.
+				for _, cp := range tp.Columns {
+					if cp.Source == c && !same && (strings.EqualFold(cp.Type, "CLOB") || strings.EqualFold(cp.Type, "TEXT") || strings.HasPrefix(cp.Type, "json")) {
+						geo = false
+						expression = true
+					}
+				}
 			}
 		}
 		if expression && !same {
@@ -486,6 +504,16 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		fitMySQLRow(tp)
 	}
 	return tp
+}
+
+// emptyIsNull reports types whose empty value ('' or an empty binary)
+// Oracle stores as NULL, so a NOT NULL column would reject it.
+func emptyIsNull(k canon) bool {
+	switch k.T {
+	case "char", "varchar", "text", "enum", "set", "binary", "varbinary", "blob", "xml":
+		return true
+	}
+	return false
 }
 
 // matchKeyTypes gives foreign key columns the type of the columns they

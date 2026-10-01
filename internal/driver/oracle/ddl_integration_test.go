@@ -523,3 +523,67 @@ func ddlFixtureRoundTrip(t *testing.T, c *conn) {
 		drop()
 	}
 }
+
+// TestIntegrationSpatial creates a table with geometry columns: the
+// generator registers their spatial metadata, so a spatial index can be
+// created, and describing the table reads both back.
+func TestIntegrationSpatial(t *testing.T) {
+	c := mustOpen(t, testParams(t, appUser(), os.Getenv("ROWSMITH_TEST_ORACLE_PASSWORD")))
+	ctx := context.Background()
+	srv, err := c.Server(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if srv.Extras["Spatial"] == "" {
+		t.Skip("Oracle Spatial is not installed (slim images leave it out)")
+	}
+	drop := func() {
+		_, _ = c.db.ExecContext(ctx, `DROP TABLE "RSD_PLACES" PURGE`)
+		_, _ = c.db.ExecContext(ctx, `DELETE FROM USER_SDO_GEOM_METADATA WHERE TABLE_NAME = 'RSD_PLACES'`)
+	}
+	drop()
+	t.Cleanup(drop)
+	sess, err := c.NewSession(ctx, driver.Scope{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+	def := driver.TableDef{
+		Ref: driver.ObjectRef{Name: "RSD_PLACES"},
+		Columns: []driver.ColumnDef{
+			{Column: driver.Column{Name: "ID", Type: "NUMBER(10)"}},
+			{Column: driver.Column{Name: "LOC", Type: "SDO_GEOMETRY", Nullable: true, SRID: 4326}},
+			{Column: driver.Column{Name: "AREA", Type: "SDO_GEOMETRY", Nullable: true, SRID: 3857}},
+		},
+		PrimaryKey: []string{"ID"},
+		Indexes:    []driver.Index{{Name: "RSD_PLACES_LOC_SX", Columns: []string{"LOC"}, Type: "spatial"}},
+	}
+	stmts, err := c.CreateTableSQL(def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	execDDL(t, sess, stmts)
+	tbl := describeTable(t, c, "RSD_PLACES")
+	srids := map[string]int{}
+	for _, col := range tbl.Columns {
+		srids[col.Name] = col.SRID
+	}
+	if srids["LOC"] != 4326 || srids["AREA"] != 3857 {
+		t.Fatalf("SRIDs from the metadata: %v", srids)
+	}
+	ix := indexNamed(tbl, "RSD_PLACES_LOC_SX")
+	if ix == nil || ix.Type != "spatial" {
+		t.Fatalf("spatial index: %+v", ix)
+	}
+	if _, err := c.db.ExecContext(ctx, `INSERT INTO RSD_PLACES (ID, LOC) VALUES (1, SDO_GEOMETRY('POINT (46.6753 24.7136)', 4326))`); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM RSD_PLACES WHERE SDO_WITHIN_DISTANCE(LOC,
+		SDO_GEOMETRY('POINT (46.68 24.71)', 4326), 'distance=10 unit=KM') = 'TRUE'`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("spatial query through the index: %d, %v", n, err)
+	}
+	if !strings.Contains(tbl.DDL, "INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2") {
+		t.Fatalf("DDL should recreate the spatial index:\n%s", tbl.DDL)
+	}
+}

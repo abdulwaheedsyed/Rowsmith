@@ -76,7 +76,7 @@ services:
 
   oracle:
     profiles: [full]
-    image: gvenzl/oracle-free:23-slim-faststart
+    image: gvenzl/oracle-free:23-faststart   # the regular image: the slim one leaves out Oracle Spatial
     environment:
       ORACLE_PASSWORD: ${DEV_DB_PASSWORD}
       APP_USER: shop

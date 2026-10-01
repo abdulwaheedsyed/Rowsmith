@@ -216,7 +216,7 @@ func indexType(srcEngine, dstEngine string, ix driver.Index, geo bool, offered [
 		switch family(dstEngine) {
 		case Postgres:
 			return "gist", "", true
-		case MySQL:
+		case MySQL, Oracle:
 			return "spatial", "", true
 		case MongoDB:
 			return "2dsphere", "", true

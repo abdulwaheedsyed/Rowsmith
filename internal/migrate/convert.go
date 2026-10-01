@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/geojson"
 	"github.com/twpayne/go-geom/encoding/wkt"
 
@@ -360,11 +361,8 @@ func normalize(v any, k canon) string {
 	if v == nil {
 		return "\x00"
 	}
-	if m, ok := v.(map[string]any); ok && m["$geo"] != nil {
-		return "\x01geo" // shapes are compared by count only
-	}
-	if k.T == "geometry" {
-		return "\x01geo"
+	if m, ok := v.(map[string]any); ok && m["$geo"] != nil || k.T == "geometry" {
+		return geoKey(v)
 	}
 	switch k.T {
 	case "bool":
@@ -419,10 +417,16 @@ func normalize(v any, k canon) string {
 		if m, ok := v.(map[string]any); ok {
 			if b, ok := m["$bin"].(string); ok {
 				raw, _ := base64.StdEncoding.DecodeString(b)
+				if len(raw) == 0 {
+					return "\x00" // Oracle stores empty binaries as NULL
+				}
 				return hex.EncodeToString(raw)
 			}
 		}
 		if s, ok := v.(string); ok && strings.HasPrefix(strings.ToLower(s), "0x") {
+			if len(s) == 2 {
+				return "\x00"
+			}
 			return strings.ToLower(s[2:])
 		}
 	}
@@ -505,6 +509,117 @@ func intervalValue(s string) (string, bool) {
 		}
 	}
 	return strconv.FormatFloat(months, 'f', -1, 64) + "m" + strconv.FormatFloat(secs, 'f', 6, 64) + "s", true
+}
+
+// geoKey renders a shape the same way whichever engine sent it and in
+// which format: coordinates rounded to 7 decimals, polygon rings in one
+// orientation (outer counterclockwise), so a copy compares by its points.
+func geoKey(v any) string {
+	var g geom.T
+	switch x := v.(type) {
+	case map[string]any:
+		raw, _ := json.Marshal(x["$geo"])
+		if err := geojson.Unmarshal(raw, &g); err != nil {
+			return string(raw)
+		}
+	case string:
+		s := strings.TrimSpace(x)
+		var err error
+		if strings.HasPrefix(s, "{") {
+			err = geojson.Unmarshal([]byte(s), &g)
+		} else {
+			g, err = wkt.Unmarshal(sridPrefix.ReplaceAllString(s, ""))
+		}
+		if err != nil {
+			return s
+		}
+	default:
+		return fmt.Sprint(v)
+	}
+	var b strings.Builder
+	writeGeo(&b, g)
+	return b.String()
+}
+
+func writeCoords(b *strings.Builder, flat []float64, stride int) {
+	for i := 0; i+stride <= len(flat); i += stride {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		for j := 0; j < stride; j++ {
+			if j > 0 {
+				b.WriteByte(' ')
+			}
+			b.WriteString(strconv.FormatFloat(math.Round(flat[i+j]*1e7)/1e7, 'f', -1, 64))
+		}
+	}
+}
+
+// ring orients a closed ring's coordinates: ccw for outer rings.
+func ring(flat []float64, stride int, ccw bool) []float64 {
+	area := 0.0
+	for i := 0; i+2*stride <= len(flat); i += stride {
+		area += flat[i]*flat[i+stride+1] - flat[i+stride]*flat[i+1]
+	}
+	if (area > 0) == ccw || area == 0 {
+		return flat
+	}
+	out := make([]float64, len(flat))
+	n := len(flat) / stride
+	for i := 0; i < n; i++ {
+		copy(out[i*stride:(i+1)*stride], flat[(n-1-i)*stride:(n-i)*stride])
+	}
+	return out
+}
+
+func writeGeo(b *strings.Builder, g geom.T) {
+	stride := g.Stride()
+	switch x := g.(type) {
+	case *geom.Point:
+		b.WriteString("P(")
+		writeCoords(b, x.FlatCoords(), stride)
+	case *geom.LineString:
+		b.WriteString("L(")
+		writeCoords(b, x.FlatCoords(), stride)
+	case *geom.Polygon:
+		b.WriteString("Y(")
+		for i := 0; i < x.NumLinearRings(); i++ {
+			if i > 0 {
+				b.WriteByte('|')
+			}
+			writeCoords(b, ring(x.LinearRing(i).FlatCoords(), stride, i == 0), stride)
+		}
+	case *geom.MultiPoint:
+		b.WriteString("MP(")
+		writeCoords(b, x.FlatCoords(), stride)
+	case *geom.MultiLineString:
+		b.WriteString("ML(")
+		for i := 0; i < x.NumLineStrings(); i++ {
+			if i > 0 {
+				b.WriteByte('|')
+			}
+			writeCoords(b, x.LineString(i).FlatCoords(), stride)
+		}
+	case *geom.MultiPolygon:
+		b.WriteString("MY(")
+		for i := 0; i < x.NumPolygons(); i++ {
+			if i > 0 {
+				b.WriteByte(';')
+			}
+			writeGeo(b, x.Polygon(i))
+		}
+	case *geom.GeometryCollection:
+		b.WriteString("GC(")
+		for i, e := range x.Geoms() {
+			if i > 0 {
+				b.WriteByte(';')
+			}
+			writeGeo(b, e)
+		}
+	default:
+		b.WriteString(fmt.Sprintf("%T(", g))
+	}
+	b.WriteByte(')')
 }
 
 func canonNumber(v any) string {

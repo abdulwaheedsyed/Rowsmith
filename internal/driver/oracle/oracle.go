@@ -193,6 +193,10 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	if c.ro {
 		info.Extras["Session"] = "read-only"
 	}
+	var spatial int
+	if c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM ALL_OBJECTS WHERE OWNER = 'MDSYS' AND OBJECT_NAME = 'SDO_GEOMETRY'`).Scan(&spatial) == nil && spatial > 0 {
+		info.Extras["Spatial"] = "available"
+	}
 	return info, nil
 }
 
