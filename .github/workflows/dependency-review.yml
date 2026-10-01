@@ -1,0 +1,28 @@
+# Blocks pull requests that add dependencies with known vulnerabilities, or with
+# a license Rowsmith can't ship under Apache-2.0 (see CONTRIBUTING.md).
+name: Dependency review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Review new dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          allow-licenses: >-
+            MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, MPL-2.0,
+            OFL-1.1, Unlicense, CC0-1.0, CC-BY-4.0, Python-2.0, BlueOak-1.0.0, Zlib
+          comment-summary-in-pr: on-failure

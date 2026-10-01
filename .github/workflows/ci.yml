@@ -1,0 +1,108 @@
+# The checks from CONTRIBUTING.md, on every push to main and every pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            echo "These files need formatting (run dev/go.sh fmt ./...):"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Type check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  smoke:
+    name: End-to-end smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Create throwaway passwords
+        run: |
+          {
+            echo "DEV_DB_PASSWORD=$(openssl rand -hex 12)"
+            echo "DEV_SSH_PASSWORD=$(openssl rand -hex 12)"
+          } > dev/.env
+      - name: Build
+        run: ./dev/build.sh
+      - name: Start Rowsmith and the test databases
+        run: >-
+          docker compose -f dev/compose.yaml --env-file dev/.env up -d --wait --wait-timeout 300
+          rowsmith mysql mariadb postgis bastion private-pg mongo
+      - name: Wait for Rowsmith
+        run: |
+          for i in $(seq 60); do
+            curl -sf http://127.0.0.1:18080/api/health && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Smoke test
+        run: python3 dev/smoke.py
+      - name: Show logs
+        if: failure()
+        run: docker compose -f dev/compose.yaml --env-file dev/.env logs --no-color --tail 200
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        run: docker build --tag rowsmith:ci .

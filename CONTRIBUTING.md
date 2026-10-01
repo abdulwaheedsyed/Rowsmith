@@ -16,7 +16,7 @@ Don't open a public issue. Report it privately, as described in the [security po
 
 ## Setting up
 
-You need Docker, Node 20.19 or later, and Python 3 for the dev scripts. Go runs in a container through `dev/go.sh`, so you don't need to install it.
+You need Docker, Node 22.12 or later, and Python 3 for the dev scripts. Go runs in a container through `dev/go.sh`, so you don't need to install it.
 
 1. Create `dev/.env` with the passwords for the test servers. Git ignores this file.
 
@@ -47,7 +47,7 @@ The [Architecture](README.md#architecture) section of the README explains how th
 
 ## Before you open a pull request
 
-Run the checks that apply to your change:
+CI runs all of these on every pull request: formatting, vet, tests and a vulnerability check for Go, the type check and build for the web app, the smoke test, and an image build. CodeQL scans for security problems, and a dependency review rejects new dependencies with known vulnerabilities or a license that isn't allowed. Running them locally first saves a round trip:
 
 ```bash
 dev/go.sh fmt ./...
@@ -101,7 +101,7 @@ MySQL, MariaDB, PostgreSQL and MongoDB are also covered by the smoke test.
 
 Add a dependency only when it saves real work. Its license must be permissive (MIT, BSD, ISC, Apache 2.0, or MPL 2.0 for libraries used unmodified). GPL, LGPL and AGPL code can't go in, because Rowsmith ships as a single Apache-2.0 binary.
 
-After adding, removing or upgrading a dependency, regenerate the third-party notices and commit the result:
+Dependabot opens update pull requests every Monday: minor and patch updates grouped per ecosystem, major updates one at a time. After adding, removing or upgrading a dependency, including in a Dependabot pull request, regenerate the third-party notices and commit the result:
 
 ```bash
 python3 dev/notices.py

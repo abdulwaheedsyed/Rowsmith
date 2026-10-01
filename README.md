@@ -4,6 +4,12 @@
 
 <h1 align="center">Rowsmith<sup>™</sup></h1>
 
+<p align="center">
+  <a href="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/ci.yml"><img src="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/codeql.yml"><img src="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0"></a>
+</p>
+
 **A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
@@ -250,7 +256,7 @@ Inside the container, run them with `docker exec`, for example `docker exec -it 
 
 ## Development
 
-You need Docker and Node 20.19+. Go runs inside a container, so no local toolchain is required.
+You need Docker and Node 22.12 or later. Go runs inside a container, so no local toolchain is required.
 
 ```bash
 dev/go.sh build -o /src/.bin/rowsmith ./cmd/rowsmith

@@ -34,6 +34,11 @@ services:
       MYSQL_DATABASE: shop
     volumes: ["./seed/mysql.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
     networks: [dev]
+    healthcheck:   # over TCP, which only answers once first-run seeding is done
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e 'SELECT 1 FROM shop.categories LIMIT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   mariadb:
     image: mariadb:11.8
@@ -42,6 +47,11 @@ services:
       MARIADB_DATABASE: shop
     volumes: ["./seed/mysql.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
     networks: [dev]
+    healthcheck:   # over TCP, which only answers once first-run seeding is done
+      test: ["CMD-SHELL", "mariadb -h127.0.0.1 -uroot -p\"$$MARIADB_ROOT_PASSWORD\" -e 'SELECT 1 FROM shop.categories LIMIT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   postgis:
     image: postgis/postgis:latest
@@ -50,6 +60,11 @@ services:
       POSTGRES_DB: city
     volumes: ["./seed/postgis.sql:/docker-entrypoint-initdb.d/20-seed.sql:ro"]
     networks: [dev]
+    healthcheck:   # over TCP, which only answers once first-run seeding is done
+      test: ["CMD-SHELL", "pg_isready -q -h 127.0.0.1 -U postgres -d city"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   bastion:
     build: ./bastion
@@ -57,6 +72,10 @@ services:
       SSH_PASSWORD: ${DEV_SSH_PASSWORD}
       SSH_AUTHORIZED_KEY: ${DEV_SSH_PUBKEY:-}
     networks: [dev, private]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 22"]
+      interval: 3s
+      retries: 20
 
   private-pg:
     image: postgis/postgis:latest
@@ -64,6 +83,11 @@ services:
       POSTGRES_PASSWORD: ${DEV_DB_PASSWORD}
       POSTGRES_DB: vault
     networks: [private]
+    healthcheck:   # over TCP, which only answers once first-run seeding is done
+      test: ["CMD-SHELL", "pg_isready -q -h 127.0.0.1 -U postgres -d vault"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   mssql:
     profiles: [full]
@@ -89,7 +113,13 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
+    volumes: ["./seed/mongo.js:/docker-entrypoint-initdb.d/10-seed.js:ro"]
     networks: [dev]
+    healthcheck:   # over TCP, which only answers once first-run seeding is done
+      test: ["CMD-SHELL", "mongosh --quiet --host \"$$(hostname -i)\" -u root -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   bigquery:
     profiles: [full]

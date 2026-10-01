@@ -1,0 +1,58 @@
+# Weekly update pull requests. Minor and patch updates come grouped into one
+# pull request per ecosystem; major updates arrive one at a time, so each can
+# be tested on its own. Security updates are separate and arrive as soon as an
+# advisory is published (turn them on under Settings → Code security).
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    groups:
+      go:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    groups:
+      web:
+        update-types: [minor, patch]
+
+  # Base images in the Dockerfile and the SSH bastion used by the tests
+  - package-ecosystem: docker
+    directories: [/, /dev/bastion]
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      images:
+        update-types: [minor, patch]
+
+  # Test databases: keep them on the release lines the drivers are tested against
+  - package-ecosystem: docker-compose
+    directory: /dev
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+    groups:
+      test-databases:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,4 +1,5 @@
-// Sample "shop" database for MongoDB. Run: mongosh -u root -p <pw> dev/seed/mongo.js
+// Sample "shop" database for MongoDB. dev/compose.yaml loads it on first start;
+// to reload it: mongosh -u root -p <pw> dev/seed/mongo.js
 db = db.getSiblingDB("shop");
 db.dropDatabase();
 const names = ["Ava", "Liam", "Mia", "Noah", "Zoe", "Omar", "Lena", "Kai", "Ines", "Yuki", "Ravi", "Sofia"];
