@@ -272,7 +272,7 @@ cd web && npm install && npm run dev
 - **Frontend**: `npm run dev` serves the UI at `http://127.0.0.1:5199` and proxies `/api` to the dev server.
 - **Third-party notices**: after adding or upgrading dependencies, run `python3 dev/notices.py` to regenerate `THIRD_PARTY_NOTICES.txt`.
 
-Create `dev/.env` with `DEV_DB_PASSWORD` and `DEV_SSH_PASSWORD` before starting the stack. It is ignored by git.
+Create `dev/.env` with `DEV_DB_PASSWORD` and `DEV_SSH_PASSWORD` before starting the stack. It is ignored by git. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full set of checks, integration tests and how to send changes.
 
 Unit tests:
 

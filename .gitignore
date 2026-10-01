@@ -2,6 +2,7 @@
 /.bin/
 /web/node_modules/
 /web/dist/
+/web/*.tsbuildinfo
 /internal/web/dist/*
 !/internal/web/dist/.keep
 

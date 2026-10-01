@@ -506,7 +506,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 	return tp
 }
 
-// emptyIsNull reports types whose empty value ('' or an empty binary)
+// emptyIsNull reports types whose empty value (an empty string or binary)
 // Oracle stores as NULL, so a NOT NULL column would reject it.
 func emptyIsNull(k canon) bool {
 	switch k.T {
