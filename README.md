@@ -290,4 +290,6 @@ Optional capabilities such as `Explainer`, `ProcessManager`, `DDLGenerator` and 
 
 ## License
 
-To be decided.
+Rowsmith is released under the [MIT License](LICENSE).
+
+It is built on open-source libraries under permissive licenses (MIT, BSD, Apache 2.0 and ISC, plus the MySQL driver under MPL 2.0), and bundles the Archivo and IBM Plex typefaces under the SIL Open Font License 1.1.
