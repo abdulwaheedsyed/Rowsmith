@@ -85,6 +85,8 @@
   --text: #e7ebf2;
   --text-2: #bac3d2;
   --temper-straw: #ebc76a;
+  --spark: #f0c766;
+  --spark-head: #fff4d6;
   --muted: #8793a6;
   --faint: #5a667c;
 
@@ -151,6 +153,8 @@
     --text: #111722;
     --text-2: #2c3749;
     --temper-straw: #e2b048;
+    --spark: #e08f2c;
+    --spark-head: #ffbf47;
     --muted: #5b6679;
     --faint: #8b95a7;
     --accent: #e0ae3c;
@@ -211,6 +215,8 @@
   --text: #111722;
   --text-2: #2c3749;
   --temper-straw: #e2b048;
+  --spark: #e08f2c;
+  --spark-head: #ffbf47;
   --muted: #5b6679;
   --faint: #8b95a7;
   --accent: #e0ae3c;

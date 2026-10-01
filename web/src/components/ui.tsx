@@ -2,17 +2,24 @@ import * as RDialog from "@radix-ui/react-dialog";
 import * as RMenu from "@radix-ui/react-dropdown-menu";
 import * as RTooltip from "@radix-ui/react-tooltip";
 import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
 import { useToasts } from "../lib/store";
 
 // ---- Brand ----------------------------------------------------------------------
 
+// Sparks thrown from the strike point, as in the full logo: angle from
+// vertical (degrees), resting distance from the strike point, and weight.
+const SPARKS: [number, number, number][] = [[-16, 4.1, 1.15], [6, 6.3, 1.15], [26, 4.7, 1.1], [44, 7, 1], [62, 5.3, 0.95], [-30, 6.6, 0.85]];
+const STRIKE = { x: 19.5, y: 7 };
+
 /** The Rowsmith mark: an anvil built from table rows cut into cells. The face
  *  carries the temper gradient — the one place the brand uses it decoratively.
- *  Gaps are wider than in the full-size logo so they survive at 30px. */
-export function AnvilMark({ size = 28 }: { size?: number }) {
+ *  Gaps are wider than in the full-size logo so they survive at 30px.
+ *  `sparks` adds the logo's sparks, struck in bursts; they rest where the logo
+ *  draws them when motion is reduced. Too fine to show below ~64px. */
+export function AnvilMark({ size = 28, sparks = false }: { size?: number; sparks?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="anvil">
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={sparks ? "anvil anvil--forge" : "anvil"} overflow="visible">
       <defs>
         <linearGradient id="rs-temper" x1="0" x2="1">
           <stop offset="0" style={{ stopColor: "var(--temper-straw)" }} />
@@ -20,8 +27,14 @@ export function AnvilMark({ size = 28 }: { size?: number }) {
           <stop offset=".75" stopColor="#93508A" />
           <stop offset="1" stopColor="#3D7AD4" />
         </linearGradient>
+        {sparks && (
+          <linearGradient id="rs-spark" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" style={{ stopColor: "var(--spark)" }} />
+            <stop offset="1" style={{ stopColor: "var(--spark)", stopOpacity: 0 }} />
+          </linearGradient>
+        )}
       </defs>
-      <path d="M3 7h26v4.7H13.05C9.5 11.7 6.67 10.3 3 7z" fill="url(#rs-temper)" />
+      <path className="anvil__face" d="M3 7h26v4.7H13.05C9.5 11.7 6.67 10.3 3 7z" fill="url(#rs-temper)" />
       <g fill="var(--text-2)">
         <rect x="11.27" y="13" width="3.34" height="3.4" rx=".6" />
         <rect x="15.51" y="13" width="3.34" height="3.4" rx=".6" />
@@ -37,6 +50,21 @@ export function AnvilMark({ size = 28 }: { size?: number }) {
         <rect x="17.63" y="21.4" width="4.05" height="3.8" rx=".6" />
         <rect x="22.58" y="21.4" width="4.05" height="3.8" rx=".6" />
       </g>
+      {sparks &&
+        SPARKS.map(([angle, dist, weight], i) => {
+          const length = (34 * weight + 10) * 0.0591; // the logo's streak length, on this grid
+          const top = STRIKE.y - 0.6 - length;
+          const rest = -(dist - 0.6 - length);
+          const style = { "--rest": `${rest.toFixed(2)}px`, "--fly": `${(rest - 2).toFixed(2)}px`, "--o": (1.2 - (dist / 0.0591) / 230).toFixed(2), animationDelay: `${i * 35}ms` } as CSSProperties;
+          return (
+            <g key={i} transform={`rotate(${angle} ${STRIKE.x} ${STRIKE.y})`}>
+              <g className="anvil__spark" style={style}>
+                <rect x={STRIKE.x - 0.3} y={top} width=".6" height={length.toFixed(2)} rx=".3" fill="url(#rs-spark)" />
+                <circle cx={STRIKE.x} cy={top} r=".4" fill="var(--spark-head)" />
+              </g>
+            </g>
+          );
+        })}
     </svg>
   );
 }

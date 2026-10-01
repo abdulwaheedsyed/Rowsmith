@@ -15,12 +15,23 @@ function NavBridge() {
   return null;
 }
 
+/** The loading screen. index.html carries a copy (#boot) so it shows from
+ *  first paint; while that copy is up, this renders nothing beneath it. */
 function Splash() {
+  if (document.getElementById("boot")) return null;
   return (
-    <div className="splash">
-      <AnvilMark size={40} />
+    <div className="splash" role="status">
+      <span className="sr-only">Loading Rowsmith</span>
+      <AnvilMark size={112} sparks />
     </div>
   );
+}
+
+function dismissBoot() {
+  const boot = document.getElementById("boot");
+  if (!boot || boot.classList.contains("is-done")) return;
+  boot.classList.add("is-done");
+  setTimeout(() => boot.remove(), 240);
 }
 
 export function App() {
@@ -57,6 +68,11 @@ export function App() {
   else if (me.data.stage === "enroll") screen = <EnrollScreen />;
   else if (me.data.user.mustChangePassword) screen = <ChangePasswordScreen />;
   else screen = <Shell me={me.data} />;
+
+  const loading = screen.type === Splash;
+  useEffect(() => {
+    if (!loading) dismissBoot();
+  }, [loading]);
 
   const base = (boot.data?.basePath ?? "/").replace(/\/$/, "");
   return (

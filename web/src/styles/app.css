@@ -462,6 +462,42 @@ body.is-resizing-v * {
   place-items: center;
   animation: rs-fade-in 400ms var(--ease);
 }
+/* The copy in index.html, shown from first paint until the app has a screen. */
+.splash--boot {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  transition: opacity 220ms var(--ease);
+}
+.splash--boot.is-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Struck in bursts: each spark flies out (easing off as it goes) and fades, then
+   the face cools. Resting styles are the logo's still frame, which is what
+   reduced motion shows. */
+.anvil__spark {
+  transform: translateY(var(--rest));
+  opacity: var(--o);
+  animation: rs-spark 1.8s linear infinite;
+}
+.anvil--forge .anvil__face {
+  animation: rs-heat 1.8s ease-out infinite;
+}
+@keyframes rs-spark {
+  0% { transform: translateY(0); opacity: 0; }
+  5% { transform: translateY(calc(var(--fly) * 0.22)); opacity: 1; }
+  20% { transform: translateY(calc(var(--fly) * 0.6)); opacity: 0.95; }
+  36% { transform: translateY(calc(var(--fly) * 0.86)); opacity: 0.6; }
+  52% { transform: translateY(var(--fly)); opacity: 0; }
+  100% { transform: translateY(var(--fly)); opacity: 0; }
+}
+@keyframes rs-heat {
+  0% { filter: drop-shadow(0 0 2.5px rgb(232 160 70 / 0.8)); }
+  60%, 100% { filter: drop-shadow(0 0 1px rgb(232 160 70 / 0.2)); }
+}
 
 /* ---- Command palette --------------------------------------------------------------------- */
 .scrim--palette {
