@@ -441,6 +441,16 @@ body.is-resizing-v * {
   color: var(--text);
   letter-spacing: -0.02em;
 }
+.wordmark__tm {
+  margin-left: 0.08em;
+  font-family: var(--font-ui);
+  font-size: 0.36em;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0;
+  vertical-align: 1.3em;
+  color: var(--muted);
+}
 .engine {
   --hue: #8793a6;
   display: inline-grid;
@@ -683,6 +693,9 @@ body.is-resizing-v * {
   color: var(--muted);
   font-size: var(--fs-xs);
   margin-bottom: 14px;
+}
+.pcard__foot {
+  margin: 14px 0 0;
 }
 .pgrid {
   display: grid;

@@ -98,7 +98,7 @@ const LogoCID = "logo@rowsmith"
 // Brand is the logo and wordmark as email HTML, for the top of a message.
 const Brand = `<table role="presentation" cellpadding="0" cellspacing="0"><tr>` +
 	`<td style="vertical-align:middle;"><img src="cid:` + LogoCID + `" width="28" height="28" alt="" style="display:block;border:0;"></td>` +
-	`<td style="padding-left:9px;vertical-align:middle;font-size:17px;font-weight:800;letter-spacing:-.02em;color:#1B1F24;">rowsmith</td>` +
+	`<td style="padding-left:9px;vertical-align:middle;font-size:17px;font-weight:800;letter-spacing:-.02em;color:#1B1F24;">rowsmith<sup style="font-size:9px;font-weight:500;letter-spacing:0;color:#7A828C;">™</sup></td>` +
 	`</tr></table>`
 
 // inlines lists the images to embed: m's own, plus the logo when the HTML

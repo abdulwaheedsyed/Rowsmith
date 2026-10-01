@@ -2,7 +2,7 @@
   <img src="web/public/favicon.svg" alt="" width="112" height="112">
 </p>
 
-<h1 align="center">Rowsmith</h1>
+<h1 align="center">Rowsmith<sup>™</sup></h1>
 
 **A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
 
@@ -293,6 +293,6 @@ Optional capabilities such as `Explainer`, `ProcessManager`, `DDLGenerator` and 
 
 ## License
 
-Rowsmith is released under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE). The license does not grant use of the Rowsmith name or logo, except to describe this software.
+Rowsmith is released under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE). Rowsmith™ and the Rowsmith logo are trademarks of Syed Abdul Waheed; the license doesn't grant their use, except to describe this software.
 
 It is built on open-source libraries under permissive licenses (MIT, BSD, Apache 2.0 and ISC, plus the MySQL driver under MPL 2.0), and bundles the Archivo and IBM Plex typefaces under the SIL Open Font License 1.1. Their licenses are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt), which also ships in the container image under `/licenses`.

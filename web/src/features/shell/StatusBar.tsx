@@ -14,7 +14,7 @@ export function StatusBar({ conn }: { conn?: Connection }) {
   if (!conn) {
     return (
       <footer className="statusbar">
-        <span className="statusbar__item faint">Rowsmith</span>
+        <span className="statusbar__item faint">Rowsmith™</span>
       </footer>
     );
   }

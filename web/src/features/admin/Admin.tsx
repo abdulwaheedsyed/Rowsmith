@@ -83,6 +83,7 @@ function Overview() {
         <div className="kv"><span>Master key fingerprint</span><code className="mono">{d.keyId}</code></div>
         <div className="kv"><span>Rotate</span><code className="mono">rowsmith rotate-key</code></div>
         <div className="kv"><span>Version</span><code className="mono">{d.version}</code></div>
+        <p className="pcard__desc pcard__foot">Rowsmith™ and the Rowsmith logo are trademarks of Syed Abdul Waheed. Rowsmith is open source under the Apache License 2.0.</p>
       </section>
     </div>
   );

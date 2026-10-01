@@ -74,7 +74,7 @@ export function AnvilMark({ size = 28, sparks }: { size?: number; sparks?: "loop
 export function Wordmark({ size = 18 }: { size?: number }) {
   return (
     <span className="wordmark display" style={{ fontSize: size }}>
-      rowsmith
+      rowsmith<sup className="wordmark__tm" aria-hidden="true">™</sup>
     </span>
   );
 }
