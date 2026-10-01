@@ -126,15 +126,28 @@ func (t *tunnel) alive() bool {
 }
 
 // Handle is a reference to a shared tunnel. Release it when the database
-// connection pool that uses it is closed.
+// connection pool that uses it is closed. If the SSH connection drops (the
+// host restarted, the network failed), the next Dial reconnects.
 type Handle struct {
 	m    *Manager
+	cfg  Config
+	mu   sync.Mutex
 	t    *tunnel
 	once sync.Once
 }
 
 // Acquire returns a handle to a live tunnel for cfg, connecting if needed.
 func (m *Manager) Acquire(ctx context.Context, cfg Config) (*Handle, error) {
+	t, err := m.acquire(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{m: m, cfg: cfg, t: t}, nil
+}
+
+// acquire returns a live tunnel for cfg with a reference taken, connecting
+// if needed.
+func (m *Manager) acquire(ctx context.Context, cfg Config) (*tunnel, error) {
 	if len(cfg.Hops) == 0 {
 		return nil, errors.New("tunnel: no SSH host configured")
 	}
@@ -144,7 +157,7 @@ func (m *Manager) Acquire(ctx context.Context, cfg Config) (*Handle, error) {
 		t.refs++
 		t.lastUsed = time.Now()
 		m.mu.Unlock()
-		return &Handle{m: m, t: t}, nil
+		return t, nil
 	}
 	m.mu.Unlock()
 
@@ -160,7 +173,7 @@ func (m *Manager) Acquire(ctx context.Context, cfg Config) (*Handle, error) {
 		existing.refs++
 		m.mu.Unlock()
 		t.close()
-		return &Handle{m: m, t: existing}, nil
+		return existing, nil
 	}
 	m.tunnels[key] = t
 	m.mu.Unlock()
@@ -170,37 +183,76 @@ func (m *Manager) Acquire(ctx context.Context, cfg Config) (*Handle, error) {
 		ka = 30 * time.Second
 	}
 	go m.keepalive(t, ka)
-	return &Handle{m: m, t: t}, nil
+	return t, nil
+}
+
+func (m *Manager) release(t *tunnel) {
+	m.mu.Lock()
+	t.refs--
+	t.lastUsed = time.Now()
+	m.mu.Unlock()
+}
+
+// current returns the handle's tunnel, reconnecting first if it has died.
+// Reconnecting verifies host keys again, so a changed key is still refused.
+func (h *Handle) current(ctx context.Context) (*tunnel, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.t.alive() {
+		return h.t, nil
+	}
+	t, err := h.m.acquire(ctx, h.cfg)
+	if err != nil {
+		return nil, err
+	}
+	h.m.release(h.t)
+	h.t = t
+	return t, nil
 }
 
 // Dial opens a TCP connection from the last hop to addr. The returned conn
 // supports deadlines (SSH channels do not natively), which drivers rely on
-// for query cancellation.
+// for query cancellation. If the SSH connection has gone away, Dial drops it
+// and tries once more on a fresh one, so callers don't wait for the keepalive
+// to notice.
 func (h *Handle) Dial(ctx context.Context, network, addr string) (net.Conn, error) {
-	if !h.t.alive() {
-		return nil, errors.New("tunnel: SSH connection was lost; reconnect to retry")
+	for retried := false; ; retried = true {
+		t, err := h.current(ctx)
+		if err != nil {
+			return nil, err
+		}
+		h.m.mu.Lock()
+		t.lastUsed = time.Now()
+		h.m.mu.Unlock()
+		ch, err := t.clients[len(t.clients)-1].DialContext(ctx, "tcp", addr)
+		if err == nil {
+			return bridge(ch)
+		}
+		// An OpenChannelError means the SSH server answered but couldn't reach
+		// addr: the connection is fine and reconnecting wouldn't help.
+		var refused *ssh.OpenChannelError
+		if errors.As(err, &refused) || ctx.Err() != nil || retried {
+			return nil, fmt.Errorf("tunnel: SSH server could not reach %s: %w", addr, err)
+		}
+		h.m.log.Info("ssh connection lost; reconnecting", "err", err)
+		h.m.drop(t)
 	}
-	h.m.mu.Lock()
-	h.t.lastUsed = time.Now()
-	h.m.mu.Unlock()
-	last := h.t.clients[len(h.t.clients)-1]
-	ch, err := last.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("tunnel: SSH server could not reach %s: %w", addr, err)
-	}
-	return bridge(ch)
 }
 
 func (h *Handle) Release() {
 	h.once.Do(func() {
-		h.m.mu.Lock()
-		h.t.refs--
-		h.t.lastUsed = time.Now()
-		h.m.mu.Unlock()
+		h.mu.Lock()
+		t := h.t
+		h.mu.Unlock()
+		h.m.release(t)
 	})
 }
 
-func (h *Handle) Alive() bool { return h.t.alive() }
+func (h *Handle) Alive() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.t.alive()
+}
 
 func (m *Manager) connect(ctx context.Context, cfg Config) ([]*ssh.Client, error) {
 	var clients []*ssh.Client
