@@ -270,6 +270,7 @@ cd web && npm install && npm run dev
 - **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB and PostGIS servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion. Add `--profile full` to also start SQL Server, Oracle, MongoDB and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
 - **Smoke test**: `dev/smoke.py` runs the end-to-end test against the dev stack.
 - **Frontend**: `npm run dev` serves the UI at `http://127.0.0.1:5199` and proxies `/api` to the dev server.
+- **Third-party notices**: after adding or upgrading dependencies, run `python3 dev/notices.py` to regenerate `THIRD_PARTY_NOTICES.txt`.
 
 Create `dev/.env` with `DEV_DB_PASSWORD` and `DEV_SSH_PASSWORD` before starting the stack. It is ignored by git.
 
@@ -290,6 +291,6 @@ Optional capabilities such as `Explainer`, `ProcessManager`, `DDLGenerator` and 
 
 ## License
 
-Rowsmith is released under the [MIT License](LICENSE).
+Rowsmith is released under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE). The license does not grant use of the Rowsmith name or logo, except to describe this software.
 
-It is built on open-source libraries under permissive licenses (MIT, BSD, Apache 2.0 and ISC, plus the MySQL driver under MPL 2.0), and bundles the Archivo and IBM Plex typefaces under the SIL Open Font License 1.1.
+It is built on open-source libraries under permissive licenses (MIT, BSD, Apache 2.0 and ISC, plus the MySQL driver under MPL 2.0), and bundles the Archivo and IBM Plex typefaces under the SIL Open Font License 1.1. Their licenses are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt), which also ships in the container image under `/licenses`.

@@ -22,6 +22,7 @@ RUN go build -trimpath -ldflags "-s -w" -o /out/rowsmith ./cmd/rowsmith \
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/rowsmith /rowsmith
+COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /licenses/
 COPY --from=build --chown=65532:65532 /out/data /data
 COPY --from=build --chown=65532:65532 /out/tmp /tmp
 ENV ROWSMITH_DATA_DIR=/data ROWSMITH_ADDR=:8080
