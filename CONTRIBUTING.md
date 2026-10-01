@@ -111,7 +111,7 @@ python3 dev/notices.py
 
 - **Keep each pull request to one change**, so it can be reviewed and reverted on its own.
 - **Write commit summaries in the imperative**, in sentence case and without a full stop, saying what changes for the people using Rowsmith. For example: "Add scheduled queries with email, webhook and alert delivery" or "Keep huge values from exhausting server memory". Use the body to explain why, when that isn't obvious.
-- **In the pull request**, say what changed and why, and how you tested it, including which engines. For UI changes, add screenshots in light and dark.
+- **In the pull request**, fill in the template: what changed and why, how you tested it (including which engines), and, for UI changes, screenshots in light and dark.
 
 ## License
 
