@@ -2,7 +2,7 @@ import * as RDialog from "@radix-ui/react-dialog";
 import * as RMenu from "@radix-ui/react-dropdown-menu";
 import * as RTooltip from "@radix-ui/react-tooltip";
 import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from "react";
+import { cloneElement, forwardRef, isValidElement, useId, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useToasts } from "../lib/store";
 
 // ---- Brand ----------------------------------------------------------------------
@@ -295,14 +295,25 @@ export function EngineBadge({ driver, size = 26 }: { driver: string; size?: numb
   );
 }
 
+/** A labelled form control. When the control is a single input, select or
+ *  textarea, the label is tied to it automatically, so clicking the label
+ *  focuses it and screen readers announce it; otherwise pass htmlFor. */
 export function Field({ label, required, help, error, children, htmlFor }: { label: ReactNode; required?: boolean; help?: ReactNode; error?: ReactNode; children: ReactNode; htmlFor?: string }) {
+  const auto = useId();
+  let control = children;
+  let target = htmlFor;
+  if (!target && isValidElement(children) && typeof children.type === "string" && ["input", "select", "textarea"].includes(children.type)) {
+    const el = children as ReactElement<{ id?: string }>;
+    target = el.props.id ?? auto;
+    control = cloneElement(el, { id: target });
+  }
   return (
     <div className="field">
-      <label className="field__label" htmlFor={htmlFor}>
+      <label className="field__label" htmlFor={target}>
         {label}
         {required && <span className="req">*</span>}
       </label>
-      {children}
+      {control}
       {error ? <div className="field__error">{error}</div> : help ? <div className="field__help">{help}</div> : null}
     </div>
   );

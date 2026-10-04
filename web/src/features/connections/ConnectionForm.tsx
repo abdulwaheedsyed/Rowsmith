@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Link2, Plus, Trash2, Plug, CheckCircle2, AlertTriangle, ShieldAlert, Upload, Route as RouteIcon, KeyRound } from "lucide-react";
 import { ApiError, patch, post } from "../../lib/api";
@@ -32,6 +32,22 @@ function defaults(d?: DriverInfo) {
   const p: Record<string, unknown> = {};
   for (const f of d?.fields ?? []) if (!f.secret && f.default !== undefined) p[f.key] = f.default;
   return p;
+}
+
+// switchParams is what the form keeps when the engine changes: values typed
+// into fields the new engine also has (host, user, a custom port…). The old
+// engine's defaults, such as its port and TLS mode, give way to the new
+// engine's, and values the new engine doesn't offer are dropped.
+function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<string, unknown>) {
+  const old = defaults(from);
+  const next = defaults(to);
+  for (const f of to.fields) {
+    const v = p[f.key];
+    if (f.secret || v === undefined || v === null || v === "" || (f.key in old && String(v) === String(old[f.key]))) continue;
+    if (f.options?.length && !f.options.some((o) => o.value === String(v))) continue;
+    next[f.key] = v;
+  }
+  return next;
 }
 
 // Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, sqlite: and bigquery:// URLs.
@@ -101,12 +117,29 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
   const all = useConnections();
   const folders = useMemo(() => [...new Set((all.data ?? []).map((c) => c.folder).filter(Boolean))].sort(), [all.data]);
 
+  // Fill in the first engine's defaults once the engine list has loaded.
+  const filled = useRef(editing);
   useEffect(() => {
-    if (!editing && driver) {
-      setParams((p) => ({ ...defaults(driver), ...p, port: p.port ?? driver.defaultPort }));
+    if (!filled.current && driver) {
+      filled.current = true;
+      setParams((p) => switchParams(undefined, driver, p));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driverId, drivers.data]);
+  }, [driver]);
+
+  // chooseDriver switches engine, carrying over what still applies. extra
+  // (from a pasted URL) is applied on top.
+  function chooseDriver(id: string, extra?: { params: Record<string, unknown>; secrets: Record<string, string> }) {
+    const to = drivers.data?.find((d) => d.id === id);
+    if (!to) return;
+    filled.current = true;
+    setParams((p) => ({ ...switchParams(driver, to, p), ...extra?.params }));
+    setSecrets((s) => ({
+      ...Object.fromEntries(Object.entries(s).filter(([k]) => to.fields.some((f) => f.secret && f.key === k))),
+      ...extra?.secrets,
+    }));
+    setDriverId(id);
+    setTest({ state: "idle" });
+  }
 
   useEffect(() => {
     if (!driverId && !editing && drivers.data?.length) setDriverId(drivers.data[0].id);
@@ -233,7 +266,7 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
           {!editing && (
             <div className="connform__engines" role="radiogroup" aria-label="Database type">
               {drivers.data?.map((d) => (
-                <button key={d.id} role="radio" aria-checked={d.id === driverId} className={`engine-row ${d.id === driverId ? "is-active" : ""}`} onClick={() => { setDriverId(d.id); setTest({ state: "idle" }); }}>
+                <button key={d.id} role="radio" aria-checked={d.id === driverId} className={`engine-row ${d.id === driverId ? "is-active" : ""}`} onClick={() => d.id !== driverId && chooseDriver(d.id)}>
                   <EngineBadge driver={d.id} size={26} />
                   <span className="truncate">{d.name}</span>
                 </button>
@@ -254,9 +287,12 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
                   <Button onClick={() => {
                     const r = parseURL(url);
                     if (!r) return toast.error("That does not look like a connection URL");
-                    if (r.driver && drivers.data?.some((d) => d.id === r.driver) && !editing) setDriverId(r.driver);
-                    setParams((p) => ({ ...p, ...r.params }));
-                    if (Object.keys(r.secrets).length) setSecrets((s) => ({ ...s, ...r.secrets }));
+                    if (r.driver && r.driver !== driverId && drivers.data?.some((d) => d.id === r.driver) && !editing) {
+                      chooseDriver(r.driver, r);
+                    } else {
+                      setParams((p) => ({ ...p, ...r.params }));
+                      if (Object.keys(r.secrets).length) setSecrets((s) => ({ ...s, ...r.secrets }));
+                    }
                     setUrl("");
                     setOpen((o) => ({ ...o, url: false }));
                     toast.info("Fields filled from URL", "The password was moved to the encrypted secrets.");
@@ -440,10 +476,10 @@ function readFile(onText: (t: string) => void) {
   input.click();
 }
 
-function SecretInput({ set, edit, onChange, multiline, placeholder }: { set: boolean; edit: string | null | undefined; onChange(v: string | null): void; multiline?: boolean; placeholder?: string }) {
+function SecretInput({ id, set, edit, onChange, multiline, placeholder }: { id?: string; set: boolean; edit: string | null | undefined; onChange(v: string | null): void; multiline?: boolean; placeholder?: string }) {
   const cleared = edit === null;
   const ph = cleared ? "will be removed" : set && edit === undefined ? "•••••••• saved — type to replace" : placeholder;
-  const common = { value: typeof edit === "string" ? edit : "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value), placeholder: ph, autoComplete: "new-password", spellCheck: false };
+  const common = { id, value: typeof edit === "string" ? edit : "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(e.target.value), placeholder: ph, autoComplete: "new-password", spellCheck: false };
   return (
     <div className="secret">
       {multiline ? <textarea className="textarea input--mono" rows={3} {...common} /> : <input className="input" type="password" {...common} />}
@@ -459,14 +495,15 @@ function SecretInput({ set, edit, onChange, multiline, placeholder }: { set: boo
 
 function DriverField({ f, value, onChange, secret }: { f: DField; value: unknown; onChange(v: unknown): void; secret?: { set: boolean; edit: string | null | undefined; onChange(v: string | null): void } }) {
   const span = `span-${f.span ?? 6}`;
+  const id = useId();
   let control: ReactNode;
   if (secret) {
-    control = <SecretInput set={secret.set} edit={secret.edit} onChange={secret.onChange} multiline={f.type === "file" || f.type === "textarea"} placeholder={f.placeholder} />;
+    control = <SecretInput id={id} set={secret.set} edit={secret.edit} onChange={secret.onChange} multiline={f.type === "file" || f.type === "textarea"} placeholder={f.placeholder} />;
   } else {
     switch (f.type) {
       case "select":
         control = (
-          <select className="select" value={String(value ?? f.default ?? "")} onChange={(e) => onChange(e.target.value)}>
+          <select id={id} className="select" value={String(value ?? f.default ?? "")} onChange={(e) => onChange(e.target.value)}>
             {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         );
@@ -479,24 +516,24 @@ function DriverField({ f, value, onChange, secret }: { f: DField; value: unknown
           </div>
         );
       case "number":
-        control = <input className="input" type="number" value={value === undefined || value === null ? "" : String(value)} placeholder={f.placeholder ?? (f.default !== undefined ? String(f.default) : "")} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))} />;
+        control = <input id={id} className="input" type="number" value={value === undefined || value === null ? "" : String(value)} placeholder={f.placeholder ?? (f.default !== undefined ? String(f.default) : "")} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))} />;
         break;
       case "textarea":
       case "file":
         control = (
           <div className="secret">
-            <textarea className="textarea input--mono" rows={3} value={String(value ?? "")} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} spellCheck={false} />
+            <textarea id={id} className="textarea input--mono" rows={3} value={String(value ?? "")} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} spellCheck={false} />
             {f.type === "file" && <Button size="sm" variant="ghost" onClick={() => readFile((t) => onChange(t))}><Upload /> Load file</Button>}
           </div>
         );
         break;
       default:
-        control = <input className="input" type="text" value={String(value ?? "")} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />;
+        control = <input id={id} className="input" type="text" value={String(value ?? "")} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} spellCheck={false} autoCapitalize="off" autoCorrect="off" />;
     }
   }
   return (
     <div className={span}>
-      <Field label={f.label} required={f.required} help={f.help}>{control}</Field>
+      <Field label={f.label} required={f.required} help={f.help} htmlFor={id}>{control}</Field>
     </div>
   );
 }
