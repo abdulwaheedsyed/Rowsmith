@@ -247,8 +247,8 @@ export function AISettings() {
                 </select>
               </Field>
               {!model.startsWith("claude-haiku") && (
-                <Field label="Reasoning effort" help="Higher effort thinks longer on hard questions; it costs more and answers more slowly.">
-                  <div className="segmented" role="group" aria-label="Reasoning effort">
+                <Field label="Reasoning effort" help="Higher effort thinks longer on hard questions; it costs more and answers more slowly." group>
+                  <div className="segmented">
                     {["low", "medium", "high"].map((e) => (
                       <button key={e} aria-pressed={draft.effort === e} onClick={() => set({ effort: e })}>{e[0].toUpperCase() + e.slice(1)}</button>
                     ))}

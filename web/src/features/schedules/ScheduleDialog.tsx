@@ -253,8 +253,8 @@ function ScheduleDialog({ req, onClose }: { req: Req; onClose(): void }) {
               </div>
             )}
             <div className="sched__file">
-              <Field label="File">
-                <div className="segmented" role="group" aria-label="File format">
+              <Field label="File" group>
+                <div className="segmented">
                   {FORMATS.map((f) => <button key={f} aria-pressed={d.config.output.format === f} onClick={() => setCfg("output", { format: f })}>{FORMAT_LABELS[f]}</button>)}
                 </div>
               </Field>
@@ -280,11 +280,11 @@ function ScheduleDialog({ req, onClose }: { req: Req; onClose(): void }) {
             {policy.data && !policy.data.email && (
               <Alert kind="warn">Email isn't set up yet, so nothing can be emailed. An admin can add a mail server under Administration → Email.</Alert>
             )}
-            <Field label={<><Mail size={13} /> Email</>} help={policy.data ? (policy.data.anyone ? "Any address." : `Team members${policy.data.domains.length ? ` and addresses at ${policy.data.domains.join(", ")}` : " only, as your admin set it"}.`) : undefined}>
-              <EmailChips value={emails} onChange={(v) => setCfg("delivery", { emails: v })} suggestions={(users.data ?? []).map((u) => u.email)} />
+            <Field label={<><Mail size={13} /> Email</>} help={policy.data ? (policy.data.anyone ? "Any address." : `Team members${policy.data.domains.length ? ` and addresses at ${policy.data.domains.join(", ")}` : " only, as your admin set it"}.`) : undefined} htmlFor="schedule-emails">
+              <EmailChips id="schedule-emails" value={emails} onChange={(v) => setCfg("delivery", { emails: v })} suggestions={(users.data ?? []).map((u) => u.email)} />
             </Field>
             {policy.data?.webhooks !== false && (
-              <Field label={<><Webhook size={13} /> Webhook</>} help={editing?.webhook.set && d.webhook !== null ? "Enter the new URL, or leave it empty to stop sending to a webhook." : "Slack, Microsoft Teams, Google Chat and Discord get a message; any other URL gets the result as JSON."}>
+              <Field label={<><Webhook size={13} /> Webhook</>} help={editing?.webhook.set && d.webhook !== null ? "Enter the new URL, or leave it empty to stop sending to a webhook." : "Slack, Microsoft Teams, Google Chat and Discord get a message; any other URL gets the result as JSON."} group={!!hookSaved}>
                 {hookSaved ? (
                   <div className="sched__hook">
                     <span className="mono truncate">Saved · {editing?.webhook.host}</span>
@@ -420,7 +420,7 @@ function TimetablePicker({ value, onChange }: { value: Timetable; onChange(t: Ti
   );
 }
 
-function EmailChips({ value, onChange, suggestions }: { value: string[]; onChange(v: string[]): void; suggestions: string[] }) {
+function EmailChips({ id, value, onChange, suggestions }: { id?: string; value: string[]; onChange(v: string[]): void; suggestions: string[] }) {
   const [text, setText] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const add = (raw: string) => {
@@ -450,7 +450,7 @@ function EmailChips({ value, onChange, suggestions }: { value: string[]; onChang
           <button aria-label={`Remove ${e}`} onClick={(ev) => { ev.stopPropagation(); onChange(value.filter((x) => x !== e)); }}><X /></button>
         </span>
       ))}
-      <input ref={input} className="emailchips__input" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} onBlur={() => text && add(text)}
+      <input ref={input} id={id} className="emailchips__input" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onKey} onBlur={() => text && add(text)}
         placeholder={value.length ? "" : "name@example.com"} list="sched-people" type="email" autoComplete="off" aria-label="Add an email address" />
       <datalist id="sched-people">{suggestions.filter((s) => !value.includes(s)).map((s) => <option key={s} value={s} />)}</datalist>
     </div>

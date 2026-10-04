@@ -216,8 +216,8 @@ function InviteDialog({ me, onClose, onCreated }: { me: Me; onClose(): void; onC
       <div className="col gap-4">
         <Field label="Name" required><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus /></Field>
         <Field label="Email" required><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Field label="Role">
-          <div className="roles">
+        <Field label="Role" group>
+          <div className="roles" role="radiogroup">
             {(["admin", "member", "viewer", ...(me.user.role === "owner" ? ["owner"] : [])] as Role[]).map((r) => (
               <label key={r} className={`rolepick ${role === r ? "is-active" : ""}`}>
                 <input type="radio" name="role" checked={role === r} onChange={() => setRole(r)} />

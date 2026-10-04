@@ -155,8 +155,8 @@ function ShareDialog({ req, onClose }: { req: Req; onClose(): void }) {
               : "— only for queries that only read."}</span></span>
           </label>
         )}
-        <Field label="Link expires">
-          <div className="segmented" role="group" aria-label="Link expires">
+        <Field label="Link expires" group>
+          <div className="segmented">
             {editing && <button aria-pressed={expires === null} onClick={() => setExpires(null)}>{editing.expiresAt ? `Keep (${new Date(editing.expiresAt).toLocaleDateString()})` : "Keep (never)"}</button>}
             {EXPIRY.map((x) => <button key={x.days} aria-pressed={expires === x.days} onClick={() => setExpires(x.days)}>{x.label}</button>)}
           </div>

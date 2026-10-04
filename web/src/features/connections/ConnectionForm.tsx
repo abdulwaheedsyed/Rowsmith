@@ -305,8 +305,8 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
               <div className="span-4"><Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={autoName()} /></Field></div>
               <div className="span-2"><Field label="Folder"><input className="input" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="optional" list="rs-folders" /></Field></div>
               <div className="span-6">
-                <Field label="Environment" help={env === "production" ? "Production connections ask for confirmation before any statement that may change data." : undefined}>
-                  <div className="envpick" role="radiogroup" aria-label="Environment">
+                <Field label="Environment" help={env === "production" ? "Production connections ask for confirmation before any statement that may change data." : undefined} group>
+                  <div className="envpick" role="radiogroup">
                     {ENVS.map((e) => (
                       <button key={e.value} role="radio" aria-checked={env === e.value} className={`envpick__opt envpick__opt--${e.value}`} onClick={() => setEnv(e.value)}>
                         <span className={`dot dot--${e.value}`} /> {e.label}
@@ -539,6 +539,7 @@ function DriverField({ f, value, onChange, secret }: { f: DField; value: unknown
 }
 
 function SSHHops({ hops, setHops, secrets, setSecrets, secretsSet }: { hops: SSHHop[]; setHops(h: SSHHop[]): void; secrets: SecretEdits; setSecrets(fn: (s: SecretEdits) => SecretEdits): void; secretsSet: Record<string, boolean> }) {
+  const ids = useId();
   const update = (i: number, p: Partial<SSHHop>) => setHops(hops.map((h, j) => (j === i ? { ...h, ...p } : h)));
   const sk = (i: number, f: string) => `ssh.${i}.${f}`;
   return (
@@ -563,11 +564,11 @@ function SSHHops({ hops, setHops, secrets, setSecrets, secretsSet }: { hops: SSH
               </div>
             </div>
             {h.auth === "password" ? (
-              <div className="span-6"><Field label="SSH password"><SecretInput set={!!secretsSet[sk(i, "password")]} edit={secrets[sk(i, "password")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "password")]: v }))} /></Field></div>
+              <div className="span-6"><Field label="SSH password" htmlFor={`${ids}-${i}-password`}><SecretInput id={`${ids}-${i}-password`} set={!!secretsSet[sk(i, "password")]} edit={secrets[sk(i, "password")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "password")]: v }))} /></Field></div>
             ) : (
               <>
-                <div className="span-4"><Field label="Private key (OpenSSH or PEM)"><SecretInput multiline set={!!secretsSet[sk(i, "key")]} edit={secrets[sk(i, "key")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "key")]: v }))} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" /></Field></div>
-                <div className="span-2"><Field label="Key passphrase"><SecretInput set={!!secretsSet[sk(i, "passphrase")]} edit={secrets[sk(i, "passphrase")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "passphrase")]: v }))} placeholder="if encrypted" /></Field></div>
+                <div className="span-4"><Field label="Private key (OpenSSH or PEM)" htmlFor={`${ids}-${i}-key`}><SecretInput id={`${ids}-${i}-key`} multiline set={!!secretsSet[sk(i, "key")]} edit={secrets[sk(i, "key")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "key")]: v }))} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" /></Field></div>
+                <div className="span-2"><Field label="Key passphrase" htmlFor={`${ids}-${i}-passphrase`}><SecretInput id={`${ids}-${i}-passphrase`} set={!!secretsSet[sk(i, "passphrase")]} edit={secrets[sk(i, "passphrase")]} onChange={(v) => setSecrets((s) => ({ ...s, [sk(i, "passphrase")]: v }))} placeholder="if encrypted" /></Field></div>
               </>
             )}
           </div>

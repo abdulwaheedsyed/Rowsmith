@@ -143,8 +143,8 @@ export function EmailSettings({ me }: { me: Me }) {
           </div>
           <Field label="Port" htmlFor="smtp-port"><input id="smtp-port" className="input" inputMode="numeric" value={m.port} onChange={(e) => setMail({ port: e.target.value.replace(/\D/g, "") })} placeholder={m.security === "tls" ? "465" : m.security === "none" ? "25" : "587"} /></Field>
         </div>
-        <Field label="Encryption">
-          <div className="segmented" role="group" aria-label="Encryption">
+        <Field label="Encryption" group>
+          <div className="segmented">
             {([["starttls", "STARTTLS"], ["tls", "TLS"], ["none", "None"]] as const).map(([v, l]) => (
               <button key={v} aria-pressed={m.security === v} onClick={() => setMail({ security: v })}>{l}</button>
             ))}
@@ -192,8 +192,8 @@ export function EmailSettings({ me }: { me: Me }) {
         )}
         {p.webhooks && p.privateWebhooks && <Alert kind="warn">Anyone who can schedule could then make Rowsmith call services inside your network. Allow this only if you trust every member.</Alert>}
         <h3 className="aiset__h3">History</h3>
-        <Field label="Keep result files for" help="Each run's file is encrypted on the server and deleted after this many days.">
-          <div className="row gap-3"><input className="input mailset__days" inputMode="numeric" value={p.retention} onChange={(e) => setP({ ...p, retention: e.target.value.replace(/\D/g, "") })} /> <span className="muted">days</span></div>
+        <Field label="Keep result files for" help="Each run's file is encrypted on the server and deleted after this many days." htmlFor="retention-days">
+          <div className="row gap-3"><input id="retention-days" className="input mailset__days" inputMode="numeric" value={p.retention} onChange={(e) => setP({ ...p, retention: e.target.value.replace(/\D/g, "") })} /> <span className="muted">days</span></div>
         </Field>
         <div className="aiset__actions">
           <span className="spacer" />

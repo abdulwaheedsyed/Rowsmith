@@ -520,7 +520,7 @@ function SaveQueryDialog({ tab, conn, sql, onClose }: { tab: Tab; conn: Connecti
         <Field label="Name" required><input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="Daily revenue by store" /></Field>
         <Field label="Description"><textarea className="textarea" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What it answers, and when to use it" /></Field>
         <Field label="Tags" help="Comma separated"><input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="finance, weekly" /></Field>
-        <Field label="Who can see it">
+        <Field label="Who can see it" group>
           <div className="segmented">
             <button aria-pressed={visibility === "private"} onClick={() => setVisibility("private")}>Only me</button>
             <button aria-pressed={visibility === "team"} onClick={() => setVisibility("team")}>My team</button>

@@ -167,8 +167,8 @@ export function ExportDialog({ conn, source, onClose }: { conn: Connection; sour
             )}
             {format === "csv" && (
               <>
-                <Field label="Delimiter">
-                  <div className="segmented" role="group" aria-label="Delimiter">
+                <Field label="Delimiter" group>
+                  <div className="segmented">
                     {[[",", "Comma"], [";", "Semicolon"], ["tab", "Tab"], ["|", "Pipe"]].map(([v, l]) => (
                       <button key={v} aria-pressed={p.delimiter === v} onClick={() => set({ delimiter: v })}>{l}</button>
                     ))}
@@ -178,8 +178,8 @@ export function ExportDialog({ conn, source, onClose }: { conn: Connection; sour
               </>
             )}
             {(format === "csv" || format === "tsv") && (
-              <Field label="Write NULL as" help="Empty text and NULL look the same in an empty field; a marker keeps them apart.">
-                <div className="segmented" role="group" aria-label="NULL marker">
+              <Field label="Write NULL as" help="Empty text and NULL look the same in an empty field; a marker keeps them apart." group>
+                <div className="segmented">
                   {[["", "Empty"], ["\\N", "\\N"], ["NULL", "NULL"]].map(([v, l]) => (
                     <button key={l} aria-pressed={p.nullText === v} onClick={() => set({ nullText: v })}>{l}</button>
                   ))}
@@ -199,9 +199,9 @@ export function ExportDialog({ conn, source, onClose }: { conn: Connection; sour
               </>
             )}
             <div className="xfer-grid">
-              <Field label="File name">
+              <Field label="File name" htmlFor="export-file-name">
                 <div className="xfer-filename">
-                  <input className="input" value={fileName} onChange={(e) => setFileName(e.target.value)} spellCheck={false} />
+                  <input id="export-file-name" className="input" value={fileName} onChange={(e) => setFileName(e.target.value)} spellCheck={false} />
                   <span className="xfer-filename__ext mono">.{ext}</span>
                 </div>
               </Field>
