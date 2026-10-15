@@ -118,11 +118,11 @@ func TestPGDropDatabase(t *testing.T) {
 // statement drops, so it must read the name as PostgreSQL does.
 func TestPGDroppedDatabase(t *testing.T) {
 	for stmt, want := range map[string]string{
-		`DROP DATABASE shop`:                    "shop",
-		"  drop database IF EXISTS Shop;":       "shop",
-		`DROP DATABASE "Shop"`:                  "Shop",
-		`DROP DATABASE "we""ird" WITH (FORCE)`:  `we"ird`,
-		"DROP\n DATABASE\tcafé":                 "café",
+		`DROP DATABASE shop`:                   "shop",
+		"  drop database IF EXISTS Shop;":      "shop",
+		`DROP DATABASE "Shop"`:                 "Shop",
+		`DROP DATABASE "we""ird" WITH (FORCE)`: `we"ird`,
+		"DROP\n DATABASE\tcafé":                "café",
 	} {
 		if got, ok := droppedDatabase(stmt); !ok || got != want {
 			t.Errorf("%q: got %q, %v; want %q", stmt, got, ok, want)
