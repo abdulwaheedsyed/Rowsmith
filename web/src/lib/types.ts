@@ -25,6 +25,7 @@ export interface Caps {
   editRows: boolean;
   ddl: boolean;
   createDatabase: boolean;
+  dropDatabase: boolean;
   foreignKeys: boolean;
   explain: boolean;
   processes: boolean;

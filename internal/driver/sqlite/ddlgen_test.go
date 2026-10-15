@@ -1238,7 +1238,7 @@ func TestObjectSQL(t *testing.T) {
 	if _, err := d.c.CreateDatabaseSQL("x", nil); err == nil || !strings.HasPrefix(err.Error(), "SQLite databases are files") {
 		t.Errorf("create database = %v", err)
 	}
-	if _, err := d.c.DropDatabaseSQL("x"); err == nil || !strings.HasPrefix(err.Error(), "SQLite databases are files") {
+	if _, err := d.c.DropDatabaseSQL("x", false); err == nil || !strings.HasPrefix(err.Error(), "SQLite databases are files") {
 		t.Errorf("drop database = %v", err)
 	}
 }

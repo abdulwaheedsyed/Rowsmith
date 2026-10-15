@@ -3,11 +3,13 @@ package mssql
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"rowsmith/internal/driver"
+	"rowsmith/internal/sqlsplit"
 )
 
 // DDL generation (driver.DDLGenerator, driver.SchemaDDL). Statements are
@@ -1205,9 +1207,14 @@ func (c *conn) CreateDatabaseSQL(name string, opts map[string]string) ([]string,
 	return []string{s}, nil
 }
 
-func (c *conn) DropDatabaseSQL(name string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(name string, force bool) ([]string, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, errors.New("choose a database")
+	}
+	if force {
+		// Rolls back and disconnects every other session, as SSMS's "close
+		// existing connections" does.
+		return []string{"ALTER DATABASE " + quote(name) + " SET SINGLE_USER WITH ROLLBACK IMMEDIATE", "DROP DATABASE " + quote(name)}, nil
 	}
 	return []string{"DROP DATABASE " + quote(name)}, nil
 }
@@ -1229,4 +1236,28 @@ func (c *conn) DropSchemaSQL(_ string, name string, cascade bool) ([]string, err
 		return nil, errors.New("SQL Server cannot drop a schema together with its objects; drop or move them first")
 	}
 	return []string{"DROP SCHEMA " + quote(name)}, nil
+}
+
+var (
+	dropDatabaseRe = regexp.MustCompile(`(?is)^\s*DROP\s+DATABASE\s+(?:IF\s+EXISTS\s+)?(.+)$`)
+	dbNameRe       = regexp.MustCompile(`\[(?:[^\]]|\]\])+\]|[\p{L}_@#][\p{L}\p{N}_@#$]*`)
+)
+
+// DroppedDatabases names the databases a script drops; SQL Server refuses to
+// drop a database while a session uses it.
+func (c *conn) DroppedDatabases(script string) []string {
+	var out []string
+	for _, st := range sqlsplit.Split(script, sqlsplit.MSSQL) {
+		m := dropDatabaseRe.FindStringSubmatch(st.SQL)
+		if m == nil {
+			continue
+		}
+		for _, n := range dbNameRe.FindAllString(m[1], -1) {
+			if strings.HasPrefix(n, "[") {
+				n = strings.ReplaceAll(n[1:len(n)-1], "]]", "]")
+			}
+			out = append(out, n)
+		}
+	}
+	return out
 }

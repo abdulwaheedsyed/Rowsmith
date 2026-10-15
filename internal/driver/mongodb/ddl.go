@@ -775,7 +775,7 @@ func (c *conn) CreateDatabaseSQL(name string, opts map[string]string) ([]string,
 	return []string{dbExpr(name) + ".createCollection(" + quoteStr(coll) + ")"}, nil
 }
 
-func (c *conn) DropDatabaseSQL(name string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(name string, _ bool) ([]string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("choose a database")

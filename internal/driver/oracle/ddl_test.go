@@ -559,7 +559,7 @@ func TestDropTruncateRename(t *testing.T) {
 	if _, err := c.CreateDatabaseSQL("X", nil); err == nil || !strings.Contains(err.Error(), "pluggable databases") {
 		t.Errorf("create database: %v", err)
 	}
-	if _, err := c.DropDatabaseSQL("X"); err == nil {
+	if _, err := c.DropDatabaseSQL("X", false); err == nil {
 		t.Error("drop database accepted")
 	}
 }

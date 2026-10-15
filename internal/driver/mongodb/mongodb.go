@@ -55,7 +55,7 @@ func (mongoDriver) Info() driver.Info {
 			{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
 		},
 		Caps: driver.Caps{Databases: true, Documents: true, EditRows: true, DDL: true, Explain: true, Processes: true, Variables: true,
-			Users: true, Geometry: true, CreateDatabase: false},
+			Users: true, Geometry: true, CreateDatabase: false, DropDatabase: true},
 		Kinds:  kinds,
 		Design: &design,
 		Types:  []string{"string", "int", "long", "double", "decimal", "bool", "date", "objectId", "object", "array", "binData"},

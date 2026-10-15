@@ -582,8 +582,10 @@ func TestObjectAndSchemaDDL(t *testing.T) {
 	if _, err := c.CreateDatabaseSQL("shop", map[string]string{"collation": "x'"}); err == nil {
 		t.Error("bad collation accepted")
 	}
-	s, err = c.DropDatabaseSQL("shop")
+	s, err = c.DropDatabaseSQL("shop", false)
 	check(s, err, "DROP DATABASE [shop]")
+	s, err = c.DropDatabaseSQL("shop", true)
+	check(s, err, "ALTER DATABASE [shop] SET SINGLE_USER WITH ROLLBACK IMMEDIATE", "DROP DATABASE [shop]")
 	s, err = c.CreateSchemaSQL("shop", "sales")
 	check(s, err, "CREATE SCHEMA [sales]")
 	s, err = c.DropSchemaSQL("shop", "sales", false)
@@ -612,5 +614,13 @@ func TestNormTypeAndRefs(t *testing.T) {
 	ix := driver.Index{Definition: "CREATE NONCLUSTERED INDEX [i] ON [dbo].[t] ([a] ASC) INCLUDE ([b], [c)]]d]) WHERE [a]>(0)"}
 	if got := includedColumns(ix); !slices.Equal(got, []string{"b", "c)]d"}) {
 		t.Errorf("included = %q", got)
+	}
+}
+
+func TestDroppedDatabases(t *testing.T) {
+	c := &conn{}
+	got := c.DroppedDatabases("USE master\nGO\nDROP DATABASE [sh]]op], crm\nGO\nSELECT 'DROP DATABASE x'\nGO\nalter database y set single_user\nGO\ndrop database if exists [Sales]")
+	if strings.Join(got, "|") != "sh]op|crm|Sales" {
+		t.Fatalf("got %q", got)
 	}
 }

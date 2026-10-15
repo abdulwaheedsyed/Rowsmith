@@ -3,6 +3,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@t
 import * as RPopover from "@radix-ui/react-popover";
 import {
   Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, ChevronLeft, FileUp, Info,
+  MoreHorizontal, Scissors, Trash2,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useDescribe, useDriver, qualified } from "../../lib/queries";
@@ -14,6 +15,7 @@ import { openExport, openImport } from "../transfer/store";
 import { DataGrid, type GridColumn } from "../grid/DataGrid";
 import { Inspector } from "../grid/Inspector";
 import { openObject } from "../workspace/actions";
+import { DDLDialog, type DDLAction } from "../structure/DDLDialog";
 import { useStatus } from "../shell/status";
 import { MapView, hasGeometry } from "../map/MapView";
 import { useMediaQuery } from "../../lib/hooks";
@@ -117,6 +119,7 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   const [whereDraft, setWhereDraft] = useState(st.where);
   const [showWhere, setShowWhere] = useState(!!st.where);
   const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(null);
+  const [ddl, setDdl] = useState<DDLAction | null>(null);
   const [edits, setEdits] = useState<{ updates: Map<number, Record<string, unknown>>; inserts: Record<string, unknown>[]; deletes: Set<number> }>(() => ({ updates: new Map(), inserts: [], deletes: new Set() }));
   const [confirm, setConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -223,6 +226,8 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
 
   const editable = !!table?.editable && !!drv?.caps.editRows && conn.access !== "read" && !conn.readOnly;
   const canImport = conn.access !== "read" && !conn.readOnly && (table?.kind === "table" || table?.kind === "partitioned_table" || table?.kind === "collection") && !!drv?.caps.editRows;
+  const canDDL = !!drv?.caps.ddl && conn.access !== "read" && !conn.readOnly;
+  const kind = table?.kind ?? ref.kind ?? "table";
   const pendingCount = edits.updates.size + edits.inserts.length + edits.deletes.size;
 
   useEffect(() => {
@@ -430,6 +435,22 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
             <MenuItem onSelect={() => exportLoaded("json")} hint={`${int(displayRows.length)} rows`}>Loaded rows as JSON</MenuItem>
           </MenuContent>
         </Menu>
+        <Menu>
+          <MenuTrigger asChild>
+            <Button size="sm" variant="ghost" icon aria-label="More"><MoreHorizontal /></Button>
+          </MenuTrigger>
+          <MenuContent align="end">
+            <MenuItem icon={<TableProperties />} onSelect={() => openObject(conn, ref, "structure")}>Structure</MenuItem>
+            {canDDL && (
+              <>
+                <MenuSep />
+                {kind === "table" && <MenuItem icon={<Scissors />} danger onSelect={() => setDdl("truncate")}>Empty table…</MenuItem>}
+                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>Drop {kind.replace("_", " ")}…</MenuItem>
+              </>
+            )}
+          </MenuContent>
+        </Menu>
+        {ddl && <DDLDialog conn={conn} action={ddl} target={{ ...ref, kind }} onClose={() => setDdl(null)} />}
         {!narrow && (
           <Tip label="Value inspector">
             <Button size="sm" variant={st.inspector ? "default" : "ghost"} icon onClick={() => patchState({ inspector: !st.inspector })} aria-label="Toggle inspector"><PanelRight /></Button>

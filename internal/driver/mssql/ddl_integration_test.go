@@ -435,7 +435,7 @@ func TestDDLIntegration(t *testing.T) {
 			coll != "Latin1_General_100_CI_AS_SC_UTF8" {
 			t.Errorf("collation %q, %v", coll, err)
 		}
-		run(t, gen(c.DropDatabaseSQL(extraDB)))
+		run(t, gen(c.DropDatabaseSQL(extraDB, false)))
 		if n := rows(t, "SELECT COUNT(*) FROM sys.databases WHERE name = '"+extraDB+"'"); n != 0 {
 			t.Error("database not dropped")
 		}

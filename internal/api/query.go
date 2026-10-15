@@ -195,6 +195,11 @@ func (s *Server) wsQuery(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	sink := newSink(w)
 	_ = sink.emit(map[string]any{"t": "start", "console": con.ID})
 	started := time.Now()
+	if dd, ok := con.Driver().(driver.DatabaseDropper); ok {
+		for _, db := range dd.DroppedDatabases(script) {
+			s.sessions.ReleaseDatabase(c.ID, db, con.ID)
+		}
+	}
 	runErr := con.Run(ctx, script, driver.ExecOptions{MaxRows: maxRows, StopOnError: stop, ReadOnly: readOnly}, sink)
 	dur := time.Since(started)
 	done := map[string]any{"t": "done", "ms": float64(dur.Microseconds()) / 1000, "inTx": con.InTransaction(), "console": con.ID}

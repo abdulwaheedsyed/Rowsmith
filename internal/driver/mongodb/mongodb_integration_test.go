@@ -279,7 +279,7 @@ func TestIntegrationDDL(t *testing.T) {
 		t.Fatalf("%s_new was not created", db)
 	}
 	for _, name := range []string{db + "_new", db} {
-		stmts, _ = c.DropDatabaseSQL(name)
+		stmts, _ = c.DropDatabaseSQL(name, false)
 		runScript(t, sess, stmts)
 		if hasDatabase(t, c, name) {
 			t.Errorf("%s still exists", name)

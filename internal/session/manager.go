@@ -488,6 +488,28 @@ func (m *Manager) Console(ctx context.Context, userID string, c *store.Connectio
 	return con, nil
 }
 
+// ReleaseDatabase closes a connection's idle consoles on a database about to
+// be dropped, which the engine would otherwise count as users of it.
+// Consoles running a query or holding an open transaction stay: closing them
+// would lose work, and the drop reports them instead.
+func (m *Manager) ReleaseDatabase(connID, database, except string) {
+	m.mu.Lock()
+	var idle []*Console
+	for id, con := range m.consoles {
+		if con.ConnID == connID && id != except && strings.EqualFold(con.Scope.Database, database) && !con.busy() && !con.InTransaction() {
+			delete(m.consoles, id)
+			idle = append(idle, con)
+		}
+	}
+	m.mu.Unlock()
+	for _, con := range idle {
+		con.close()
+	}
+}
+
+// Driver is the connection the console runs on.
+func (c *Console) Driver() driver.Conn { return c.lease.Conn }
+
 // CloseConsole ends a console (tab closed). Any open transaction rolls back.
 func (m *Manager) CloseConsole(userID, cid string) {
 	m.mu.Lock()

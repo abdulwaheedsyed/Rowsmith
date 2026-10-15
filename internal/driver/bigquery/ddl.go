@@ -660,7 +660,7 @@ func (c *conn) CreateDatabaseSQL(string, map[string]string) ([]string, error) {
 	return nil, errProjects
 }
 
-func (c *conn) DropDatabaseSQL(string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(string, bool) ([]string, error) {
 	return nil, errProjects
 }
 

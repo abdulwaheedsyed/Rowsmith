@@ -984,4 +984,4 @@ var errDatabases = errors.New("Oracle pluggable databases are created and droppe
 func (c *conn) CreateDatabaseSQL(string, map[string]string) ([]string, error) {
 	return nil, errDatabases
 }
-func (c *conn) DropDatabaseSQL(string) ([]string, error) { return nil, errDatabases }
+func (c *conn) DropDatabaseSQL(string, bool) ([]string, error) { return nil, errDatabases }

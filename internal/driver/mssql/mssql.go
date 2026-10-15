@@ -65,7 +65,7 @@ func (mssqlDriver) Info() driver.Info {
 		Description: "Microsoft SQL Server 2012+, Azure SQL Database and Managed Instance",
 		Dialect:     "mssql", DefaultPort: 1433, Fields: fields, SSH: true,
 		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, Transactions: true, EditRows: true, DDL: true,
-			CreateDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true},
+			CreateDatabase: true, DropDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"sqlserver", "mssql"}, QuoteChar: "[",
 		Design: &design,
 	}

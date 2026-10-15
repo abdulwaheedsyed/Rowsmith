@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import * as RContext from "@radix-ui/react-context-menu";
 import * as RPopover from "@radix-ui/react-popover";
 import { Command } from "cmdk";
@@ -14,7 +14,7 @@ import type { Connection, DbObject, ObjectRef } from "../../lib/types";
 import { bytes, compact } from "../../lib/format";
 import { Button, EngineBadge, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip, Alert } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../workspace/actions";
-import { DDLDialog } from "../structure/DDLDialog";
+import { DDLDialog, type DDLAction } from "../structure/DDLDialog";
 import { NameDDLDialog } from "../structure/NameDDLDialog";
 import { openExport, openImport } from "../transfer/store";
 import { requestDisconnect } from "../workspace/disconnect";
@@ -46,7 +46,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   });
   const qc = useQueryClient();
   const [filter, setFilter] = useState("");
-  const [ddl, setDdl] = useState<{ action: "drop" | "truncate"; ref: ObjectRef } | null>(null);
+  const [ddl, setDdl] = useState<{ action: DDLAction; ref: ObjectRef } | null>(null);
   const [nameDlg, setNameDlg] = useState<{ action: "create_database" | "create_schema" | "rename"; target?: ObjectRef } | null>(null);
   const canWrite = conn.access !== "read" && !conn.readOnly;
 
@@ -96,6 +96,51 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   const q = drv?.quoteChar ?? '"';
   const refOf = (o: DbObject): ObjectRef => ({ database: scope.database, schema: scope.schema, name: o.name, kind: o.kind });
 
+  // What can be done with an object: shown by right-clicking it and by its ⋯ button.
+  type Action = { icon: ReactNode; label: ReactNode; onSelect(): void; danger?: boolean } | "sep";
+  const objectActions = (o: DbObject, ref: ObjectRef): Action[] => {
+    const browsable = BROWSABLE.has(o.kind);
+    const a: Action[] = [];
+    if (browsable) {
+      a.push({ icon: <Table2 />, label: "Open data", onSelect: () => openObject(conn, ref, "browse") });
+      a.push({ icon: <Columns3 />, label: "Structure", onSelect: () => openObject(conn, ref, "structure") });
+      a.push({ icon: <TerminalSquare />, label: "Query in new tab", onSelect: () => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: scope.database, schema: scope.schema }) });
+    } else {
+      a.push({ icon: <FileCode2 />, label: "Show definition", onSelect: () => openObject(conn, ref, "definition") });
+    }
+    if (canWrite && drv?.design && DESIGNABLE.has(o.kind)) a.push({ icon: <PencilRuler />, label: "Edit structure", onSelect: () => openDesign(conn, { ref }) });
+    if (browsable) {
+      a.push("sep", { icon: <Download />, label: "Export…", onSelect: () => openExport(conn, { kind: "table", ref, rows: o.rows ?? undefined }) });
+      if (canWrite && drv?.caps.editRows && DESIGNABLE.has(o.kind)) a.push({ icon: <FileUp />, label: "Import data…", onSelect: () => openImport(conn, { kind: "table", ref }) });
+    }
+    a.push("sep");
+    if (canWrite && drv?.caps.ddl) a.push({ icon: <Pencil />, label: "Rename…", onSelect: () => setNameDlg({ action: "rename", target: ref }) });
+    a.push({ icon: <Copy />, label: "Copy name", onSelect: () => navigator.clipboard?.writeText(o.name) });
+    a.push({ icon: <Copy />, label: "Copy qualified name", onSelect: () => navigator.clipboard?.writeText(qualified(ref, q, true)) });
+    if (canWrite && drv?.caps.ddl) {
+      a.push("sep");
+      if (o.kind === "table") a.push({ icon: <Scissors />, label: "Empty table…", danger: true, onSelect: () => setDdl({ action: "truncate", ref }) });
+      a.push({ icon: <Trash2 />, label: `Drop ${o.kind.replace("_", " ")}…`, danger: true, onSelect: () => setDdl({ action: "drop", ref }) });
+    }
+    return a;
+  };
+
+  // After dropping the database or schema in view, move to another one.
+  const afterDrop = (action: DDLAction, ref: ObjectRef) => {
+    if (action === "drop_database") {
+      const configured = (conn.params as Record<string, unknown>).database as string | undefined;
+      const rest = (dbs.data ?? []).filter((d) => d.name !== ref.database);
+      const pick = rest.find((d) => d.name === configured) ?? rest.find((d) => !d.system) ?? rest[0];
+      setScope(conn.id, { database: pick?.name, schema: undefined });
+    }
+    if (action === "drop_schema") {
+      const rest = (schemas.data ?? []).filter((s) => s.name !== ref.schema);
+      const pick = rest.find((s) => s.name === "public") ?? rest.find((s) => s.name === "dbo") ?? rest.find((s) => !s.system) ?? rest[0];
+      setScope(conn.id, { schema: pick?.name });
+    }
+    refresh();
+  };
+
   return (
     <div className="navigator">
       <div className="navigator__conn">
@@ -119,6 +164,14 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             {canWrite && drv?.design && ready && <MenuItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { database: scope.database, schema: scope.schema })}>New {drv.caps.documents ? "collection" : "table"}…</MenuItem>}
             {canWrite && drv?.caps.createDatabase && <MenuItem icon={<Database />} onSelect={() => setNameDlg({ action: "create_database" })}>New database…</MenuItem>}
             {canWrite && drv?.caps.schemas && drv?.caps.ddl && (!hasDbs || !!scope.database) && <MenuItem icon={<Layers />} onSelect={() => setNameDlg({ action: "create_schema", target: { database: scope.database, name: "" } })}>New schema…</MenuItem>}
+            {canWrite && drv?.caps.dropDatabase && scope.database && !dbs.data?.find((d) => d.name === scope.database)?.system && (
+              <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop_database", ref: { database: scope.database, name: scope.database! } })}>Drop database {scope.database}…</MenuItem>
+            )}
+            {canWrite && hasSchemas && drv?.caps.ddl && scope.schema && !schemas.data?.find((s) => s.name === scope.schema)?.system && (
+              <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop_schema", ref: { database: scope.database, schema: scope.schema, name: scope.schema! } })}>
+                Drop {conn.driver === "bigquery" ? "dataset" : "schema"} {scope.schema}…
+              </MenuItem>
+            )}
             <MenuSep />
             {canWrite && drv?.caps.editRows && ready && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", database: scope.database, schema: scope.schema })}>Import data…</MenuItem>}
             {canWrite && drv?.caps.sql && <MenuItem icon={<FileCode2 />} onSelect={() => openImport(conn, { kind: "sql", database: scope.database, schema: scope.schema })}>Run a SQL file…</MenuItem>}
@@ -209,54 +262,43 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                     const ref = refOf(o);
                     const active = activeRef?.name === o.name && (activeRef.schema ?? "") === (scope.schema ?? "") && (activeRef.database ?? "") === (scope.database ?? "");
                     const browsable = BROWSABLE.has(o.kind);
+                    const actions = objectActions(o, ref);
                     return (
-                      <RContext.Root key={o.name}>
-                        <RContext.Trigger asChild>
-                          <button
-                            role="treeitem"
-                            className={`navitem ${active ? "is-active" : ""}`}
-                            title={o.comment || o.extra || o.name}
-                            onClick={() => openObject(conn, ref, browsable ? "browse" : "definition", true)}
-                            onDoubleClick={() => openObject(conn, ref, browsable ? "browse" : "definition", false)}
-                          >
-                            <Icon className="navitem__icon" />
-                            <span className="navitem__name truncate">{o.name}</span>
-                            {o.rows !== undefined && o.rows !== null && browsable && <span className="navitem__meta mono">{compact(o.rows)}</span>}
-                            {!browsable && o.extra && <span className="navitem__meta truncate mono">{o.extra}</span>}
-                          </button>
-                        </RContext.Trigger>
-                        <RContext.Portal>
-                          <RContext.Content className="menu">
-                            {browsable && <CItem icon={<Table2 />} onSelect={() => openObject(conn, ref, "browse")}>Open data</CItem>}
-                            {browsable && <CItem icon={<Columns3 />} onSelect={() => openObject(conn, ref, "structure")}>Structure</CItem>}
-                            {!browsable && <CItem icon={<FileCode2 />} onSelect={() => openObject(conn, ref, "definition")}>Show definition</CItem>}
-                            {browsable && (
-                              <CItem icon={<TerminalSquare />} onSelect={() => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: scope.database, schema: scope.schema })}>
-                                Query in new tab
-                              </CItem>
-                            )}
-                            {canWrite && drv?.design && DESIGNABLE.has(o.kind) && <CItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { ref })}>Edit structure</CItem>}
-                            {browsable && (
-                              <>
-                                <RContext.Separator className="menu__sep" />
-                                <CItem icon={<Download />} onSelect={() => openExport(conn, { kind: "table", ref, rows: o.rows ?? undefined })}>Export…</CItem>
-                                {canWrite && drv?.caps.editRows && DESIGNABLE.has(o.kind) && <CItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", ref })}>Import data…</CItem>}
-                              </>
-                            )}
-                            <RContext.Separator className="menu__sep" />
-                            {canWrite && drv?.caps.ddl && <CItem icon={<Pencil />} onSelect={() => setNameDlg({ action: "rename", target: ref })}>Rename…</CItem>}
-                            <CItem icon={<Copy />} onSelect={() => navigator.clipboard?.writeText(o.name)}>Copy name</CItem>
-                            <CItem icon={<Copy />} onSelect={() => navigator.clipboard?.writeText(qualified(ref, q, true))}>Copy qualified name</CItem>
-                            {drv?.caps.ddl && conn.access !== "read" && !conn.readOnly && (
-                              <>
-                                <RContext.Separator className="menu__sep" />
-                                {o.kind === "table" && <CItem icon={<Scissors />} danger onSelect={() => setDdl({ action: "truncate", ref })}>Empty table…</CItem>}
-                                <CItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop", ref })}>Drop {o.kind.replace("_", " ")}…</CItem>
-                              </>
-                            )}
-                          </RContext.Content>
-                        </RContext.Portal>
-                      </RContext.Root>
+                      <div key={o.name} className="navrow">
+                        <RContext.Root>
+                          <RContext.Trigger asChild>
+                            <button
+                              role="treeitem"
+                              className={`navitem ${active ? "is-active" : ""}`}
+                              title={o.comment || o.extra || o.name}
+                              onClick={() => openObject(conn, ref, browsable ? "browse" : "definition", true)}
+                              onDoubleClick={() => openObject(conn, ref, browsable ? "browse" : "definition", false)}
+                            >
+                              <Icon className="navitem__icon" />
+                              <span className="navitem__name truncate">{o.name}</span>
+                              {o.rows !== undefined && o.rows !== null && browsable && <span className="navitem__meta mono">{compact(o.rows)}</span>}
+                              {!browsable && o.extra && <span className="navitem__meta truncate mono">{o.extra}</span>}
+                            </button>
+                          </RContext.Trigger>
+                          <RContext.Portal>
+                            <RContext.Content className="menu">
+                              {actions.map((x, k) => x === "sep"
+                                ? <RContext.Separator key={k} className="menu__sep" />
+                                : <CItem key={k} icon={x.icon} danger={x.danger} onSelect={x.onSelect}>{x.label}</CItem>)}
+                            </RContext.Content>
+                          </RContext.Portal>
+                        </RContext.Root>
+                        <Menu>
+                          <MenuTrigger asChild>
+                            <button className="navrow__more" aria-label={`Actions for ${o.name}`}><MoreHorizontal /></button>
+                          </MenuTrigger>
+                          <MenuContent align="start">
+                            {actions.map((x, k) => x === "sep"
+                              ? <MenuSep key={k} />
+                              : <MenuItem key={k} icon={x.icon} danger={x.danger} onSelect={x.onSelect}>{x.label}</MenuItem>)}
+                          </MenuContent>
+                        </Menu>
+                      </div>
                     );
                   })}
                 </div>
@@ -265,7 +307,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
           );
         })}
       </div>
-      {ddl && <DDLDialog conn={conn} action={ddl.action} target={ddl.ref} onClose={() => setDdl(null)} onDone={refresh} />}
+      {ddl && <DDLDialog conn={conn} action={ddl.action} target={ddl.ref} onClose={() => setDdl(null)} onDone={() => afterDrop(ddl.action, ddl.ref)} />}
       {nameDlg && (
         <NameDDLDialog conn={conn} action={nameDlg.action} target={nameDlg.target} onClose={() => setNameDlg(null)}
           onDone={(name) => {

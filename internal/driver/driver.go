@@ -118,7 +118,16 @@ type DDLGenerator interface {
 	TruncateSQL(ref ObjectRef) ([]string, error)
 	RenameObjectSQL(ref ObjectRef, newName string) ([]string, error)
 	CreateDatabaseSQL(name string, opts map[string]string) ([]string, error)
-	DropDatabaseSQL(name string) ([]string, error)
+	// DropDatabaseSQL drops a database; force first disconnects everyone
+	// using it, where the engine can.
+	DropDatabaseSQL(name string, force bool) ([]string, error)
+}
+
+// DatabaseDropper names the databases a script drops, for engines that
+// refuse to drop a database while sessions use it: before the script runs,
+// Rowsmith closes its own idle sessions on them.
+type DatabaseDropper interface {
+	DroppedDatabases(script string) []string
 }
 
 type SchemaDDL interface {

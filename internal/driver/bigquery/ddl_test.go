@@ -412,7 +412,7 @@ func TestBQObjectDDL(t *testing.T) {
 	if _, err := c.CreateDatabaseSQL("x", nil); err == nil || !strings.Contains(err.Error(), "Google Cloud") {
 		t.Errorf("create database: %v", err)
 	}
-	if _, err := c.DropDatabaseSQL("x"); err == nil {
+	if _, err := c.DropDatabaseSQL("x", false); err == nil {
 		t.Error("drop database accepted")
 	}
 }

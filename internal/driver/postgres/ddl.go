@@ -411,11 +411,17 @@ func (c *conn) CreateDatabaseSQL(name string, opts map[string]string) ([]string,
 	return []string{s}, nil
 }
 
-func (c *conn) DropDatabaseSQL(name string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(name string, force bool) ([]string, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, errors.New("choose a database")
 	}
-	return []string{"DROP DATABASE " + quote(name)}, nil
+	if !force {
+		return []string{"DROP DATABASE " + quote(name)}, nil
+	}
+	if v := c.serverVersion(); v > 0 && v < 130000 {
+		return nil, errors.New("disconnecting everyone first needs PostgreSQL 13 or later: end the other sessions, then drop it")
+	}
+	return []string{"DROP DATABASE " + quote(name) + " WITH (FORCE)"}, nil
 }
 
 func (c *conn) CreateSchemaSQL(_ string, name string) ([]string, error) {

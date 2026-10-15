@@ -97,3 +97,48 @@ func TestPGRenameKeepsIndexes(t *testing.T) {
 		}
 	}
 }
+
+func TestPGDropDatabase(t *testing.T) {
+	c := &conn{pools: map[string]*pool{}}
+	got, err := c.DropDatabaseSQL("Sales", false)
+	if err != nil || strings.Join(got, ";") != `DROP DATABASE "Sales"` {
+		t.Fatalf("plain: %v %v", got, err)
+	}
+	got, err = c.DropDatabaseSQL("Sales", true)
+	if err != nil || strings.Join(got, ";") != `DROP DATABASE "Sales" WITH (FORCE)` {
+		t.Fatalf("force: %v %v", got, err)
+	}
+	c.pools[""] = &pool{server: 120011}
+	if _, err := c.DropDatabaseSQL("Sales", true); err == nil {
+		t.Fatal("WITH (FORCE) accepted on PostgreSQL 12")
+	}
+}
+
+// TestPGDroppedDatabase: the session releases its own pool for the database a
+// statement drops, so it must read the name as PostgreSQL does.
+func TestPGDroppedDatabase(t *testing.T) {
+	for stmt, want := range map[string]string{
+		`DROP DATABASE shop`:                    "shop",
+		"  drop database IF EXISTS Shop;":       "shop",
+		`DROP DATABASE "Shop"`:                  "Shop",
+		`DROP DATABASE "we""ird" WITH (FORCE)`:  `we"ird`,
+		"DROP\n DATABASE\tcafé":                 "café",
+	} {
+		if got, ok := droppedDatabase(stmt); !ok || got != want {
+			t.Errorf("%q: got %q, %v; want %q", stmt, got, ok, want)
+		}
+	}
+	for _, stmt := range []string{`DROP TABLE shop`, `SELECT 'DROP DATABASE shop'`, `DROP DATABASES shop`} {
+		if got, ok := droppedDatabase(stmt); ok {
+			t.Errorf("%q read as dropping %q", stmt, got)
+		}
+	}
+}
+
+func TestPGDroppedDatabases(t *testing.T) {
+	c := &conn{}
+	got := c.DroppedDatabases("SELECT 1; DROP DATABASE \"Shop\"; drop database crm WITH (FORCE); SELECT 'DROP DATABASE x';")
+	if strings.Join(got, "|") != "Shop|crm" {
+		t.Fatalf("got %q", got)
+	}
+}

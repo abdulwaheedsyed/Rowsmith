@@ -359,7 +359,7 @@ func TestMongoObjectDDL(t *testing.T) {
 	if got := one(c.CreateDatabaseSQL("crm", map[string]string{"collection": "people"})); got != `db.getSiblingDB("crm").createCollection("people")` {
 		t.Errorf("create database = %s", got)
 	}
-	if got := one(c.DropDatabaseSQL("crm")); got != `db.getSiblingDB("crm").dropDatabase()` {
+	if got := one(c.DropDatabaseSQL("crm", false)); got != `db.getSiblingDB("crm").dropDatabase()` {
 		t.Errorf("drop database = %s", got)
 	}
 	for name, fn := range map[string]func() ([]string, error){
@@ -370,8 +370,8 @@ func TestMongoObjectDDL(t *testing.T) {
 		"rename empty":    func() ([]string, error) { return c.RenameObjectSQL(driver.ObjectRef{Name: "v"}, "") },
 		"create no coll":  func() ([]string, error) { return c.CreateDatabaseSQL("crm", nil) },
 		"create bad name": func() ([]string, error) { return c.CreateDatabaseSQL("a.b", map[string]string{"collection": "c"}) },
-		"drop admin":      func() ([]string, error) { return c.DropDatabaseSQL("admin") },
-		"drop empty":      func() ([]string, error) { return c.DropDatabaseSQL(" ") },
+		"drop admin":      func() ([]string, error) { return c.DropDatabaseSQL("admin", false) },
+		"drop empty":      func() ([]string, error) { return c.DropDatabaseSQL(" ", false) },
 	} {
 		if stmts, err := fn(); err == nil {
 			t.Errorf("%s: expected an error, got %q", name, stmts)

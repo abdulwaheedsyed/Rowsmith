@@ -466,6 +466,7 @@ type ddlReq struct {
 	Def     *driver.TableDef  `json:"def"`
 	NewName string            `json:"newName"`
 	Cascade bool              `json:"cascade"`
+	Force   bool              `json:"force"` // drop_database: disconnect everyone first
 	Options map[string]string `json:"options"`
 }
 
@@ -516,7 +517,7 @@ func (s *Server) wsDDL(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	case "create_database":
 		stmts, err = gen.CreateDatabaseSQL(req.NewName, req.Options)
 	case "drop_database":
-		stmts, err = gen.DropDatabaseSQL(req.Ref.Database)
+		stmts, err = gen.DropDatabaseSQL(req.Ref.Database, req.Force)
 	case "create_schema", "drop_schema":
 		sd, ok := x.lease.Conn.(driver.SchemaDDL)
 		if !ok {

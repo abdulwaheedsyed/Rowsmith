@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"net"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,7 +60,7 @@ func (pgDriver) Info() driver.Info {
 		Description: "PostgreSQL 10+ with PostGIS, TimescaleDB, Supabase, Neon, Aurora, AlloyDB, Cloud SQL",
 		Dialect:     "postgresql", DefaultPort: 5432, Fields: fields, SSH: true,
 		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, Transactions: true, EditRows: true, DDL: true,
-			CreateDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true,
+			CreateDatabase: true, DropDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true,
 			Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"postgres", "postgresql"}, QuoteChar: `"`,
 		Design: &design,
@@ -137,6 +139,9 @@ func (pgDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, err
 	if _, err := c.pool(ctx, c.defaultDB); err != nil {
 		return nil, err
 	}
+	live.Lock()
+	live.conns[c] = true
+	live.Unlock()
 	return c, nil
 }
 
@@ -215,6 +220,87 @@ func (c *conn) pool(ctx context.Context, database string) (*pool, error) {
 	return p, nil
 }
 
+// serverVersion is the server's version number (e.g. 160004), or 0 before
+// the first connection.
+func (c *conn) serverVersion() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if p, ok := c.pools[c.defaultDB]; ok {
+		return p.server
+	}
+	for _, p := range c.pools {
+		return p.server
+	}
+	return 0
+}
+
+// live tracks open connections, so a database about to be dropped is
+// released by all of them: the read-only and read-write sides of one saved
+// connection, and other saved connections to the same server.
+var live = struct {
+	sync.Mutex
+	conns map[*conn]bool
+}{conns: map[*conn]bool{}}
+
+func (c *conn) serverKey() string {
+	return net.JoinHostPort(c.base.Host, strconv.Itoa(int(c.base.Port)))
+}
+
+// releaseEverywhere releases a database from every Rowsmith connection to
+// this server.
+func (c *conn) releaseEverywhere(name string) {
+	key := c.serverKey()
+	live.Lock()
+	var same []*conn
+	for o := range live.conns {
+		if o.serverKey() == key {
+			same = append(same, o)
+		}
+	}
+	live.Unlock()
+	for _, o := range same {
+		o.releaseDatabase(name)
+	}
+}
+
+// releaseDatabase closes Rowsmith's own pool for a database about to be
+// dropped: PostgreSQL refuses to drop a database anyone is connected to,
+// and idle pooled connections count.
+func (c *conn) releaseDatabase(name string) {
+	c.mu.Lock()
+	p, ok := c.pools[name]
+	delete(c.pools, name)
+	c.mu.Unlock()
+	if ok {
+		go p.db.Close() // waits for running queries; sessions pinned to it close with their tabs
+	}
+}
+
+var dropDatabaseRe = regexp.MustCompile(`(?is)^\s*DROP\s+DATABASE\s+(?:IF\s+EXISTS\s+)?("(?:[^"]|"")+"|[\p{L}_][\p{L}\p{N}_$]*)`)
+
+// DroppedDatabases names the databases a script drops.
+func (c *conn) DroppedDatabases(script string) []string {
+	var out []string
+	for _, st := range sqlsplit.Split(script, sqlsplit.Postgres) {
+		if name, ok := droppedDatabase(st.SQL); ok {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// droppedDatabase names the database a DROP DATABASE statement drops.
+func droppedDatabase(stmt string) (string, bool) {
+	m := dropDatabaseRe.FindStringSubmatch(stmt)
+	if m == nil {
+		return "", false
+	}
+	if name := m[1]; strings.HasPrefix(name, `"`) {
+		return strings.ReplaceAll(name[1:len(name)-1], `""`, `"`), true
+	}
+	return strings.ToLower(m[1]), true // unquoted names fold to lower case
+}
+
 func mapConnError(err error) error {
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) {
@@ -224,6 +310,9 @@ func mapConnError(err error) error {
 }
 
 func (c *conn) Close() error {
+	live.Lock()
+	delete(live.conns, c)
+	live.Unlock()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, p := range c.pools {
@@ -498,6 +587,12 @@ func (c *conn) NewSession(ctx context.Context, s driver.Scope) (driver.Session, 
 		}
 	}
 	hooks := sqlbase.SessionHooks{
+		Prepare: func(_ context.Context, _ *sql.Conn, st sqlsplit.Statement, _ driver.ExecOptions) (string, error) {
+			if name, ok := droppedDatabase(st.SQL); ok {
+				c.releaseEverywhere(name)
+			}
+			return "", nil
+		},
 		InTx: func(ctx context.Context, sc *sql.Conn) (bool, error) {
 			in := false
 			err := sc.Raw(func(dc any) error {

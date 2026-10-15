@@ -278,3 +278,52 @@
     opacity: 1;
   }
 }
+
+/* Each object row carries a ⋯ button with the same actions as its
+   right-click menu; it shows on hover and focus, and always on touch. */
+.navrow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.navrow__more {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--muted);
+  opacity: 0;
+}
+.navrow__more svg {
+  width: 14px;
+  height: 14px;
+}
+.navrow:hover .navrow__more,
+.navrow:focus-within .navrow__more,
+.navrow__more[data-state="open"] {
+  opacity: 1;
+}
+.navrow__more:hover,
+.navrow__more[data-state="open"] {
+  background: var(--hover);
+  color: var(--text);
+}
+.navrow:hover .navitem__meta,
+.navrow:focus-within .navitem__meta {
+  visibility: hidden;
+}
+@media (hover: none) {
+  .navrow__more {
+    opacity: 1;
+  }
+  .navrow > .navitem {
+    padding-right: 32px;
+  }
+}

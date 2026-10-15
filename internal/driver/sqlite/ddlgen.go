@@ -1320,7 +1320,7 @@ func (c *conn) CreateDatabaseSQL(string, map[string]string) ([]string, error) {
 	return nil, errors.New("SQLite databases are files: to create one, add a connection with a new file name and let Rowsmith create the file")
 }
 
-func (c *conn) DropDatabaseSQL(string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(string, bool) ([]string, error) {
 	return nil, errors.New("SQLite databases are files and cannot be dropped with SQL: remove the connection and delete the file on the server")
 }
 

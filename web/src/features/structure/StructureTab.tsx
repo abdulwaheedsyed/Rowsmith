@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { KeyRound, Link2, Table2, TerminalSquare, Copy, CornerDownRight, CornerUpLeft, Zap, ShieldCheck, Hash, Sparkles, FileCode2, PencilRuler } from "lucide-react";
+import { KeyRound, Link2, Table2, TerminalSquare, Copy, CornerDownRight, CornerUpLeft, Zap, ShieldCheck, Hash, Sparkles, FileCode2, PencilRuler, MoreHorizontal, Scissors, Trash2 } from "lucide-react";
 import { get, qs } from "../../lib/api";
 import { useDescribe, useDriver } from "../../lib/queries";
 import type { Tab } from "../../lib/store";
 import { toast } from "../../lib/store";
 import type { Connection, ForeignKey } from "../../lib/types";
 import { bytes, int } from "../../lib/format";
-import { Alert, Button, Spinner, Tip } from "../../components/ui";
+import { Alert, Button, Menu, MenuContent, MenuItem, MenuTrigger, Spinner, Tip } from "../../components/ui";
+import { DDLDialog, type DDLAction } from "./DDLDialog";
 import { SqlEditor } from "../query/SqlEditor";
 import { newQueryTab, openDesign, openObject } from "../workspace/actions";
 import { sampleQuery } from "../navigator/Navigator";
@@ -16,6 +18,7 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
   const ref = tab.ref!;
   const drv = useDriver(conn.driver);
   const d = useDescribe(conn.id, ref);
+  const [ddl, setDdl] = useState<DDLAction | null>(null);
   const q = drv?.quoteChar ?? '"';
   if (d.isLoading) return <div className="structure__center"><Spinner large /></div>;
   if (d.error) return <div className="structure__pad"><Alert kind="danger" title="Could not describe">{(d.error as Error).message}</Alert></div>;
@@ -51,8 +54,20 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
           <Button onClick={() => newQueryTab(conn, { sql: sampleQuery(drv?.dialect, ref, q), database: ref.database, schema: ref.schema })}>
             <TerminalSquare /> Query
           </Button>
+          {drv?.caps.ddl && conn.access !== "read" && !conn.readOnly && (
+            <Menu>
+              <MenuTrigger asChild>
+                <Button icon aria-label="More"><MoreHorizontal /></Button>
+              </MenuTrigger>
+              <MenuContent align="end">
+                {t.kind === "table" && <MenuItem icon={<Scissors />} danger onSelect={() => setDdl("truncate")}>Empty table…</MenuItem>}
+                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>Drop {t.kind.replace("_", " ")}…</MenuItem>
+              </MenuContent>
+            </Menu>
+          )}
         </div>
       </header>
+      {ddl && <DDLDialog conn={conn} action={ddl} target={{ ...ref, kind: t.kind }} onClose={() => setDdl(null)} />}
 
       <section className="ssection">
         <h2 className="ssection__title">Columns</h2>

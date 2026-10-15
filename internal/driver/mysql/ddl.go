@@ -404,7 +404,7 @@ func (c *conn) CreateDatabaseSQL(name string, opts map[string]string) ([]string,
 	return []string{s}, nil
 }
 
-func (c *conn) DropDatabaseSQL(name string) ([]string, error) {
+func (c *conn) DropDatabaseSQL(name string, _ bool) ([]string, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, errors.New("choose a database")
 	}

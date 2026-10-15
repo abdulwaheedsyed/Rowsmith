@@ -60,7 +60,7 @@ func (d *mysqlDriver) Info() driver.Info {
 		ID: d.id, Name: d.name, Order: d.order,
 		Description: map[string]string{"mysql": "MySQL 5.7, 8.x and 9.x, Percona, Aurora MySQL", "mariadb": "MariaDB 10.x and 11.x"}[d.id],
 		Dialect:     "mysql", DefaultPort: 3306, Fields: fields, SSH: true,
-		Caps: driver.Caps{Databases: true, SQL: true, Transactions: true, EditRows: true, DDL: true, CreateDatabase: true,
+		Caps: driver.Caps{Databases: true, SQL: true, Transactions: true, EditRows: true, DDL: true, CreateDatabase: true, DropDatabase: true,
 			ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"mysql", "mariadb"}, QuoteChar: "`",
 		Design: &design,

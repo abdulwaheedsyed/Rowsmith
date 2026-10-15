@@ -49,6 +49,7 @@ type Caps struct {
 	EditRows       bool `json:"editRows"`       //
 	DDL            bool `json:"ddl"`            // structure editing
 	CreateDatabase bool `json:"createDatabase"` //
+	DropDatabase   bool `json:"dropDatabase"`   //
 	ForeignKeys    bool `json:"foreignKeys"`    //
 	Explain        bool `json:"explain"`        //
 	Processes      bool `json:"processes"`      //
