@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1.7
 # Rowsmith: one static binary with the web UI embedded, on a distroless base.
+# The web app and the binary are built on the build machine's platform and the
+# binary is cross-compiled, so images for other platforms need no emulation.
 
-FROM node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.27-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS build
 WORKDIR /src
 ENV CGO_ENABLED=0 GOFLAGS=-buildvcs=false
 COPY go.mod go.sum ./
@@ -16,8 +18,8 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY --from=web /web/dist ./internal/web/dist
-ARG VERSION=dev
-RUN go build -trimpath -ldflags "-s -w" -o /out/rowsmith ./cmd/rowsmith \
+ARG TARGETOS TARGETARCH VERSION=dev
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w -X rowsmith/internal/api.Version=$VERSION" -o /out/rowsmith ./cmd/rowsmith \
  && mkdir -p /out/data /out/tmp
 
 FROM gcr.io/distroless/static-debian12:nonroot

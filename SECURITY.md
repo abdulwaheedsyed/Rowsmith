@@ -24,7 +24,7 @@ Please keep the details private until the advisory is published. If a fix is tak
 
 ## Supported versions
 
-Rowsmith is in early development and has no releases yet. Security fixes land on the `main` branch, so run an image built from the latest `main`. Once releases begin, the latest release will get security fixes.
+Security fixes go into the latest release, as a new patch version (0.1.1 after 0.1.0), and into `main`. Older releases don't get fixes, so upgrade to the latest one: see [Upgrading](README.md#upgrading). The release notes say when a release fixes a vulnerability, and link to its advisory.
 
 ## Scope
 
@@ -58,4 +58,4 @@ Test only against an instance you run yourself, with data you own. Don't access,
 
 ## Running Rowsmith securely
 
-The [Security model](README.md#security-model) and [Deployment](README.md#deployment) sections of the README explain how secrets are protected and how to deploy safely. In short: serve Rowsmith over HTTPS behind your reverse proxy, back up the master key separately from the data directory, and give read-only users read-only database credentials.
+The [Security model](README.md#security-model) and [Install](README.md#install) sections of the README explain how secrets are protected and how to deploy safely. In short: serve Rowsmith over HTTPS behind your reverse proxy, back up the master key separately from the data directory, and give read-only users read-only database credentials.

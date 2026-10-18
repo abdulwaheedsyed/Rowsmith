@@ -6,7 +6,7 @@ Everyone taking part in the project follows the [code of conduct](CODE_OF_CONDUC
 
 ## Reporting a bug
 
-[Open an issue](https://github.com/abdulwaheedsyed/Rowsmith/issues/new/choose) with the bug report form. It asks for the Rowsmith version and commit, how you run it, the databases involved, the steps that cause the problem, and what you expected. For ideas, use the feature request form.
+[Open an issue](https://github.com/abdulwaheedsyed/Rowsmith/issues/new/choose) with the bug report form. It asks for the Rowsmith version, how you run it, the databases involved, the steps that cause the problem, and what you expected. For ideas, use the feature request form.
 
 Remove passwords, connection strings, host names and data you can't share before you post logs or screenshots.
 
@@ -116,6 +116,25 @@ python3 dev/notices.py
 - **Keep each pull request to one change**, so it can be reviewed and reverted on its own.
 - **Write commit summaries in the imperative**, in sentence case and without a full stop, saying what changes for the people using Rowsmith. For example: "Add scheduled queries with email, webhook and alert delivery" or "Keep huge values from exhausting server memory". Use the body to explain why, when that isn't obvious.
 - **In the pull request**, fill in the template: what changed and why, how you tested it (including which engines), and, for UI changes, screenshots in light and dark.
+
+## Releasing
+
+Releases are cut from `main` by pushing a version tag. The [release workflow](.github/workflows/release.yml) does the rest: it builds the server for Linux, macOS and Windows and the container image for linux/amd64 and linux/arm64, runs each build on its own platform, then publishes the image to `ghcr.io/abdulwaheedsyed/rowsmith` and a GitHub release with the archives, `SHA256SUMS`, a software bill of materials and signed build provenance. Changes to the release files run the same workflow as a dry run, which publishes nothing.
+
+1. In [CHANGELOG.md](CHANGELOG.md), give the version's section its date (`## 0.2.0 - 2026-11-02`). The workflow takes the release notes from it, and stops if the section is missing or still says Unreleased.
+2. Tag the commit and push the tag:
+
+   ```bash
+   git tag -a v0.2.0 -m "Rowsmith 0.2.0"
+   ```
+
+   ```bash
+   git push origin v0.2.0
+   ```
+
+3. Check that the workflow's last step, which pulls the published image signed out, passes.
+
+Versions follow [Semantic Versioning](https://semver.org/): a patch version for fixes, a minor version for anything else until 1.0. A release candidate (`v0.2.0-rc.1`) is published the same way as a pre-release with the notes of the version it leads to. It doesn't move the `latest` and `0.2` image tags. Builds from a clone are named after the commit (`0.2.0-3-g1a2b3c4`), and the app shows them as development builds.
 
 ## License
 

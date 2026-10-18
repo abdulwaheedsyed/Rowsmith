@@ -5,20 +5,21 @@
 #        openssl rand -base64 32 | sudo tee /etc/rowsmith/master.key >/dev/null
 #        sudo chmod 444 /etc/rowsmith/master.key   # read by the container user; directory stays 700
 #      Back this file up separately from the rowsmith-data volume.
-#   2. Put the public URL in an env file outside the repo, then build and start:
+#   2. Put the public URL in an env file outside the repo, then start:
 #        echo 'ROWSMITH_PUBLIC_URL=https://db.example.com' | sudo tee /etc/rowsmith/compose.env
-#        docker compose -f deploy/compose.yaml --env-file /etc/rowsmith/compose.env up -d --build
-#      A path such as https://example.com/sql also works.
+#        docker compose -f deploy/compose.yaml --env-file /etc/rowsmith/compose.env up -d
+#      A path such as https://example.com/sql also works. To stay on one
+#      release line, add ROWSMITH_VERSION=0.1 to the env file.
 #   3. Read the one-time setup code:
 #        docker logs rowsmith 2>&1 | grep "setup code"
+#
+# To upgrade, run the same command with "pull" in place of "up -d", then run it
+# again with "up -d". To build from this checkout instead, see compose.build.yaml.
 name: rowsmith
 
 services:
   rowsmith:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: rowsmith:latest
+    image: ghcr.io/abdulwaheedsyed/rowsmith:${ROWSMITH_VERSION:-latest}
     container_name: rowsmith
     restart: unless-stopped
     environment:

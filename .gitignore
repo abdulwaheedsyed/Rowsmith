@@ -1,5 +1,6 @@
 # Build output
 /.bin/
+/dist/
 /web/node_modules/
 /web/dist/
 /web/*.tsbuildinfo

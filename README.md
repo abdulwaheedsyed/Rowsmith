@@ -5,6 +5,7 @@
 <h1 align="center">Rowsmith<sup>™</sup></h1>
 
 <p align="center">
+  <a href="https://github.com/abdulwaheedsyed/Rowsmith/releases"><img src="https://img.shields.io/github/v/release/abdulwaheedsyed/Rowsmith?include_prereleases&sort=semver" alt="Latest release"></a>
   <a href="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/ci.yml"><img src="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/codeql.yml"><img src="https://github.com/abdulwaheedsyed/Rowsmith/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0"></a>
@@ -112,6 +113,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Shareable query links and comments
 - [x] Database migration between servers and across engines (schema translation, data copy, verification)
 - [x] Visual management of database users, roles and privileges
+- [x] Releases: container images for amd64 and arm64, and the server for Linux, macOS and Windows, with checksums, a software bill of materials and signed build provenance
 
 ## Architecture
 
@@ -133,7 +135,7 @@ internal/driver       driver contract, value encoding, TLS helpers, registry
   mysql, postgres …   one package per engine
 internal/web          embedded single-page app
 web/                  React + TypeScript + Vite frontend
-dev/                  throwaway test databases, SSH bastion, smoke test
+dev/                  throwaway test databases, SSH bastion, smoke test, release scripts
 ```
 
 The frontend is compiled into the Go binary. Rowsmith keeps its own data (users, connections, history) in a SQLite file in the data directory. It needs no external database.
@@ -244,9 +246,17 @@ A Claude.ai or ChatGPT subscription can't be used here: providers only sell API 
 
 **What is sent.** The assistant gets the schema of the database in scope (names, types, keys and comments), what you have selected in the editor, and your question. It looks things up with read-only tools: listing tables, describing one, and checking a query against the database's planner without running it. If an admin allows it, it may also read a few sample rows and run small read-only queries. That can be limited to non-production connections. It never runs anything that changes data; you run what it writes yourself, with the usual production confirmations. Keys are encrypted with the master key, are never sent to the browser, and only ever go to the endpoint they were entered for. The audit log records each question's model and token counts, not its text.
 
-## Deployment
+## Install
 
-The `Dockerfile` builds a small distroless image (about 85 MB) that runs as a non-root user. [`deploy/compose.yaml`](deploy/compose.yaml) runs it with a read-only root filesystem, all capabilities dropped, the master key as a Docker secret, and the port bound to `127.0.0.1` so only your reverse proxy can reach it.
+Rowsmith runs as a container behind your reverse proxy. Each [release](https://github.com/abdulwaheedsyed/Rowsmith/releases) publishes the image `ghcr.io/abdulwaheedsyed/rowsmith` for linux/amd64 and linux/arm64, and the server on its own for Linux, macOS and Windows. The [changelog](CHANGELOG.md) lists what each release changes.
+
+### With Docker Compose
+
+[`deploy/compose.yaml`](deploy/compose.yaml) runs the image with a read-only root filesystem, all capabilities dropped, the master key as a Docker secret, and the port bound to `127.0.0.1` so only your reverse proxy can reach it. The image is distroless (about 85 MB) and runs as a non-root user.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/abdulwaheedsyed/Rowsmith/main/deploy/compose.yaml
+```
 
 ```bash
 sudo install -d -m 700 /etc/rowsmith
@@ -261,16 +271,65 @@ echo 'ROWSMITH_PUBLIC_URL=https://db.example.com' | sudo tee /etc/rowsmith/compo
 ```
 
 ```bash
-docker compose -f deploy/compose.yaml --env-file /etc/rowsmith/compose.env up -d --build
+docker compose -f compose.yaml --env-file /etc/rowsmith/compose.env up -d
 ```
 
 ```bash
 docker logs rowsmith 2>&1 | grep "setup code"
 ```
 
-1. Create the master key outside any web root, and back it up separately from the `rowsmith-data` volume.
-2. Put the public URL in `/etc/rowsmith/compose.env` (a path such as `https://example.com/sql` works too), then build and start the container.
-3. Open the public URL and enter the setup code from the log to create the owner account.
+1. Download the compose file, or use `deploy/compose.yaml` in a clone of this repository.
+2. Create the master key outside any web root, and back it up separately from the `rowsmith-data` volume.
+3. Put the public URL in `/etc/rowsmith/compose.env`. A path such as `https://example.com/sql` works too. This starts the latest release. To stay on one release line and choose when to move to the next, also add `ROWSMITH_VERSION=0.1` to the file.
+4. Start the container, then open the public URL and enter the setup code from the log to create the owner account.
+
+### Upgrading
+
+Read the release notes first: until 1.0, a new minor version may change how something works. Back up the `rowsmith-data` volume, then pull the new image and restart:
+
+```bash
+docker compose -f compose.yaml --env-file /etc/rowsmith/compose.env pull
+```
+
+```bash
+docker compose -f compose.yaml --env-file /etc/rowsmith/compose.env up -d
+```
+
+Rowsmith updates its metadata database as it starts. To go back to an older version, restore the backup you made before upgrading.
+
+### Without Docker
+
+Download the archive for your system from the [releases](https://github.com/abdulwaheedsyed/Rowsmith/releases), with `SHA256SUMS`, and check it. The second check needs the [GitHub CLI](https://cli.github.com) and proves the archive was built by this repository's release workflow:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+```bash
+gh attestation verify rowsmith_0.1.0_linux_amd64.tar.gz --repo abdulwaheedsyed/Rowsmith
+```
+
+```bash
+tar -xzf rowsmith_0.1.0_linux_amd64.tar.gz
+```
+
+```bash
+ROWSMITH_DATA_DIR="$HOME/.rowsmith" ./rowsmith_0.1.0_linux_amd64/rowsmith serve
+```
+
+Then open `http://localhost:8080` and enter the setup code from the output. On Windows, unzip the archive and run `rowsmith.exe serve` the same way. Everything Rowsmith keeps goes in `ROWSMITH_DATA_DIR`, including a generated master key unless you supply one (see [Configuration](#configuration)). Sign-in cookies need HTTPS, or `localhost`: to serve other machines, put Rowsmith behind your reverse proxy and set `ROWSMITH_PUBLIC_URL`.
+
+The container image can be checked the same way: `gh attestation verify oci://ghcr.io/abdulwaheedsyed/rowsmith:0.1.0 --repo abdulwaheedsyed/Rowsmith`.
+
+### Building the image yourself
+
+[`deploy/compose.build.yaml`](deploy/compose.build.yaml) builds the image from a clone instead of pulling a release, named after the commit it's built from:
+
+```bash
+ROWSMITH_BUILD_VERSION=$(git describe --tags --always --dirty --match 'v[0-9]*' | sed 's/^v//') docker compose -f deploy/compose.yaml -f deploy/compose.build.yaml --env-file /etc/rowsmith/compose.env up -d --build
+```
+
+### Reverse proxy and host databases
 
 [`deploy/Caddyfile.example`](deploy/Caddyfile.example) shows Caddy on its own subdomain or under a path such as `/sql`. Keep `flush_interval -1` so query results stream. A subdomain is the stronger choice: under a shared hostname, other apps on that hostname share Rowsmith's browser origin.
 
@@ -282,9 +341,10 @@ To reach a database on the Docker host, use `host.docker.internal` as the host n
 rowsmith create-user -email ada@example.com -name "Ada Lovelace" -role owner
 rowsmith reset-password -email ada@example.com
 rowsmith rotate-key
+rowsmith version
 ```
 
-Inside the container, run them with `docker exec`, for example `docker exec -it rowsmith rowsmith reset-password -email …`.
+Inside the container, run them with `docker exec`, for example `docker exec -it rowsmith /rowsmith reset-password -email …`.
 
 ## Development
 

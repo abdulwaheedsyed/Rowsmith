@@ -1,0 +1,12 @@
+# Builds the image from this checkout instead of pulling a release. Add it
+# after compose.yaml, and name the build with ROWSMITH_BUILD_VERSION:
+#   ROWSMITH_BUILD_VERSION=$(git describe --tags --always --dirty --match 'v[0-9]*' | sed 's/^v//') \
+#     docker compose -f deploy/compose.yaml -f deploy/compose.build.yaml --env-file /etc/rowsmith/compose.env up -d --build
+services:
+  rowsmith:
+    image: rowsmith:local
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${ROWSMITH_BUILD_VERSION:-dev}

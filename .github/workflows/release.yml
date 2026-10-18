@@ -1,0 +1,333 @@
+# Publishes a release when a version tag is pushed: v0.1.0, or v0.2.0-rc.1 for
+# a release candidate. It builds the server for Linux, macOS and Windows and
+# the container image for linux/amd64 and linux/arm64, tests each build on its
+# own platform, then publishes the image to ghcr.io and a GitHub release with
+# the archives, checksums, a software bill of materials and signed build
+# provenance. See "Releasing" in CONTRIBUTING.md.
+#
+# Changes to the release files run it as a dry run: everything is built and
+# tested, and nothing is published.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+    branches: [main]
+    paths:
+      - .github/workflows/release.yml
+      - Dockerfile
+      - CHANGELOG.md
+      - dev/release.sh
+      - dev/release-notes.sh
+      - dev/check-release.sh
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - Dockerfile
+      - CHANGELOG.md
+      - dev/release.sh
+      - dev/release-notes.sh
+      - dev/check-release.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+env:
+  IMAGE: ghcr.io/abdulwaheedsyed/rowsmith
+
+jobs:
+  version:
+    name: Version and notes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      publish: ${{ steps.version.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Work out the version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+              echo "::error::$GITHUB_REF_NAME isn't a version tag such as v0.1.0 or v0.2.0-rc.1"
+              exit 1
+            fi
+            publish=true
+          else
+            # A dry run builds the newest version in CHANGELOG.md as a candidate.
+            newest="$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | cut -c4-)"
+            version="$newest-dryrun.$GITHUB_RUN_NUMBER"
+            publish=false
+          fi
+          prerelease=false
+          [[ "$version" == *-* ]] && prerelease=true
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "publish=$publish"
+          } >>"$GITHUB_OUTPUT"
+          echo "Version $version (prerelease: $prerelease, publish: $publish)"
+      - name: Write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dev/release-notes.sh "$VERSION" >notes.md
+          cat notes.md >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: notes
+          path: notes.md
+          if-no-files-found: error
+
+  binaries:
+    name: Server archives
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Build the web app
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          cp -R dist/. ../internal/web/dist/
+      - name: Build the archives
+        run: dev/release.sh "$VERSION"
+      - name: Gather what the server is built from
+        run: |
+          mkdir -p sbom-source/web
+          cp "dist/build/rowsmith_${VERSION}_linux_amd64/rowsmith" sbom-source/
+          cp web/package.json web/package-lock.json sbom-source/web/
+      # The Go modules compiled into the binary and the npm packages bundled
+      # into the web app (development tools are left out).
+      - name: Write the software bill of materials
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: sbom-source
+          format: spdx-json
+          output-file: dist/rowsmith_${{ needs.version.outputs.version }}_sbom.spdx.json
+          syft-version: v1.54.1
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Write the checksums
+        working-directory: dist
+        run: |
+          sha256sum -- *.tar.gz *.zip *.spdx.json >SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.spdx.json
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  check:
+    name: Check ${{ matrix.target }}
+    needs: [version, binaries]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target: linux_amd64, archive: tar.gz }
+          - { runner: ubuntu-24.04-arm, target: linux_arm64, archive: tar.gz }
+          - { runner: macos-latest, target: darwin_arm64, archive: tar.gz }
+          - { runner: macos-latest, target: darwin_amd64, archive: tar.gz } # under Rosetta
+          - { runner: windows-latest, target: windows_amd64, archive: zip }
+          - { runner: windows-11-arm, target: windows_arm64, archive: zip }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archives
+          path: dist
+      - name: Run the server from the archive
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          ARCHIVE: ${{ matrix.archive }}
+        run: dev/check-release.sh "dist/rowsmith_${VERSION}_${TARGET}.${ARCHIVE}" "$VERSION"
+
+  tests:
+    name: Tests on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+
+  image:
+    name: Container image
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          # 0.1.0 and 0.1, plus 1 from 1.0 on; latest only for a final release.
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}},value=v${{ needs.version.outputs.version }},enable=${{ !startsWith(needs.version.outputs.version, '0.') }}
+          flavor: latest=${{ needs.version.outputs.prerelease == 'false' }}
+      - name: Build for linux/amd64 to test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: VERSION=${{ needs.version.outputs.version }}
+          tags: rowsmith:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Test the image
+        run: |
+          got="$(docker run --rm rowsmith:test version)"
+          [ "$got" = "rowsmith $VERSION" ] || { echo "version: got \"$got\""; exit 1; }
+          docker run -d --name rowsmith -p 127.0.0.1:18765:8080 rowsmith:test
+          for _ in $(seq 60); do
+            if boot="$(curl -sf http://127.0.0.1:18765/api/bootstrap)"; then
+              echo "$boot" | grep -q "\"version\":\"$VERSION\"" && { echo "server ok: $boot"; exit 0; }
+              echo "server reports another version: $boot"; exit 1
+            fi
+            sleep 1
+          done
+          docker logs rowsmith
+          exit 1
+      - name: Sign in to ghcr.io
+        if: needs.version.outputs.publish == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build for every platform${{ needs.version.outputs.publish == 'true' && ' and publish' || '' }}
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ needs.version.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          push: ${{ needs.version.outputs.publish == 'true' }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Sign the build provenance
+        if: needs.version.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  release:
+    name: GitHub release
+    needs: [version, binaries, check, tests, image]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archives
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: notes
+      - name: Sign the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/SHA256SUMS
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          [ "$PRERELEASE" = true ] && flags=(--prerelease --latest=false)
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Rowsmith™ $VERSION" --notes-file notes.md "${flags[@]}"
+
+  pulls:
+    name: Pull the image on ${{ matrix.runner }}
+    needs: [version, release]
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      # Signed out, as anyone would: fails if the package isn't public.
+      - name: Run the published image
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          got="$(docker run --rm "$IMAGE:$VERSION" version)"
+          echo "$got"
+          [ "$got" = "rowsmith $VERSION" ]
