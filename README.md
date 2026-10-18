@@ -317,7 +317,7 @@ tar -xzf rowsmith_0.1.0_linux_amd64.tar.gz
 ROWSMITH_DATA_DIR="$HOME/.rowsmith" ./rowsmith_0.1.0_linux_amd64/rowsmith serve
 ```
 
-Then open `http://localhost:8080` and enter the setup code from the output. On Windows, unzip the archive and run `rowsmith.exe serve` the same way. Everything Rowsmith keeps goes in `ROWSMITH_DATA_DIR`, including a generated master key unless you supply one (see [Configuration](#configuration)). Sign-in cookies need HTTPS, or `localhost`: to serve other machines, put Rowsmith behind your reverse proxy and set `ROWSMITH_PUBLIC_URL`.
+Then open `http://localhost:8080` and enter the setup code from the output. On Windows, unzip the archive, then in PowerShell, in its folder: `$env:ROWSMITH_DATA_DIR = "$HOME\.rowsmith"; .\rowsmith.exe serve`. Everything Rowsmith keeps goes in `ROWSMITH_DATA_DIR`, including a generated master key unless you supply one (see [Configuration](#configuration)). Sign-in cookies need HTTPS, or `localhost`: to serve other machines, put Rowsmith behind your reverse proxy and set `ROWSMITH_PUBLIC_URL`.
 
 The container image can be checked the same way: `gh attestation verify oci://ghcr.io/abdulwaheedsyed/rowsmith:0.1.0 --repo abdulwaheedsyed/Rowsmith`.
 

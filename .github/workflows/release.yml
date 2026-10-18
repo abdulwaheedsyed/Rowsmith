@@ -193,7 +193,18 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Test
-        run: go test ./...
+        shell: bash
+        run: |
+          set +e
+          go test ./... 2>&1 | tee test.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            # Name the failures in an annotation on the run, which anyone can read.
+            failures="$(grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' test.log | head -n 60 | tr -d '\r')"
+            failures="${failures//'%'/'%25'}"
+            echo "::error title=Tests failed on $RUNNER_OS::${failures//$'\n'/'%0A'}"
+          fi
+          exit "$status"
 
   image:
     name: Container image
