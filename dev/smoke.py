@@ -195,6 +195,40 @@ def main():
     code, body = c.req("POST", f"/api/c/{vid}/access/apply", {"grants": [{"principal": "postgres", "level": "schema", "database": "vault", "schema": "public", "privilege": "USAGE"}]})
     assert code == 409 and body["error"]["code"] == "confirm_required", body; ok("production connection: access changes require confirmation")
 
+    # ClickHouse
+    _, cv = c.req("POST", "/api/connections", {"name": f"Analytics (ClickHouse) {time.time_ns()}", "driver": "clickhouse", "environment": "development",
+        "params": {"host": "clickhouse", "protocol": "native", "user": "default", "database": "analytics"}, "secrets": {"password": PW}}, 201)
+    chid = cv["id"]
+    _, objs = c.req("GET", f"/api/c/{chid}/objects?db=analytics", expect=200)
+    kinds = {o["name"]: o["kind"] for o in objs}
+    assert kinds.get("events") == "table" and kinds.get("daily_revenue_mv") == "materialized_view" and kinds.get("country_names") == "dictionary", kinds
+    ok("clickhouse objects: " + ", ".join(f"{o['name']}({o['kind']})" for o in objs))
+    _, t = c.req("GET", f"/api/c/{chid}/describe?db=analytics&name=events", expect=200)
+    assert t["options"]["partition_by"] == "toYYYYMM(event_time)" and t["primaryKey"] == ["event_type", "event_time"], t["options"]
+    ok(f"clickhouse structure: {t['options']['engine']} ORDER BY {t['options']['order_by']}, PARTITION BY {t['options']['partition_by']}")
+    _, res = c.req("POST", f"/api/c/{chid}/browse", {"ref": {"database": "analytics", "name": "events"}, "limit": 2,
+        "filters": [{"column": "device", "op": "=", "value": "tablet"}, {"column": "revenue", "op": ">", "value": "100"}]}, 200)
+    row = dict(zip([x["name"] for x in res["columns"]], res["rows"][0]))
+    assert row["device"] == "tablet" and isinstance(row["tags"], list) and isinstance(row["properties"], dict), row
+    ok(f"clickhouse browse with typed filters: device={row['device']} revenue={row['revenue']} properties={row['properties']}")
+    code, ev = stream(c, chid, "SET max_threads = 2; SELECT getSetting('max_threads') AS t, count() FROM events WHERE event_type = 'purchase'", database="analytics")
+    ends = [e for e in ev if e["t"] == "end"]
+    rows = [r for e in ev if e["t"] == "rows" for r in e["rows"]]
+    assert rows and rows[0][0] == 2 and ends[-1]["summary"].get("rowsRead"), (rows, ends)
+    ok(f"clickhouse console: session settings kept, read {ends[-1]['summary']['rowsRead']} rows")
+    code, body = stream(c, chid, "ALTER TABLE events DELETE WHERE 1", database="analytics")
+    assert code == 409, body; ok("clickhouse ALTER … DELETE requires confirmation")
+    _, plan = c.req("POST", f"/api/c/{chid}/explain", {"database": "analytics", "sql": "SELECT count() FROM events WHERE event_type = 'click'"}, 200)
+    ok(f"clickhouse explain: {plan['root']['operation']}, totals {plan.get('totals')}")
+    _, notes = c.req("POST", f"/api/c/{chid}/browse", {"ref": {"database": "analytics", "name": "notes"}, "limit": 10}, 200)
+    first = dict(zip([x["name"] for x in notes["columns"]], notes["rows"][0]))
+    c.req("POST", f"/api/c/{chid}/edit", {"ref": {"database": "analytics", "name": "notes"}, "edits": [{"op": "update", "key": first, "values": {"body": "first, edited"}}]}, 200)
+    edited = dict(first, body="first, edited")
+    c.req("POST", f"/api/c/{chid}/edit", {"ref": {"database": "analytics", "name": "notes"}, "edits": [{"op": "update", "key": edited, "values": {"body": first["body"]}}]}, 200)
+    ok("clickhouse grid edit as a mutation, matched on the row's values, and undone")
+    _, m = c.req("GET", f"/api/c/{chid}/access/model", expect=200)
+    assert m["supported"], m; ok("clickhouse users and grants: " + ", ".join(l["level"] for l in m["model"]["levels"]))
+
     # MongoDB
     _, cv = c.req("POST", "/api/connections", {"name": f"Docs (Mongo) {time.time_ns()}", "driver": "mongodb", "environment": "development",
         "params": {"mode": "fields", "host": "mongo", "user": "root", "authSource": "admin", "database": "shop", "tls": "disable"},

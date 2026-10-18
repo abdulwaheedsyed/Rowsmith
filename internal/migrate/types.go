@@ -11,18 +11,20 @@ import (
 	"strings"
 
 	"rowsmith/internal/driver"
+	"rowsmith/internal/driver/clickhouse/chtype"
 )
 
 // Engines are driver IDs; MariaDB differs from MySQL in a few type details.
 const (
-	MySQL    = "mysql"
-	MariaDB  = "mariadb"
-	Postgres = "postgres"
-	MSSQL    = "mssql"
-	Oracle   = "oracle"
-	SQLite   = "sqlite"
-	BigQuery = "bigquery"
-	MongoDB  = "mongodb"
+	MySQL      = "mysql"
+	MariaDB    = "mariadb"
+	Postgres   = "postgres"
+	MSSQL      = "mssql"
+	Oracle     = "oracle"
+	SQLite     = "sqlite"
+	BigQuery   = "bigquery"
+	MongoDB    = "mongodb"
+	ClickHouse = "clickhouse"
 )
 
 func family(engine string) string {
@@ -542,6 +544,8 @@ func canonOf(engine string, c driver.Column) canon {
 			k.T = "object"
 			return k
 		}
+	case ClickHouse:
+		return clickhouseCanon(k, c)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -724,6 +728,8 @@ func typeFor(t target, k canon, u use) mapped {
 		oracleType(t, k, u, &m)
 	case SQLite:
 		sqliteType(k, &m)
+	case ClickHouse:
+		clickhouseType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1232,4 +1238,182 @@ func mongoType(k canon) string {
 		return "geojson"
 	}
 	return "string"
+}
+
+// clickhouseCanon reads a ClickHouse column type.
+func clickhouseCanon(k canon, c driver.Column) canon {
+	t, _ := chtype.Parse(c.Type).Unwrap()
+	if t.Name == "SimpleAggregateFunction" && len(t.Args) == 1 {
+		t, _ = t.Args[0].Unwrap()
+	}
+	if bits, unsigned, ok := t.IntBits(); ok {
+		if bits > 64 {
+			digits := map[int]int{128: 39, 256: 78}[bits]
+			k.T, k.P, k.S, k.Note = "decimal", digits, 0, "a "+strconv.Itoa(bits)+"-bit integer is copied as a decimal"
+			return k
+		}
+		k.T, k.Bits, k.Unsigned = "int", bits, unsigned
+		return k
+	}
+	switch {
+	case t.IsDecimal():
+		k.T = "decimal"
+		k.P, k.S = t.DecimalPS()
+		return k
+	case t.GeoShape() != "":
+		k.T, k.Geo = "geometry", t.GeoShape()
+		return k
+	case strings.HasPrefix(t.Name, "Interval"):
+		k.T = "interval"
+		return k
+	}
+	switch t.Name {
+	case "Float32":
+		k.T, k.Bits = "float", 32
+	case "Float64", "BFloat16":
+		k.T, k.Bits = "float", 64
+	case "Bool":
+		k.T = "bool"
+	case "String":
+		k.T = "text"
+	case "FixedString":
+		// Often codes, often hashes: as text, binary values come out as 0x… hex.
+		k.T, k.Note = "text", "a fixed-length string is copied as text; bytes that aren't text become 0x… hex"
+	case "UUID":
+		k.T = "uuid"
+	case "IPv4", "IPv6":
+		k.T, k.N = "varchar", 45
+	case "Date", "Date32":
+		k.T = "date"
+	case "DateTime", "DateTime64":
+		// An instant shown in the column's time zone: copied as it shows.
+		k.T, k.Frac = "datetime", 0
+		if t.Name == "DateTime64" && len(t.Params) > 0 {
+			k.Frac, _ = strconv.Atoi(strings.TrimSpace(t.Params[0]))
+		}
+		if len(t.Params) > 0 && strings.HasPrefix(strings.TrimSpace(t.Params[len(t.Params)-1]), "'") {
+			k.Note = "times are copied as shown in the column's time zone, " + t.Params[len(t.Params)-1]
+		}
+	case "Time", "Time64":
+		k.T = "time"
+	case "Enum8", "Enum16":
+		k.T, k.Values = "enum", t.EnumValues()
+	case "Array", "Map", "Tuple", "Nested":
+		k.T = "object"
+	case "JSON", "Object":
+		k.T = "json"
+	case "AggregateFunction":
+		k.T, k.Note = "blob", "aggregate function states are copied as bytes"
+	default:
+		k.T, k.Note = "text", "this type is copied as text"
+	}
+	return k
+}
+
+// clickhouseType chooses a ClickHouse type. NULL is the column's flag: the
+// table definition wraps the type in Nullable(…).
+func clickhouseType(k canon, m *mapped) {
+	asJSON := func(note string) {
+		m.Type, m.Canon = "String", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		if note != "" {
+			m.note(false, "%s", note)
+		}
+	}
+	switch k.T {
+	case "bool":
+		m.Type = "Bool"
+	case "int":
+		bits := k.Bits
+		if bits == 24 {
+			bits = 32
+		}
+		if bits == 0 {
+			bits = 64
+		}
+		m.Type = "Int" + strconv.Itoa(bits)
+		if k.Unsigned {
+			m.Type = "U" + m.Type
+		}
+	case "decimal":
+		switch {
+		case k.P <= 0:
+			m.Type = "Decimal(38, 10)"
+			m.note(true, "a decimal without a set precision becomes Decimal(38, 10)")
+		case k.P > 76:
+			m.Type = fmt.Sprintf("Decimal(76, %d)", min(max(k.S, 0), 76))
+			m.note(true, "ClickHouse decimals hold 76 digits")
+		default:
+			m.Type = fmt.Sprintf("Decimal(%d, %d)", k.P, max(k.S, 0))
+		}
+	case "float":
+		m.Type = "Float64"
+		if k.Bits == 32 {
+			m.Type = "Float32"
+		}
+	case "char", "varchar", "text", "xml", "objectid":
+		m.Type = "String"
+	case "set":
+		m.Type = "String"
+		m.note(false, "the set's values are copied as text")
+	case "binary", "varbinary", "blob":
+		m.Type = "String"
+		m.note(false, "bytes are kept as they are in a String")
+	case "date":
+		m.Type = "Date32"
+	case "time":
+		m.Type = "String"
+		m.note(false, "times of day are copied as text")
+	case "datetime", "timestamptz":
+		f := k.Frac
+		if f < 0 || f > 6 {
+			f = 6
+		}
+		m.Type = fmt.Sprintf("DateTime64(%d, 'UTC')", f)
+		if k.T == "datetime" {
+			m.note(false, "kept in UTC, so daylight saving can't shift the times")
+		}
+	case "interval":
+		m.Type = "String"
+		m.note(false, "intervals are copied as text")
+	case "uuid":
+		m.Type = "UUID"
+	case "enum":
+		if len(k.Values) == 0 {
+			m.Type = "String"
+			return
+		}
+		parts := make([]string, len(k.Values))
+		for i, v := range k.Values {
+			parts[i] = chtype.Quote(v) + " = " + strconv.Itoa(i+1)
+		}
+		m.Type = "Enum8(" + strings.Join(parts, ", ") + ")"
+		if len(k.Values) > 127 {
+			m.Type = "Enum16(" + strings.Join(parts, ", ") + ")"
+		}
+	case "geometry":
+		switch k.Geo {
+		case "point":
+			m.Type = "Point"
+		case "linestring":
+			m.Type = "LineString"
+		case "multilinestring":
+			m.Type = "MultiLineString"
+		case "polygon":
+			m.Type = "Polygon"
+		case "multipolygon":
+			m.Type = "MultiPolygon"
+		default:
+			asJSON("shapes of mixed kinds are copied as GeoJSON text")
+			return
+		}
+		if k.SRID != 0 && k.SRID != 4326 {
+			m.note(true, "ClickHouse shapes have no SRID; coordinates are copied as they are")
+		}
+	case "json":
+		asJSON("")
+	case "array", "object":
+		asJSON("copied as JSON text")
+	default:
+		m.Type = "String"
+	}
 }

@@ -97,6 +97,7 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
                       {c.onUpdate && <span className="badge">on update {c.onUpdate}</span>}
                       {c.srid ? <span className="badge">SRID {c.srid}</span> : null}
                       {c.collation && <span className="faint mono">{c.collation}</span>}
+                      {c.codec && <span className="faint mono">{c.codec}</span>}
                     </td>
                     <td className="stable__comment">{c.comment}</td>
                   </tr>

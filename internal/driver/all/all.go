@@ -3,6 +3,7 @@ package all
 
 import (
 	_ "rowsmith/internal/driver/bigquery"
+	_ "rowsmith/internal/driver/clickhouse"
 	_ "rowsmith/internal/driver/mongodb"
 	_ "rowsmith/internal/driver/mssql"
 	_ "rowsmith/internal/driver/mysql"

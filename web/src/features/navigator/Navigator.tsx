@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Table2, Eye, FunctionSquare, Zap, CalendarClock, Hash, Shapes, Puzzle, Search, RefreshCw,
-  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, Unplug, PencilRuler, Download, FileUp, Plus, ArrowRightLeft,
+  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, BookOpen, Unplug, PencilRuler, Download, FileUp, Plus, ArrowRightLeft,
 } from "lucide-react";
 import { go } from "../../lib/nav";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
@@ -24,6 +24,7 @@ const ICONS: Record<string, typeof Table2> = {
   table: Table2, partitioned_table: Layers, view: Eye, materialized_view: Eye, foreign_table: Table2, function: FunctionSquare,
   procedure: FunctionSquare, trigger: Zap, event: CalendarClock, sequence: Hash, type: Shapes, extension: Puzzle, collection: Table2,
   routine: FunctionSquare, index: ListTree, package: Package, synonym: Link2, external_table: TableCellsSplit, timeseries: LineChart,
+  dictionary: BookOpen,
 };
 
 export function kindIcon(kind: string) {
@@ -31,7 +32,7 @@ export function kindIcon(kind: string) {
 }
 
 const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
-const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries"]);
+const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary"]);
 
 /** A table's rows and size, for its tooltip. */
 function facts(o: DbObject) {

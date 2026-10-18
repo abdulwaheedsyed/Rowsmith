@@ -111,6 +111,10 @@ func wallClock(t time.Time) string {
 var moneyRe = regexp.MustCompile(`[^0-9.\-]`)
 
 func newConverter(srcEngine, dstEngine string, sk, dk canon) conv {
+	if srcEngine == ClickHouse && dstEngine == ClickHouse {
+		// The same types on both sides: ClickHouse writes its own cells back as they are.
+		return func(v any) (any, error) { return v, nil }
+	}
 	toMongo := dstEngine == MongoDB
 	return func(v any) (any, error) {
 		v = unwrap(v)
@@ -429,6 +433,13 @@ func normalize(v any, k canon) string {
 			}
 			return strings.ToLower(s[2:])
 		}
+		// ClickHouse keeps bytes in a String, read back as text when they're valid UTF-8.
+		if s, ok := v.(string); ok {
+			if s == "" {
+				return "\x00"
+			}
+			return hex.EncodeToString([]byte(s))
+		}
 	}
 	switch x := v.(type) {
 	case string:
@@ -439,6 +450,12 @@ func normalize(v any, k canon) string {
 			return "\x00" // Oracle stores empty strings as NULL
 		}
 		return x
+	case map[string]any:
+		// Bytes in a text column (a ClickHouse String) are copied as 0x… hex.
+		if b, ok := x["$bin"].(string); ok {
+			raw, _ := base64.StdEncoding.DecodeString(b)
+			return "0x" + strings.ToUpper(hex.EncodeToString(raw))
+		}
 	case bool:
 		return map[bool]string{true: "1", false: "0"}[x]
 	case int64, float64, json.Number:

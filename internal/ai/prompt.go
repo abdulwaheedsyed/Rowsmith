@@ -43,6 +43,9 @@ func systemPrompt(ctx context.Context, t Target, environment string, data bool, 
 	if t.Info.Dialect == "mongodb" {
 		b.WriteString("This is MongoDB. The console reads mongosh-style commands (it does not run JavaScript): db.collection.find(filter, projection).sort({...}).limit(n), aggregate([...]), countDocuments, distinct, insertOne/insertMany, updateOne/updateMany, deleteOne/deleteMany, createIndex, and db.getSiblingDB(\"name\") to reach another database. Write filters as plain documents with shell literals such as ObjectId(\"…\") and ISODate(\"…\").\n")
 	}
+	if t.Info.Dialect == "clickhouse" {
+		b.WriteString("This is ClickHouse. There are no transactions; rows are changed with mutations (ALTER TABLE … UPDATE / DELETE) or a lightweight DELETE FROM, which rewrite data and suit occasional fixes, not routine updates. Queries are fastest when they filter on the first columns of the table's ORDER BY key and its partition key. Use ClickHouse's own functions where they fit: countIf, sumIf, uniq/uniqExact, quantile, argMax, arrayJoin, toStartOfInterval. Tables with ReplacingMergeTree or similar engines keep older row versions until a merge, so add FINAL (or deduplicate with argMax) when only the latest version counts.\n")
+	}
 	fmt.Fprintf(&b, `
 When you answer:
 - Put each query in its own fenced code block tagged %s, written for this engine and version, using the exact names from the schema. Quote identifiers only where the engine needs it.

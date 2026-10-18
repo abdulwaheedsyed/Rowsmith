@@ -9,7 +9,7 @@ export function errorText(e: QueryError): string {
 export interface ResultSet {
   columns: ResultColumn[];
   rows: Cell[][];
-  summary?: { rowCount: number; rowsAffected?: number; truncated: boolean; clipped?: boolean; durationMs: number; bytesProcessed?: number };
+  summary?: { rowCount: number; rowsAffected?: number; truncated: boolean; clipped?: boolean; durationMs: number; bytesProcessed?: number; rowsRead?: number };
 }
 
 export interface StmtRun {

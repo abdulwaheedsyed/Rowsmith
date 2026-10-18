@@ -13,16 +13,18 @@ import (
 	"github.com/twpayne/go-geom/encoding/wkt"
 
 	"rowsmith/internal/driver"
+	"rowsmith/internal/driver/clickhouse/chtype"
 )
 
 // Dialects are driver dialect names (driver.Info.Dialect).
 const (
-	MySQL    = "mysql"
-	Postgres = "postgresql"
-	MSSQL    = "mssql"
-	Oracle   = "plsql"
-	SQLite   = "sqlite"
-	BigQuery = "bigquery"
+	MySQL      = "mysql"
+	Postgres   = "postgresql"
+	MSSQL      = "mssql"
+	Oracle     = "plsql"
+	SQLite     = "sqlite"
+	BigQuery   = "bigquery"
+	ClickHouse = "clickhouse"
 )
 
 var (
@@ -45,6 +47,17 @@ type LiteralStats struct{ TooLarge int }
 // Literal renders a cell as a SQL literal for dialect, using the result
 // column to pick quoting and type constructors.
 func Literal(dialect string, col driver.ResultColumn, v any, st *LiteralStats) string {
+	if dialect == ClickHouse {
+		// Arrays, maps, tuples and geo values need the column's ClickHouse type.
+		if lit, err := chtype.Literal(chtype.Parse(col.Type), v, false); err == nil {
+			return lit
+		}
+		if v == nil {
+			return "NULL"
+		}
+		s, _ := Text(v)
+		return chtype.Quote(s)
+	}
 	typ := strings.ToLower(col.Type)
 	switch x := v.(type) {
 	case nil:

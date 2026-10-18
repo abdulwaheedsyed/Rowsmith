@@ -280,6 +280,7 @@ const engines: Record<string, { mono: string; hue: string }> = {
   sqlite: { mono: "Sl", hue: "#6aa3b8" },
   mongodb: { mono: "Mg", hue: "#4ea96b" },
   bigquery: { mono: "Bq", hue: "#5f8fe6" },
+  clickhouse: { mono: "Ch", hue: "#9b7be0" },
 };
 
 export function EngineBadge({ driver, size = 26 }: { driver: string; size?: number }) {

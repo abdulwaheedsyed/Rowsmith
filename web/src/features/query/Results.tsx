@@ -3,7 +3,7 @@ import { CheckCircle2, AlertTriangle, MessageSquareText, ListTree, TableProperti
 import { useAIStatus, useAssistant, type EditorContext } from "../ai/store";
 import { errorText } from "./runs";
 import type { Connection, Plan } from "../../lib/types";
-import { cellText, csvEscape, duration, int, modKey, temperForMs } from "../../lib/format";
+import { bytes, cellText, compact, csvEscape, duration, int, modKey, temperForMs } from "../../lib/format";
 import { Alert, Button, Empty, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner } from "../../components/ui";
 import { openExport } from "../transfer/store";
 import { DataGrid, type GridColumn } from "../grid/DataGrid";
@@ -198,6 +198,9 @@ function Messages({ run, assist }: { run: RunState; assist?: (message: string, c
       {run.status === "cancelled" && <Alert kind="warn">Cancelled.</Alert>}
       {run.stmts.map((s) => {
         const affected = s.sets.find((x) => x.summary?.rowsAffected !== undefined)?.summary?.rowsAffected;
+        // What the server read to answer (ClickHouse reports it).
+        const read = s.sets.reduce((n, x) => n + (x.summary?.rowsRead ?? 0), 0);
+        const readBytes = s.sets.reduce((n, x) => n + (x.summary?.bytesProcessed ?? 0), 0);
         const returned = s.sets.filter((x) => x.columns.length).reduce((n, x) => n + x.rows.length, 0);
         return (
           <div key={s.index} className={`msg ${s.error ? "msg--error" : ""}`}>
@@ -210,6 +213,7 @@ function Messages({ run, assist }: { run: RunState; assist?: (message: string, c
                   {s.sets.some((x) => x.columns.length) ? `${int(returned)} row${returned === 1 ? "" : "s"}` : affected !== undefined ? `${int(affected)} affected` : "done"}
                 </span>
               )}
+              {read > 0 && <span className="faint msg__stat" title="Rows and bytes the server read to answer">read {compact(read)} rows{readBytes > 0 ? `, ${bytes(readBytes)}` : ""}</span>}
               {s.ms !== undefined && <span className="heat" style={{ ["--heat" as string]: temperForMs(s.ms) }}>{duration(s.ms)}</span>}
               <span className="faint mono msg__line">L{s.line}</span>
             </div>

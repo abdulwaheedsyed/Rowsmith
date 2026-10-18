@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, SSH bastion)
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, MongoDB, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -85,6 +85,21 @@ services:
     networks: [private]
     healthcheck:   # over TCP, which only answers once first-run seeding is done
       test: ["CMD-SHELL", "pg_isready -q -h 127.0.0.1 -U postgres -d vault"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.9
+    environment:
+      CLICKHOUSE_PASSWORD: ${DEV_DB_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"   # the default user may manage users and grants
+    volumes: ["./seed/clickhouse.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    networks: [dev]
+    healthcheck:   # answers once first-run seeding is done
+      test: ["CMD-SHELL", "clickhouse-client --password \"$$CLICKHOUSE_PASSWORD\" -q 'SELECT 1 FROM analytics.notes LIMIT 1' >/dev/null 2>&1"]
       interval: 3s
       timeout: 5s
       retries: 100

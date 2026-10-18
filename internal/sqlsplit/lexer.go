@@ -18,7 +18,10 @@ const (
 	Oracle   Dialect = "plsql"
 	SQLite   Dialect = "sqlite"
 	BigQuery Dialect = "bigquery"
-	Generic  Dialect = "generic"
+	// ClickHouse: '#' comments, backslash escapes, "double-quoted" and
+	// `backquoted` identifiers, $heredoc$ strings.
+	ClickHouse Dialect = "clickhouse"
+	Generic    Dialect = "generic"
 )
 
 type tokType uint8
@@ -96,7 +99,7 @@ func (l *lexer) next() token {
 		}
 		return emit(tComment, lineEnd(s, i))
 
-	case c == '#' && (l.d == MySQL || l.d == BigQuery):
+	case c == '#' && (l.d == MySQL || l.d == BigQuery || l.d == ClickHouse):
 		return emit(tComment, lineEnd(s, i))
 
 	case c == '/' && l.peekByte(1) == '*':
@@ -118,8 +121,8 @@ func (l *lexer) next() token {
 		}
 		return emit(t, closeQuote(s, i+1, '"', l.backslashIn('"')))
 
-	case c == '`' && (l.d == MySQL || l.d == BigQuery || l.d == SQLite || l.d == Generic):
-		return emit(tQuoted, closeQuote(s, i+1, '`', l.d == BigQuery))
+	case c == '`' && (l.d == MySQL || l.d == BigQuery || l.d == SQLite || l.d == Generic || l.d == ClickHouse):
+		return emit(tQuoted, closeQuote(s, i+1, '`', l.d == BigQuery || l.d == ClickHouse))
 
 	case c == '[' && (l.d == MSSQL || l.d == SQLite):
 		j := i + 1
@@ -135,7 +138,7 @@ func (l *lexer) next() token {
 		}
 		return emit(tQuoted, len(s))
 
-	case c == '$' && l.d == Postgres:
+	case c == '$' && (l.d == Postgres || l.d == ClickHouse):
 		if tag, ok := dollarTag(s, i); ok {
 			if k := strings.Index(s[i+len(tag):], tag); k >= 0 {
 				return emit(tString, i+len(tag)+k+len(tag))
@@ -212,7 +215,7 @@ func (l *lexer) next() token {
 
 func (l *lexer) backslashIn(q byte) bool {
 	switch l.d {
-	case MySQL, BigQuery:
+	case MySQL, BigQuery, ClickHouse:
 		return true
 	}
 	return false

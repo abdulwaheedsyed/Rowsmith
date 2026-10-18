@@ -307,7 +307,15 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 	if design.TableComment {
 		tp.Comment = st.Comment
 	}
-	if same {
+	if same && family(sEng) == ClickHouse {
+		// The engine, sort order, partitions and TTL come along as they are.
+		tp.Options = map[string]string{}
+		for k, v := range st.Options {
+			if k != "partitions" {
+				tp.Options[k] = v
+			}
+		}
+	} else if same {
 		tp.Options = map[string]string{}
 		for k, v := range st.Options {
 			if !strings.HasPrefix(k, "partition") {
@@ -440,8 +448,23 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 	for _, c := range st.Columns {
 		byName[c.Name] = c
 	}
+	// ClickHouse's primary key orders rows but doesn't make them unique:
+	// elsewhere it becomes a plain index.
+	if sEng == ClickHouse && !same && len(tp.PrimaryKey) > 0 {
+		tp.Indexes = append(tp.Indexes, &IndexPlan{Name: uniqueNames(names, tp.Target, clipIdent(dEng, applyCase(tp.Target+"_sort", opts.NameCase)), dEng),
+			Columns: tp.PrimaryKey, Include: opts.Indexes && dEng != MongoDB, Note: "ClickHouse's sorting key, as a plain index: it doesn't make rows unique"})
+		tp.PrimaryKey = []string{}
+	}
+	if dEng == ClickHouse && !same {
+		if len(st.Indexes) > 0 {
+			tp.Notes = append(tp.Notes, "indexes were left out: in ClickHouse the primary key (ORDER BY) orders the rows, and it doesn't keep them unique")
+		}
+		if len(st.ForeignKeys) > 0 {
+			tp.Notes = append(tp.Notes, "foreign keys have no ClickHouse equivalent and were left out")
+		}
+	}
 	for _, ix := range st.Indexes {
-		if ix.Primary {
+		if ix.Primary || (dEng == ClickHouse && !same) {
 			continue
 		}
 		ip := &IndexPlan{Name: ix.Name, Columns: slices.Clone(ix.Columns), Unique: ix.Unique, Where: ix.Where, Include: opts.Indexes}

@@ -36,12 +36,14 @@ export function fromTable(t: Table): Draft {
 }
 
 const idTypes: Record<string, string> = {
-  mysql: "int unsigned", postgresql: "bigint", mssql: "int", plsql: "NUMBER(19)", sqlite: "INTEGER", bigquery: "INT64",
+  mysql: "int unsigned", postgresql: "bigint", mssql: "int", plsql: "NUMBER(19)", sqlite: "INTEGER", bigquery: "INT64", clickhouse: "UInt64",
 };
 
 export function blankColumn(drv?: DriverInfo, name = ""): Col {
-  const text = drv?.dialect === "bigquery" ? "STRING" : drv?.dialect === "plsql" ? "VARCHAR2(255)" : drv?.dialect === "sqlite" ? "TEXT" : drv?.dialect === "mssql" ? "nvarchar(255)" : "varchar(255)";
-  return { name, type: text, baseType: "", kind: "string", nullable: true, _k: key() };
+  const text = drv?.dialect === "bigquery" || drv?.dialect === "clickhouse" ? (drv.dialect === "bigquery" ? "STRING" : "String")
+    : drv?.dialect === "plsql" ? "VARCHAR2(255)" : drv?.dialect === "sqlite" ? "TEXT" : drv?.dialect === "mssql" ? "nvarchar(255)" : "varchar(255)";
+  // ClickHouse columns are NOT NULL unless declared Nullable, which costs space and speed.
+  return { name, type: text, baseType: "", kind: "string", nullable: drv?.dialect !== "clickhouse", _k: key() };
 }
 
 export function newDraft(drv: DriverInfo | undefined, ref: ObjectRef): Draft {

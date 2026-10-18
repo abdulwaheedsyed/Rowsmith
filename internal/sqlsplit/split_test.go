@@ -133,3 +133,37 @@ func TestClassify(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitClickHouse(t *testing.T) {
+	expect(t, "hash comment", Split("SELECT 1 # a;b\n; SELECT 2", ClickHouse), "SELECT 1 # a;b", "SELECT 2")
+	expect(t, "backslash", Split(`SELECT 'a\';b'; SELECT "c;d", `+"`e\\`;f`"+`; SELECT 3`, ClickHouse),
+		`SELECT 'a\';b'`, `SELECT "c;d", `+"`e\\`;f`", "SELECT 3")
+	expect(t, "heredoc", Split("SELECT $doc$ a;b $doc$; SELECT 2", ClickHouse), "SELECT $doc$ a;b $doc$", "SELECT 2")
+	expect(t, "dash comment without space", Split("SELECT 1 --x;y\n; SELECT 2", ClickHouse), "SELECT 1 --x;y", "SELECT 2")
+	for _, c := range []struct {
+		sql  string
+		kind driver.StatementKind
+		lvl  string
+	}{
+		{"SELECT count() FROM events", driver.StmtRead, ""},
+		{"EXISTS TABLE events", driver.StmtRead, ""},
+		{"CHECK TABLE events", driver.StmtRead, ""},
+		{"SHOW CREATE TABLE events", driver.StmtRead, ""},
+		{"SYSTEM DROP DNS CACHE", driver.StmtWrite, "caution"},
+		{"ALTER TABLE events UPDATE revenue = 0 WHERE user_id = 1", driver.StmtWrite, "caution"},
+		{"ALTER TABLE analytics.events DELETE WHERE user_id = 1", driver.StmtWrite, "destructive"},
+		{"ALTER TABLE events DROP COLUMN page", driver.StmtDDL, "destructive"},
+		{"ALTER TABLE events ADD COLUMN x UInt8", driver.StmtDDL, "caution"},
+		{"DETACH TABLE events", driver.StmtDDL, "caution"},
+		{"OPTIMIZE TABLE events FINAL", driver.StmtDDL, "caution"},
+		{"SET readonly = 0", driver.StmtWrite, "caution"},
+		{"SET max_threads = 4", driver.StmtSession, ""},
+		{"INSERT INTO t SELECT * FROM s", driver.StmtWrite, "caution"},
+		{"SELECT * FROM events INTO OUTFILE 'x.csv'", driver.StmtWrite, "caution"},
+	} {
+		k, d := Classify(c.sql, ClickHouse)
+		if k != c.kind || d.Level != c.lvl {
+			t.Errorf("Classify(%q) = %s/%s, want %s/%s", c.sql, k, d.Level, c.kind, c.lvl)
+		}
+	}
+}

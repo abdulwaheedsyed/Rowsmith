@@ -29,6 +29,8 @@ type SessionHooks struct {
 	ReturnsRows func(st sqlsplit.Statement) bool
 	// Close runs before the connection is returned (e.g. ROLLBACK).
 	Close func(c *sql.Conn)
+	// Context adjusts a statement's context, e.g. with per-query settings.
+	Context func(ctx context.Context, st sqlsplit.Statement, opts driver.ExecOptions) context.Context
 }
 
 type Session struct {
@@ -156,6 +158,9 @@ const (
 )
 
 func (s *Session) runOne(ctx context.Context, st sqlsplit.Statement, opts driver.ExecOptions, sink driver.Sink) error {
+	if s.Hooks.Context != nil {
+		ctx = s.Hooks.Context(ctx, st, opts)
+	}
 	query := st.SQL
 	if s.Hooks.Prepare != nil {
 		q, err := s.Hooks.Prepare(ctx, s.Conn, st, opts)

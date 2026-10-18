@@ -84,6 +84,16 @@ type Info struct {
 	QuoteChar   string     `json:"quoteChar"`  // identifier quote for client-side snippets
 	// Design describes the structure editor for this engine; nil hides it.
 	Design *TableDesign `json:"design,omitempty"`
+	// Ports are default ports that depend on other fields, such as a
+	// protocol or TLS. The first rule whose fields all match gives the
+	// default; DefaultPort applies when none does.
+	Ports []PortRule `json:"ports,omitempty"`
+}
+
+// PortRule is a default port for the field values in When.
+type PortRule struct {
+	When map[string][]string `json:"when"`
+	Port int                 `json:"port"`
 }
 
 // TableDesign tells the structure editor which parts of a TableDef an engine
@@ -195,6 +205,7 @@ type Column struct {
 	SRID            int       `json:"srid,omitempty"`
 	GeometryType    string    `json:"geometryType,omitempty"`
 	OnUpdate        string    `json:"onUpdate,omitempty"`
+	Codec           string    `json:"codec,omitempty"` // ClickHouse compression codec, e.g. CODEC(ZSTD(1))
 }
 
 type Index struct {
@@ -403,6 +414,7 @@ type ResultSummary struct {
 	Clipped        bool    `json:"clipped,omitempty"` // stopped at StreamBudget rather than MaxRows
 	DurationMS     float64 `json:"durationMs"`
 	BytesProcessed *int64  `json:"bytesProcessed,omitempty"`
+	RowsRead       *int64  `json:"rowsRead,omitempty"` // rows the server read to answer (ClickHouse)
 	CacheHit       *bool   `json:"cacheHit,omitempty"`
 }
 

@@ -59,6 +59,8 @@ export interface DriverInfo {
   urlSchemes: string[];
   quoteChar: string;
   design?: TableDesign;
+  /** Default ports that depend on other fields (protocol, TLS); the first match wins. */
+  ports?: { when: Record<string, string[]>; port: number }[];
 }
 
 /** What the structure editor may offer for an engine (driver.TableDesign). */
@@ -191,6 +193,8 @@ export interface Column {
   srid?: number;
   geometryType?: string;
   onUpdate?: string;
+  /** ClickHouse compression codec, e.g. CODEC(ZSTD(1)). */
+  codec?: string;
 }
 
 export interface Index {

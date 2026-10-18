@@ -171,6 +171,13 @@ type BrowseQuerier interface {
 	BrowseQuery(ctx context.Context, t *Table, req BrowseRequest) (query string, args []any, err error)
 }
 
+// ColumnSelecter writes the expression that reads a column for a dump, for
+// engines that read some types in another shape (ClickHouse reads maps as
+// their ordered pairs).
+type ColumnSelecter interface {
+	SelectColumn(c Column) string
+}
+
 // BulkImporter loads rows into a table inside one transaction.
 type BulkImporter interface {
 	// BeginImport starts loading into cols of t; empty deletes existing rows first.

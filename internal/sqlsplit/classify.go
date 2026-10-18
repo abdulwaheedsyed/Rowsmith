@@ -42,6 +42,16 @@ func significant(sql string, d Dialect) []sigTok {
 	}
 }
 
+// Words returns the first n significant tokens of a statement, words in
+// upper case, skipping comments.
+func Words(sql string, d Dialect, n int) []string {
+	toks := significant(sql, d)
+	if len(toks) > n {
+		toks = toks[:n]
+	}
+	return texts(toks)
+}
+
 var writeWords = map[string]bool{
 	"INSERT": true, "UPDATE": true, "DELETE": true, "MERGE": true, "UPSERT": true, "REPLACE": true,
 	"TRUNCATE": true, "DROP": true, "CREATE": true, "ALTER": true, "GRANT": true, "REVOKE": true, "DENY": true,
@@ -73,6 +83,11 @@ func Classify(sql string, d Dialect) (driver.StatementKind, driver.Danger) {
 	}
 
 	var kind driver.StatementKind
+	if d == ClickHouse {
+		if k, dg, ok := clickhouse(first, toks[i:]); ok {
+			return k, dg
+		}
+	}
 	switch first {
 	case "SELECT", "WITH", "VALUES", "TABLE":
 		kind = driver.StmtRead
@@ -159,6 +174,32 @@ func Classify(sql string, d Dialect) (driver.StatementKind, driver.Danger) {
 		kind = driver.StmtWrite
 	}
 	return kind, danger(first, toks[i:], kind)
+}
+
+// clickhouse classifies statements only ClickHouse has, and ALTER TABLE …
+// UPDATE / DELETE, which change rows rather than structure.
+func clickhouse(first string, toks []sigTok) (driver.StatementKind, driver.Danger, bool) {
+	switch first {
+	case "EXISTS", "CHECK", "WATCH":
+		return driver.StmtRead, driver.Danger{}, true
+	case "SYSTEM":
+		return driver.StmtWrite, driver.Danger{Level: "caution", Reason: "changes how the server runs"}, true
+	case "ATTACH", "DETACH", "EXCHANGE":
+		return driver.StmtDDL, driver.Danger{Level: "caution", Reason: "changes structure"}, true
+	case "ALTER":
+		for k, t := range toks {
+			if t.typ != tWord || t.depth != 0 || k < 3 {
+				continue
+			}
+			switch t.text {
+			case "UPDATE":
+				return driver.StmtWrite, driver.Danger{Level: "caution", Reason: "rewrites rows (a mutation)"}, true
+			case "DELETE":
+				return driver.StmtWrite, driver.Danger{Level: "destructive", Reason: "deletes rows (a mutation)"}, true
+			}
+		}
+	}
+	return "", driver.Danger{}, false
 }
 
 // embeddedWrite looks for data-modifying keywords inside a read-looking

@@ -20,6 +20,8 @@ func QuoteFor(dialect string) func(string) string {
 	switch dialect {
 	case MySQL, BigQuery:
 		return func(s string) string { return "`" + strings.ReplaceAll(s, "`", "``") + "`" }
+	case ClickHouse:
+		return func(s string) string { return "`" + strings.NewReplacer(`\`, `\\`, "`", "\\`").Replace(s) + "`" }
 	case MSSQL:
 		return func(s string) string { return "[" + strings.ReplaceAll(s, "]", "]]") + "]" }
 	}
@@ -151,6 +153,11 @@ func (d *Dumper) Dump(ctx context.Context, req driver.DumpRequest, w io.Writer) 
 			if db := req.Scope.Database; db != "" {
 				s = strings.ReplaceAll(s, QuoteFor(MySQL)(db)+".", "")
 			}
+		}
+		if d.Dialect == ClickHouse && req.Scope.Database != "" {
+			// ClickHouse writes every name with its database: leave it out.
+			db := regexp.QuoteMeta(req.Scope.Database)
+			s = regexp.MustCompile("(^|[^\\w.`])(`"+db+"`|"+db+`)\.`).ReplaceAllString(s, "$1")
 		}
 		return strings.TrimSpace(strings.TrimSuffix(s, ";")), true
 	}
@@ -472,9 +479,19 @@ func IdentityResets(dialect string, t *driver.Table, qualified string, cols []st
 // SRID) in primary-key order for a deterministic dump.
 func (d *Dumper) selectAll(_ context.Context, t *driver.Table, cols []string) (string, []any, error) {
 	q := QuoteFor(d.Dialect)
+	byName := map[string]driver.Column{}
+	for _, c := range t.Columns {
+		byName[c.Name] = c
+	}
+	sel, _ := d.Conn.(driver.ColumnSelecter)
 	names := make([]string, len(cols))
 	for i, c := range cols {
 		names[i] = q(c)
+		if sel != nil {
+			if e := sel.SelectColumn(byName[c]); e != names[i] {
+				names[i] = e + " AS " + q(c)
+			}
+		}
 	}
 	s := "SELECT " + strings.Join(names, ", ") + " FROM " + QualifyFor(d.Dialect)(t.Ref)
 	if len(t.PrimaryKey) > 0 {

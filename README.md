@@ -10,11 +10,11 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0"></a>
 </p>
 
-**A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
+**A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, ClickHouse, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All eight engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, shared query links with comments, and database migration are working. MySQL, MariaDB, PostgreSQL/PostGIS and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. See [Roadmap](#roadmap).
+> **Status: early development.** All nine engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, shared query links with comments, and database migration are working. MySQL, MariaDB, PostgreSQL/PostGIS, ClickHouse and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. See [Roadmap](#roadmap).
 
 ---
 
@@ -82,6 +82,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | PostgreSQL 10+ with PostGIS, TimescaleDB, Supabase, Neon, Aurora, AlloyDB, Cloud SQL | ✅ Working |
 | Microsoft SQL Server 2012+ / Azure SQL | ✅ Working |
 | Oracle Database 12c+ | ✅ Working |
+| ClickHouse 24.8+ and ClickHouse Cloud, over the native protocol or HTTP | ✅ Working |
 | SQLite 3 | ✅ Working |
 | MongoDB 5+ | ✅ Working |
 | Google BigQuery | ✅ Working |
@@ -92,6 +93,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 
 - **SQL Server**: `GO` batches, `PRINT` and `RAISERROR` messages as notices, showplan XML turned into a plan tree, read-only application intent for replicas, and `geometry`/`geography` on the map.
 - **Oracle**: connect by service name or SID, optional `SYSDBA`-style roles, PL/SQL blocks split on `/`, `DBMS_OUTPUT` shown as notices, and packages, synonyms and sequences in the navigator. `SDO_GEOMETRY` columns appear on the map. When Oracle Spatial is installed (it is included in every edition, but left out of some slim container images), the structure editor registers new geometry columns in `USER_SDO_GEOM_METADATA` with their SRID and can create spatial indexes.
+- **ClickHouse**: the native protocol (port 9000, 9440 with TLS) or HTTP (8123, 8443); the form moves the port as you switch. The navigator shows tables, views, materialized views (with the table they feed) and dictionaries; the Structure tab shows the engine, ORDER BY, partitions, TTL, codecs, skip indexes and MATERIALIZED / ALIAS columns, and the structure editor creates and changes them. Arrays, maps (keys in order), tuples, JSON, big integers, IPs and geo types render as such, and `Point` and `Polygon` go on the map. The console keeps `SET` and `USE` between runs (over HTTP through a server session), stops a huge result at the row limit on the server instead of reading it to the end, and shows how many rows and bytes each statement read. EXPLAIN shows the plan with the granules each index skips, and Explain analyze runs a read-only query to measure it. There are no transactions, so grid edits are checked first and then run as mutations (`ALTER TABLE … UPDATE`, lightweight `DELETE`) matched on the row's values; imports load into a staging table and move in one `INSERT … SELECT`, so a bad row leaves the table untouched. Read-only connections also run with `readonly = 2` on the server.
 - **SQLite**: databases are files on the Rowsmith server, so the driver only opens files inside `ROWSMITH_SQLITE_DIR`. `ATTACH` is disabled and Rowsmith's own metadata database is refused. Use `:memory:` for a scratch database.
 - **MongoDB**: a console that understands mongosh syntax (`db.orders.find({...}).sort(...)`, `aggregate`, CRUD, index and collection commands) without running JavaScript on the server. Field lists are inferred from a sample of documents, and edits keep BSON types.
 - **BigQuery**: sign in with a service-account key or Application Default Credentials. Every query is dry-run first; queries estimated to process more than the connection's limit (10 GB by default) are refused, and each job carries the limit. Table previews use the free `tabledata.list` API. The service account needs `roles/bigquery.jobUser` on the project and `roles/bigquery.dataViewer` (or `dataEditor`) on the datasets.
@@ -99,7 +101,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 ## Roadmap
 
 - [x] Backend core: vault, auth, store, driver interface, SSH tunnels, API
-- [x] MySQL, MariaDB, PostgreSQL/PostGIS, SQL Server, Oracle, SQLite, MongoDB and BigQuery drivers
+- [x] MySQL, MariaDB, PostgreSQL/PostGIS, SQL Server, Oracle, ClickHouse, SQLite, MongoDB and BigQuery drivers
 - [x] Web UI: connection manager, navigator, virtualized data grid, SQL editor with schema-aware autocomplete, plan viewer, map view, command palette, mobile layout
 - [x] Relationship (ER) diagrams
 - [x] Production container image and reverse-proxy examples
@@ -185,7 +187,7 @@ An admin sets up email under **Administration → Email & schedules**: an SMTP s
 
 ## Migration
 
-**Migrate** (in the rail, the command palette, or a connection's menu) copies tables from one connection to another: a MySQL server to a new one, MySQL to PostgreSQL, SQL Server or Oracle to MySQL, SQLite to PostgreSQL, BigQuery to anything, MongoDB to SQL and back. Choose the source and target (a connection plus database or schema), then review the plan before anything runs.
+**Migrate** (in the rail, the command palette, or a connection's menu) copies tables from one connection to another: a MySQL server to a new one, MySQL to PostgreSQL, SQL Server or Oracle to MySQL, SQLite to PostgreSQL, MySQL or PostgreSQL into ClickHouse for analytics, BigQuery to anything, MongoDB to SQL and back. Choose the source and target (a connection plus database or schema), then review the plan before anything runs.
 
 - **The plan** lists every table and column with its source type and the type proposed on the target: `tinyint(1)` becomes `boolean`, `timestamptz` becomes `datetime(6)` in UTC, PostGIS geometry becomes MySQL `POINT SRID 4326` or Oracle `SDO_GEOMETRY` (registered with its SRID, so spatial indexes carry over; Oracle's SRID 8307 becomes EPSG 4326 elsewhere), a MongoDB `objectId` becomes `varchar(24)`, and so on. Anything that may lose information is flagged with the reason (a decimal without fixed precision, text shortened so it can be indexed, MongoDB dates keeping milliseconds). You can rename tables and columns, change types, leave out tables, columns, indexes and foreign keys, and preview the exact SQL for each table.
 - **Same engine** copies types, defaults, computed columns, collations and comments as they are, and can also copy views, routines, triggers, custom types and sequences.
@@ -210,6 +212,7 @@ What each engine offers:
 | PostgreSQL | roles (users are roles that can log in) | database, schema, all tables, tables created later (default privileges), all sequences, table | Passwords are hashed to SCRAM-SHA-256 before they're sent. Dropping a role can first hand over what it owns and revoke its privileges (`REASSIGN OWNED`, `DROP OWNED`). |
 | MySQL, MariaDB | `user@host` accounts and roles | server, database, table | A database-wide grant shows as covering each table. Roles need MySQL 8 or MariaDB 10.0.5. |
 | SQL Server | logins and server roles | server, database, schema, table | A login gets a database user with its name the first time it's given access to a database. Membership of `db_datareader`, `db_datawriter` and `db_owner` shows as access through them. |
+| ClickHouse | users and roles | server, database, table | A group grant such as `ALTER TABLE` shows on each privilege it includes, and unticking one revokes just that one. Accounts defined in the server's configuration files are shown as built in: SQL can't change them. |
 | Oracle | users and roles | system privileges, schema (23ai), table | Plain new names are upper-cased, as Oracle does. Without the `DBA_` views, only grants on objects the connection's user owns show. |
 | MongoDB | users and roles, named `user@db` | every database, database | Built-in roles (`read`, `readWrite`, `dbOwner`…) show as privileges; your own roles as memberships. |
 
@@ -304,7 +307,7 @@ cd web && npm install && npm run dev
 ```
 
 - **Build**: the first command compiles the server into `.bin/rowsmith`.
-- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB and PostGIS servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion. Add `--profile full` to also start SQL Server, Oracle, MongoDB and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
+- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB, PostGIS and ClickHouse servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion. Add `--profile full` to also start SQL Server, Oracle, MongoDB and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
 - **Smoke test**: `dev/smoke.py` runs the end-to-end test against the dev stack.
 - **Frontend**: `npm run dev` serves the UI at `http://127.0.0.1:5199` and proxies `/api` to the dev server.
 - **Third-party notices**: after adding or upgrading dependencies, run `python3 dev/notices.py` to regenerate `THIRD_PARTY_NOTICES.txt`.

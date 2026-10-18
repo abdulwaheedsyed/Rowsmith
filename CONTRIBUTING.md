@@ -69,11 +69,11 @@ cd web && npm run typecheck
 python3 dev/smoke.py
 ```
 
-The smoke test runs end to end against the dev stack on MySQL, MariaDB, PostGIS and MongoDB: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
+The smoke test runs end to end against the dev stack on MySQL, MariaDB, PostGIS, ClickHouse and MongoDB: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
 
 ### Integration tests
 
-Driver changes for SQL Server, Oracle, MongoDB and BigQuery need their integration tests, which run against the `--profile full` servers. They skip unless their variables are set. For example, for Oracle:
+Driver changes need their integration tests, which run against the dev stack's servers (SQL Server, Oracle, MongoDB and BigQuery need `--profile full`). They skip unless their variables are set. For example, for Oracle:
 
 ```bash
 source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=oracle -e ROWSMITH_TEST_ORACLE_USER=shop -e ROWSMITH_TEST_ORACLE_PASSWORD=$DEV_DB_PASSWORD" dev/go.sh test ./internal/driver/oracle/
@@ -81,12 +81,15 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 
 | Engine | Variables, with the dev stack's values |
 |---|---|
+| PostgreSQL | `ROWSMITH_TEST_PG_HOST=postgis`, `ROWSMITH_TEST_PG_DATABASE=city`, `ROWSMITH_TEST_PG_PASSWORD=$DEV_DB_PASSWORD` |
+| MySQL, MariaDB | `ROWSMITH_TEST_MYSQL_HOST=mysql`, `ROWSMITH_TEST_MARIADB_HOST=mariadb`, `ROWSMITH_TEST_MYSQL_PASSWORD=$DEV_DB_PASSWORD` |
+| ClickHouse | `ROWSMITH_TEST_CLICKHOUSE_HOST=clickhouse`, `ROWSMITH_TEST_CLICKHOUSE_PASSWORD=$DEV_DB_PASSWORD` |
 | SQL Server | `ROWSMITH_TEST_MSSQL_HOST=mssql`, `ROWSMITH_TEST_MSSQL_PASSWORD=${DEV_DB_PASSWORD}Aa1!` |
 | Oracle | `ROWSMITH_TEST_ORACLE_HOST=oracle`, `ROWSMITH_TEST_ORACLE_USER=shop`, `ROWSMITH_TEST_ORACLE_PASSWORD=$DEV_DB_PASSWORD` |
 | MongoDB | `ROWSMITH_TEST_MONGO_HOST=mongo`, `ROWSMITH_TEST_MONGO_PASSWORD=$DEV_DB_PASSWORD` |
 | BigQuery | `ROWSMITH_TEST_BQ_ENDPOINT=http://bigquery:9050` |
 
-MySQL, MariaDB, PostgreSQL and MongoDB are also covered by the smoke test.
+MySQL, MariaDB, PostgreSQL, ClickHouse and MongoDB are also covered by the smoke test.
 
 ## Writing code
 

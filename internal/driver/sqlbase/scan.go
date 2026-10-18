@@ -20,14 +20,25 @@ func asTime(v any) (time.Time, bool) {
 	return time.Time{}, false
 }
 
+// TypeNamer is implemented by dialects that report some result types under
+// another name, e.g. a type the browse query selected in a different shape.
+type TypeNamer interface {
+	TypeName(ct *sql.ColumnType) string
+}
+
 // Columns converts database/sql column metadata into result columns.
 func Columns(d Dialect, cts []*sql.ColumnType) ([]driver.ResultColumn, []driver.ValueKind) {
 	cols := make([]driver.ResultColumn, len(cts))
 	kinds := make([]driver.ValueKind, len(cts))
+	namer, _ := d.(TypeNamer)
 	for i, ct := range cts {
 		k := d.Kind(ct)
 		kinds[i] = k
-		cols[i] = driver.ResultColumn{Name: ct.Name(), Type: ct.DatabaseTypeName(), Kind: k}
+		typ := ct.DatabaseTypeName()
+		if namer != nil {
+			typ = namer.TypeName(ct)
+		}
+		cols[i] = driver.ResultColumn{Name: ct.Name(), Type: typ, Kind: k}
 		if n, ok := ct.Nullable(); ok {
 			nn := n
 			cols[i].Nullable = &nn

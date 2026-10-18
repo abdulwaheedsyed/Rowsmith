@@ -162,5 +162,5 @@ export const defaultOptions = (): MigrateOptions => ({
 });
 
 export const ENGINE_NAMES: Record<string, string> = {
-  mysql: "MySQL", mariadb: "MariaDB", postgres: "PostgreSQL", mssql: "SQL Server", oracle: "Oracle", sqlite: "SQLite", bigquery: "BigQuery", mongodb: "MongoDB",
+  mysql: "MySQL", mariadb: "MariaDB", postgres: "PostgreSQL", mssql: "SQL Server", oracle: "Oracle", sqlite: "SQLite", bigquery: "BigQuery", mongodb: "MongoDB", clickhouse: "ClickHouse",
 };

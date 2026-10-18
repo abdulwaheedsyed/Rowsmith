@@ -63,6 +63,9 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 	if dst == MongoDB {
 		return nil, ""
 	}
+	if dst == ClickHouse {
+		return clickhouseDefault(low, d, def, k, dstType)
+	}
 	switch {
 	case k.T == "bool":
 		var on bool
@@ -134,6 +137,34 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 		return skip()
 	}
 	return skip()
+}
+
+// clickhouseDefault writes a default in ClickHouse's own functions.
+func clickhouseDefault(low, d, def string, k canon, dstType string) (*string, string) {
+	out := func(s string) (*string, string) { return &s, "" }
+	switch {
+	case k.T == "bool":
+		switch low {
+		case "true", "1", "b'1'", "'1'", "'t'", "'true'", "'y'":
+			return out("true")
+		case "false", "0", "b'0'", "'0'", "'f'", "'false'", "'n'":
+			return out("false")
+		}
+	case numberRe.MatchString(d):
+		return out(d)
+	case stringRe.MatchString(d):
+		return out("'" + stringRe.FindStringSubmatch(d)[1] + "'")
+	case nowRe.MatchString(low):
+		if p, _ := typeParams(strings.ToLower(dstType)); strings.HasPrefix(dstType, "DateTime64") {
+			return out("now64(" + itoa(max(p, 0)) + ")")
+		}
+		return out("now()")
+	case todayRe.MatchString(low):
+		return out("today()")
+	case uuidGenRe.MatchString(low):
+		return out("generateUUIDv4()")
+	}
+	return nil, "the default " + def + " was not carried over"
 }
 
 func itoa(n int) string {

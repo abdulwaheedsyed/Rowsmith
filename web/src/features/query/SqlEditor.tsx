@@ -5,7 +5,7 @@ import {
   rectangularSelection, crosshairCursor, placeholder as cmPlaceholder, Decoration, gutter, GutterMarker, type DecorationSet,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab, toggleComment } from "@codemirror/commands";
-import { sql, MySQL, MariaSQL, PostgreSQL, MSSQL, PLSQL, SQLite, StandardSQL, type SQLDialect } from "@codemirror/lang-sql";
+import { sql, MySQL, MariaSQL, PostgreSQL, MSSQL, PLSQL, SQLite, StandardSQL, SQLDialect } from "@codemirror/lang-sql";
 import { json } from "@codemirror/lang-json";
 import { javascript } from "@codemirror/lang-javascript";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
@@ -15,9 +15,38 @@ import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { tags as t } from "@lezer/highlight";
 import type { CatalogTable, Danger, StatementKind } from "../../lib/types";
 
+// ClickHouse SQL: backquoted and double-quoted identifiers, # comments,
+// backslash escapes, and its own types and functions.
+const ClickHouseSQL = SQLDialect.define({
+  keywords:
+    "select from where prewhere group by order limit offset with having join inner left right full outer cross any all asof semi anti array " +
+    "on using as and or not in between like ilike is null distinct union intersect except case when then else end cast interval " +
+    "insert into values format settings create table view materialized dictionary database if exists temporary engine partition primary key " +
+    "sample ttl comment default alias ephemeral codec alter add drop modify column rename to update delete truncate optimize final deduplicate " +
+    "attach detach exchange show describe desc explain use set system kill query grant revoke role user identified global local " +
+    "totals rollup cube filter over window rows range unbounded preceding following current row asc nulls first last collate fill step",
+  types:
+    "uint8 uint16 uint32 uint64 uint128 uint256 int8 int16 int32 int64 int128 int256 float32 float64 bfloat16 decimal decimal32 decimal64 " +
+    "decimal128 decimal256 bool boolean string fixedstring uuid date date32 datetime datetime64 time time64 enum8 enum16 lowcardinality " +
+    "nullable array map tuple nested json object dynamic variant ipv4 ipv6 point ring linestring multilinestring polygon multipolygon " +
+    "aggregatefunction simpleaggregatefunction nothing",
+  builtin:
+    "count sum avg min max any anylast argmin argmax uniq uniqexact uniqcombined quantile quantiles median groupArray groupUniqArray " +
+    "countif sumif avgif minif maxif uniqif topk now now64 today yesterday todate todatetime todatetime64 tostartofday tostartofhour " +
+    "tostartofminute tostartofweek tostartofmonth tostartofyear tostartofinterval toyyyymm toyyyymmdd formatdatetime datediff dateadd " +
+    "tostring tointeger touint64 toint64 tofloat64 todecimal64 length lower upper concat substring replaceall splitbychar arrayjoin " +
+    "arraymap arrayfilter has hasany indexof empty notempty ifnull coalesce if multiif round floor ceil abs generateuuidv4 rand " +
+    "jsonextract jsonextractstring visitparamextractstring match extract like position dictget dictgetordefault",
+  backslashEscapes: true,
+  hashComments: true,
+  doubleQuotedStrings: false,
+  identifierQuotes: '`"',
+});
+
 export function dialectFor(d?: string, driverId?: string): SQLDialect {
   if (driverId === "mariadb") return MariaSQL;
   switch (d) {
+    case "clickhouse": return ClickHouseSQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

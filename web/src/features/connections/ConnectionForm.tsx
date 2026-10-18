@@ -34,12 +34,20 @@ function defaults(d?: DriverInfo) {
   return p;
 }
 
+/** The default port for these values: some engines change it with the
+ *  protocol or TLS (ClickHouse: 9000, 8123, 9440, 8443). */
+function portFor(d: DriverInfo | undefined, p: Record<string, unknown>) {
+  const values = { ...defaults(d), ...p };
+  const rule = d?.ports?.find((r) => Object.entries(r.when).every(([k, vs]) => vs.includes(String(values[k] ?? ""))));
+  return rule?.port ?? d?.defaultPort;
+}
+
 // switchParams is what the form keeps when the engine changes: values typed
 // into fields the new engine also has (host, user, a custom port…). The old
 // engine's defaults, such as its port and TLS mode, give way to the new
 // engine's, and values the new engine doesn't offer are dropped.
 function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<string, unknown>) {
-  const old = defaults(from);
+  const old: Record<string, unknown> = { ...defaults(from), port: portFor(from, p) };
   const next = defaults(to);
   for (const f of to.fields) {
     const v = p[f.key];
@@ -47,15 +55,19 @@ function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<st
     if (f.options?.length && !f.options.some((o) => o.value === String(v))) continue;
     next[f.key] = v;
   }
+  if (next.port === undefined || String(next.port) === String(to.defaultPort ?? "")) {
+    const port = portFor(to, next);
+    if (port !== undefined) next.port = port;
+  }
   return next;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, sqlite: and bigquery:// URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
-    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery" } as Record<string, string>)[scheme];
+    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
     if (driver === "sqlite") {
@@ -78,7 +90,7 @@ function parseURL(raw: string): { driver?: string; params: Record<string, unknow
     if (u.password) secrets.password = decodeURIComponent(u.password);
     const db = decodeURIComponent(u.pathname.replace(/^\//, ""));
     if (db) params[driver === "oracle" ? "service" : "database"] = db;
-    const ssl = u.searchParams.get("sslmode") || u.searchParams.get("ssl-mode") || u.searchParams.get("ssl");
+    const ssl = u.searchParams.get("sslmode") || u.searchParams.get("ssl-mode") || u.searchParams.get("ssl") || u.searchParams.get("secure");
     if (ssl) {
       const m = ssl.toLowerCase();
       params.tls = m === "disable" || m === "disabled" || m === "false" ? "disable" : m.includes("verify_identity") || m === "verify-full" ? "verify-full" : m.includes("verify") ? "verify-ca" : m === "require" || m === "required" || m === "true" ? "require" : "prefer";
@@ -145,7 +157,16 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
     if (!driverId && !editing && drivers.data?.length) setDriverId(drivers.data[0].id);
   }, [drivers.data, driverId, editing]);
 
-  const setParam = (k: string, v: unknown) => setParams((p) => ({ ...p, [k]: v }));
+  // A field that decides the default port (a protocol, TLS) moves the port
+  // along with it, unless a port of one's own was typed.
+  const setParam = (k: string, v: unknown) => setParams((p) => {
+    const next = { ...p, [k]: v };
+    if (k !== "port" && driver?.ports?.some((r) => k in r.when)) {
+      const was = portFor(driver, p);
+      if (p.port === undefined || p.port === "" || String(p.port) === String(was)) next.port = portFor(driver, next);
+    }
+    return next;
+  });
 
   function visible(f: DField) {
     if (!f.showIf) return true;
