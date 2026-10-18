@@ -150,6 +150,27 @@ def main():
     _, plan = c.req("POST", f"/api/c/{cid}/explain", {"database": "city", "sql": "SELECT * FROM transit.stations s JOIN districts d ON d.id = s.district_id WHERE ST_DWithin(s.location, ST_SetSRID(ST_MakePoint(4.9,52.35),4326), 0.01)", "analyze": True}, 200)
     ok(f"postgres explain analyze root {plan['root']['operation']} time {plan['totals']}")
 
+    # Access management: previews hide passwords; changes run, show both ways and are audited without them
+    pg = conns["postgres"]
+    _, m = c.req("GET", f"/api/c/{pg}/access/model", expect=200)
+    assert m["supported"] and any(l["level"] == "table" for l in m["model"]["levels"]), m
+    acct = f"smoke_{int(time.time())}"
+    create = {"account": {"op": "create", "kind": "user", "name": acct, "password": "Hidden-Pass-123"}}
+    _, pv = c.req("POST", f"/api/c/{pg}/access/preview", create, 200)
+    assert "Hidden-Pass-123" not in json.dumps(pv) and "SCRAM" not in json.dumps(pv), pv; ok("access: preview shows the password redacted")
+    c.req("POST", f"/api/c/{pg}/access/apply", create, 200)
+    c.req("POST", f"/api/c/{pg}/access/apply", {"grants": [
+        {"principal": acct, "level": "schema", "database": "city", "schema": "public", "privilege": "USAGE"},
+        {"principal": acct, "level": "table", "database": "city", "schema": "public", "object": "districts", "privilege": "SELECT"}]}, 200)
+    _, gs = c.req("GET", f"/api/c/{pg}/access/grants?principal={acct}&db=city&schema=public", expect=200)
+    assert any(g["level"] == "table" and g.get("object") == "districts" and g["privilege"] == "SELECT" and not g.get("via") for g in gs), gs
+    _, oa = c.req("GET", f"/api/c/{pg}/access/object?db=city&schema=public&name=districts", expect=200)
+    assert any(g["principal"] == acct for g in oa), oa; ok(f"access: created {acct} and granted SELECT on districts; it shows on the user and on the table")
+    c.req("POST", f"/api/c/{pg}/access/apply", {"account": {"op": "drop", "kind": "user", "name": acct, "attrs": {"reassign": "true"}}, "database": "city"}, 200)
+    _, audit = c.req("GET", "/api/audit?limit=20", expect=200)
+    assert [a for a in audit if a["action"] == "access.changed"] and not [a for a in audit if "Hidden-Pass-123" in json.dumps(a)], audit
+    ok("access: dropped it again; the audit log records the changes without the password")
+
     # SSH tunnel to a database only reachable from the bastion
     ssh = {"enabled": True, "hops": [{"host": "bastion", "port": 22, "user": "tunnel", "auth": "password"}]}
     _, cv = c.req("POST", "/api/connections", {"name": "Vault via bastion", "driver": "postgres", "environment": "production",
@@ -171,6 +192,8 @@ def main():
     assert code == 409, body; ok("production connection: DDL requires confirmation")
     code, ev = stream(c, vid, "CREATE TABLE IF NOT EXISTS secrets (id int); INSERT INTO secrets VALUES (1)", database="vault", confirm=True)
     assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev; ok("production connection: confirmed DDL ran through the tunnel")
+    code, body = c.req("POST", f"/api/c/{vid}/access/apply", {"grants": [{"principal": "postgres", "level": "schema", "database": "vault", "schema": "public", "privilege": "USAGE"}]})
+    assert code == 409 and body["error"]["code"] == "confirm_required", body; ok("production connection: access changes require confirmation")
 
     # MongoDB
     _, cv = c.req("POST", "/api/connections", {"name": f"Docs (Mongo) {time.time_ns()}", "driver": "mongodb", "environment": "development",
@@ -225,6 +248,8 @@ def main():
     assert [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev; ok("viewer: attempt to leave read-only mode blocked")
     v.req("POST", f"/api/c/{conns['mysql']}/edit", {"ref": {"database": "shop", "name": "customers"}, "edits": [{"op": "delete", "key": {"id": 3}}]}, 403)
     ok("viewer: grid edit rejected")
+    code, _ = v.req("POST", f"/api/c/{conns['mysql']}/access/apply", {"grants": [{"principal": "root@%", "level": "server", "privilege": "SELECT"}]})
+    assert code in (403, 404), code; ok(f"viewer: access changes refused ({code})")
     v.req("GET", f"/api/c/{conns['postgres']}/databases", expect=404); ok("viewer: unshared connection is invisible")
     v.req("GET", "/api/audit", expect=403); ok("viewer: audit log forbidden")
     _, audit = c.req("GET", "/api/audit?limit=200", expect=200)

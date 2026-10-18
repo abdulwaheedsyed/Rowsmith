@@ -17,6 +17,7 @@ import { StructureTab, DefinitionTab } from "../structure/StructureTab";
 import { DataGrid } from "../grid/DataGrid";
 import { DiagramTab } from "../structure/DiagramTab";
 import { DesignTab } from "../design/DesignTab";
+import { UsersPage } from "../access/UsersPage";
 import { newQueryTab, openPanel, openObject } from "./actions";
 import { useRuns } from "../query/runs";
 import "./workspace.css";
@@ -63,7 +64,7 @@ function TabContent({ tab, conn, active }: { tab: Tab; conn: Connection; active:
     case "variables":
       return <VariablesPanel conn={conn} />;
     case "users":
-      return <UsersPanel conn={conn} />;
+      return <UsersPage conn={conn} fallback={<UsersPanel conn={conn} />} />;
     case "diagram":
       return <DiagramTab tab={tab} conn={conn} />;
     case "design":

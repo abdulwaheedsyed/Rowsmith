@@ -51,7 +51,14 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 - **SQL dumps**: a script that recreates tables, rows, keys, views, routines and triggers, restorable with the database's own client (`mysql`, `psql`) or with Rowsmith. Handles partitions, sequences and identity columns, and leaves out objects that extensions such as PostGIS create themselves.
 - **Import**: CSV (delimiter detected), TSV, JSON, NDJSON and Excel into an existing table, with a preview and column mapping, in one transaction: if a row fails, nothing is kept. SQL files run statement by statement with the console's safety rules.
 - **EXPLAIN / EXPLAIN ANALYZE** turned into a plan tree. PostgreSQL's `ANALYZE` runs inside a transaction that is always rolled back.
-- **Administration**: running processes (with kill), server variables and status, database users and grants
+- **Administration**: running processes (with kill), server variables and status
+- **Users and access**: manage database accounts and what they may do without writing GRANT statements. See [Users and access](#users-and-access).
+  - a privilege editor per user or role: tick privileges server-wide, on a database or schema, on every table (including tables created later, where the engine supports it), or table by table in a matrix
+  - quick presets (read only, read & write, full access, no access) and copying another account's access
+  - access a user gets through roles, PUBLIC or a broader grant shown as such, with a link to where it's changed
+  - creating, locking and dropping users and roles, changing passwords, account settings and role memberships
+  - an Access section on each table's Structure tab: who can do what on it
+  - every change previewed as SQL before it runs
 - **Type fidelity**: exact decimals, 64-bit integers, binary previews with image detection, and dates exactly as the server stores them
 - **Accounts**:
   - Argon2id password hashing
@@ -101,6 +108,7 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - [x] Scheduled queries and exports with email and webhook delivery and threshold alerts
 - [x] Shareable query links and comments
 - [x] Database migration between servers and across engines (schema translation, data copy, verification)
+- [x] Visual management of database users, roles and privileges
 
 ## Architecture
 
@@ -185,6 +193,26 @@ An admin sets up email under **Administration → Email & schedules**: an SMTP s
 - **Verification** counts the rows on both sides and, by default, reads the copy back and compares every column's values with the source after normalizing how each engine writes them (numbers, times and time zones, JSON, binary, intervals, and shapes compared by their coordinates). A difference names the columns involved.
 
 Reading needs read access to the source; writing needs write access to the target. Replacing existing tables, and any migration into a production connection, asks you to type the target connection's name. Every run is kept with its report, and recorded in the audit log.
+
+## Users and access
+
+The Database users tab (connection menu, or the command palette) lists the server's users and roles. Pick one to see and change what it may do:
+
+- **Access**: privileges by level, for the database and schema chosen at the top. Ticking one marks it to grant, unticking it to revoke. Nothing runs until you review the statements and apply them. Quick set replaces the account's access in that database or schema with a preset; Copy from… replaces it with another account's.
+- **Account**: settings such as locked, connection limit or password expiry, role memberships, and a role's members.
+- **As SQL**: everything granted to the account, as the server reports it.
+
+What each engine offers:
+
+| Engine | Accounts | Levels | Notes |
+|---|---|---|---|
+| PostgreSQL | roles (users are roles that can log in) | database, schema, all tables, tables created later (default privileges), all sequences, table | Passwords are hashed to SCRAM-SHA-256 before they're sent. Dropping a role can first hand over what it owns and revoke its privileges (`REASSIGN OWNED`, `DROP OWNED`). |
+| MySQL, MariaDB | `user@host` accounts and roles | server, database, table | A database-wide grant shows as covering each table. Roles need MySQL 8 or MariaDB 10.0.5. |
+| SQL Server | logins and server roles | server, database, schema, table | A login gets a database user with its name the first time it's given access to a database. Membership of `db_datareader`, `db_datawriter` and `db_owner` shows as access through them. |
+| Oracle | users and roles | system privileges, schema (23ai), table | Plain new names are upper-cased, as Oracle does. Without the `DBA_` views, only grants on objects the connection's user owns show. |
+| MongoDB | users and roles, named `user@db` | every database, database | Built-in roles (`read`, `readWrite`, `dbOwner`…) show as privileges; your own roles as memberships. |
+
+Changes run on their own session, not the console: passwords never reach query history, and the audit log records the statements with passwords replaced by dots. Changes on production connections ask for confirmation, and read-only connections and people with read access can look but not change anything.
 
 ## Sharing and comments
 

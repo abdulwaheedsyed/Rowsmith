@@ -212,6 +212,12 @@ func (s *Server) routes(mux *http.ServeMux) {
 	full("GET /api/c/{id}/variables", s.wsVariables)
 	full("GET /api/c/{id}/db-users", s.wsDBUsers)
 	full("GET /api/c/{id}/db-users/grants", s.wsDBUserGrants)
+	full("GET /api/c/{id}/access/model", s.accessModel)
+	full("GET /api/c/{id}/access/principals", s.accessPrincipals)
+	full("GET /api/c/{id}/access/grants", s.accessGrants)
+	full("GET /api/c/{id}/access/object", s.accessObject)
+	full("POST /api/c/{id}/access/preview", s.accessPreview)
+	full("POST /api/c/{id}/access/apply", s.accessApply)
 	full("POST /api/c/{id}/ddl", s.wsDDL)
 
 	full("GET /api/schedules", s.listSchedules)

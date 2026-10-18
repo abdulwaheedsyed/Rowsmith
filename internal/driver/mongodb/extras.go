@@ -320,10 +320,7 @@ func (c *conn) Users(ctx context.Context) (*driver.Result, error) {
 }
 
 func (c *conn) UserGrants(ctx context.Context, user string) ([]string, error) {
-	name, db, _ := strings.Cut(user, "@")
-	if db == "" {
-		db = "admin"
-	}
+	name, db := account(user)
 	var out bson.D
 	cmd := bson.D{{Key: "usersInfo", Value: bson.D{{Key: "user", Value: name}, {Key: "db", Value: db}}}, {Key: "showPrivileges", Value: true}}
 	if err := c.client.Database(db).RunCommand(ctx, cmd).Decode(&out); err != nil {

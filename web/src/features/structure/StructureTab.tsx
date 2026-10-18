@@ -12,6 +12,7 @@ import { DDLDialog, type DDLAction } from "./DDLDialog";
 import { SqlEditor } from "../query/SqlEditor";
 import { newQueryTab, openDesign, openObject } from "../workspace/actions";
 import { sampleQuery } from "../navigator/Navigator";
+import { ObjectAccess } from "../access/ObjectAccess";
 import "./structure.css";
 
 export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
@@ -176,6 +177,8 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
           )}
         </section>
       )}
+
+      <ObjectAccess conn={conn} target={ref} kind={t.kind} />
 
       {t.ddl && (
         <section className="ssection">

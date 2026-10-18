@@ -1,0 +1,922 @@
+/* Users & access: the principals list, the privilege editor and its marks. */
+
+.access {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- Principals list -------------------------------------------------------- */
+.access__list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.access__listhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 10px 6px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.access__search,
+.amatrix__filter {
+  position: relative;
+  display: block;
+}
+.access__search {
+  margin: 10px 10px 2px;
+}
+.access__search svg,
+.amatrix__filter svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: var(--faint);
+  pointer-events: none;
+}
+.access__search .input,
+.amatrix__filter .input {
+  padding-left: 28px;
+}
+.access__groups {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 6px 16px;
+}
+.access__group > .eyebrow {
+  padding: 12px 8px 4px;
+  margin: 0;
+}
+.access__none {
+  padding: 12px 8px;
+  font-size: var(--fs-sm);
+}
+.aprin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.aprin:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.aprin[aria-current] {
+  background: var(--active);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.aprin:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.aprin__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--muted);
+}
+.aprin__icon--role {
+  border-radius: 5px;
+}
+.aprin__icon svg {
+  width: 12px;
+  height: 12px;
+}
+.aprin__name {
+  flex: 1;
+  min-width: 0;
+}
+.aprin__host,
+.aview__host {
+  color: var(--faint);
+}
+.aprin__flag {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--warn);
+}
+
+/* ---- One principal ------------------------------------------------------------- */
+.access__main {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.aview {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.aview__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 28px 14px;
+}
+.aview__name {
+  margin: 2px 0 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.aview__host {
+  font-weight: 500;
+}
+.aview__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+}
+.aview__tabs {
+  align-items: flex-end;
+  margin: 0;
+  padding: 0 20px;
+  overflow: visible;
+}
+.aview__scope {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  padding-bottom: 6px;
+}
+.aview__scope .field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.aview__scope .field__label {
+  margin: 0;
+}
+.aview__scope .select {
+  width: auto;
+  min-width: 140px;
+  max-width: 240px;
+  height: var(--h-control-sm);
+  font-size: var(--fs-xs);
+}
+.aview__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 28px 0;
+}
+
+/* ---- Privilege editor ---------------------------------------------------------- */
+.aeditor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.aeditor__loading {
+  display: grid;
+  place-items: center;
+  padding: 48px;
+}
+.apresets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.apresets__label {
+  padding: 0 8px 0 6px;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.apreset {
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--raised);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+}
+.apreset:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.apreset[aria-pressed="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.apreset:focus-visible,
+.amatrix__priv button:focus-visible,
+.alink:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.athrough {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.alink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+.alink:hover {
+  text-decoration: underline;
+}
+.alink svg {
+  width: 12px;
+  height: 12px;
+}
+.alegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.alegend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.alevel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alevel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.alevel__title {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.alevel__title b {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+.alevel__title .faint {
+  font-weight: 500;
+}
+.alevel__help {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.alevel--fold > summary {
+  position: relative;
+  padding-left: 18px;
+  list-style: none;
+  cursor: pointer;
+}
+.alevel--fold > summary::-webkit-details-marker {
+  display: none;
+}
+.alevel--fold > summary::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform var(--t-fast);
+}
+.alevel--fold[open] > summary::before {
+  transform: rotate(45deg);
+}
+.alevel--fold > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+.alevel--fold[open] > .alevel__chips {
+  margin-top: 10px;
+}
+.alevel__sum {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.alevel--fold[open] .alevel__sum {
+  display: none;
+}
+.alevel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.anote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.anote svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ---- Marks: one privilege's state, as a chip or a matrix cell -------------------- */
+.achip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--sunken);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+.achip:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.achip:disabled,
+.amark:disabled {
+  cursor: default;
+}
+.achip:focus-visible,
+.amark:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.achip__box,
+.amark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  color: transparent;
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.achip__box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+.amark {
+  width: 22px;
+  height: 22px;
+  margin: auto;
+  padding: 0;
+  border-color: var(--line);
+  border-radius: 5px;
+  background: var(--sunken);
+  cursor: pointer;
+}
+.amark:hover:not(:disabled) {
+  border-color: var(--accent-line);
+}
+.achip__box svg,
+.amark svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 3;
+}
+.amark svg {
+  width: 12px;
+  height: 12px;
+}
+.achip.is-on {
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+.achip.is-on .achip__box,
+.amark.is-on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.achip.is-via .achip__box,
+.amark.is-via {
+  border-color: color-mix(in srgb, var(--info) 65%, transparent);
+  color: var(--info);
+}
+.achip.is-covered .achip__box,
+.amark.is-covered {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+.achip.is-partial .achip__box,
+.amark.is-partial {
+  border-color: var(--accent-line);
+  color: var(--accent-text);
+}
+.amark.is-changed,
+.achip.is-changed .achip__box {
+  border-color: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-soft);
+}
+.achip.is-add {
+  border-color: color-mix(in srgb, var(--success) 60%, transparent);
+  color: var(--text);
+}
+.achip.is-add .achip__box,
+.amark.is-add {
+  border-color: var(--success);
+  background: var(--success);
+  color: #062015;
+  box-shadow: 0 0 0 3px var(--success-soft);
+}
+.achip.is-remove {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--danger-text);
+  text-decoration: line-through;
+}
+.achip.is-remove .achip__box,
+.amark.is-remove {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+/* Can pass the privilege on (WITH GRANT OPTION). */
+.amark.is-grantable::after,
+.achip.is-grantable .achip__box::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--surface);
+  border-radius: 50%;
+  background: var(--temper-4);
+}
+.amark--legend {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  cursor: default;
+}
+.amark--legend svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* ---- The table matrix ---------------------------------------------------------- */
+.amatrix-wrap {
+  width: fit-content;
+  max-width: 100%;
+  max-height: min(72vh, 820px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.amatrix {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.amatrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  vertical-align: bottom;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.amatrix .amatrix__corner {
+  left: 0;
+  z-index: 3;
+  min-width: 200px;
+  border-right: 1px solid var(--line-soft);
+}
+.amatrix__priv {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+}
+.amatrix__priv button,
+.amatrix__priv > span {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  /* A definite height: vertical text otherwise sizes itself to the viewport. */
+  height: var(--amatrix-head, 104px);
+  padding: 10px 0 9px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.amatrix__priv button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.amatrix__priv button:disabled {
+  cursor: default;
+}
+.amatrix__priv span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+.amatrix__priv--all > span {
+  color: var(--faint);
+  cursor: default;
+}
+.amatrix__priv--all {
+  border-left: 1px solid var(--line-soft);
+}
+.amatrix__hint {
+  display: block;
+  max-width: 180px;
+  padding: 0 12px 10px;
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+}
+.amatrix tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  height: 34px;
+  padding: 0 14px 0 12px;
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  text-align: left;
+}
+.amatrix__name {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.amatrix__sub {
+  display: block;
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+}
+.amatrix__cell:last-child {
+  border-left: 1px solid var(--line-soft);
+}
+.amatrix__cell {
+  width: 36px;
+  padding: 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: center;
+}
+.amatrix tbody tr:hover > * {
+  background-image: linear-gradient(var(--hover), var(--hover));
+}
+.amatrix__agg > th,
+.amatrix__agg > td {
+  background: var(--raised);
+}
+.amatrix .amatrix__agg > th {
+  height: 42px;
+  background: var(--raised);
+  color: var(--text);
+}
+.amatrix__agg .amatrix__name {
+  font-weight: 600;
+}
+.amatrix .amatrix__sep > th {
+  height: auto;
+  padding: 16px 12px 7px;
+  border-bottom: 1px solid var(--line);
+  border-right: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.amatrix__seprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.amatrix__filter {
+  margin-left: auto;
+}
+.amatrix__filter .input {
+  width: 200px;
+  height: var(--h-control-sm);
+  font-size: var(--fs-xs);
+}
+.amatrix__none {
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* ---- Pending changes ------------------------------------------------------------- */
+.apending {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: auto -28px 0;
+  padding: 10px 28px;
+  border-top: 1px solid var(--line);
+  background: var(--raised);
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.22);
+  font-size: var(--fs-sm);
+}
+/* The forge's temper colours, struck across the bar while something is unapplied. */
+.apending::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--temper-gradient);
+}
+.apending--inline {
+  position: relative;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  overflow: hidden;
+}
+.apending__count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.apending__add,
+.apending__remove {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.apending__add {
+  color: var(--success);
+}
+.apending__remove {
+  color: var(--danger-text);
+}
+
+/* ---- Account ---------------------------------------------------------------------- */
+.aaccount {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 780px;
+  padding-bottom: 28px;
+}
+.aaccount__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.aaccount__attrs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  align-items: start;
+  gap: 16px 28px;
+}
+.aaccount__attr > .field__help {
+  margin: 4px 0 0;
+}
+.aaccount__attr > .switch + .field__help {
+  margin-left: 40px;
+}
+.aaccount__save {
+  grid-column: 1 / -1;
+}
+.aaccount__add {
+  max-width: 460px;
+}
+.aaccount__add .select {
+  flex: 1;
+}
+.achips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.arole {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--raised);
+  font-size: var(--fs-sm);
+}
+.arole .alink {
+  color: var(--text);
+}
+.arole .alink svg {
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
+}
+.arole__x {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.arole__x:hover {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.arole__x svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---- SQL and previews ------------------------------------------------------------- */
+.asql {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 28px;
+}
+.asql .muted {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.apreview {
+  max-height: 50vh;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--sunken);
+  font-size: var(--fs-xs);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.aerror {
+  margin: 6px 0 2px;
+  white-space: pre-wrap;
+  font-size: var(--fs-xs);
+}
+.adrop__help {
+  margin: 4px 0 0 24px;
+}
+.apreview__revoke {
+  color: var(--danger-text);
+}
+.apreview--loading {
+  display: grid;
+  place-items: center;
+  min-height: 60px;
+}
+.apassword {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.apassword .input {
+  flex: 1;
+}
+.arow-fields > .field {
+  flex: 1;
+}
+.select--sm {
+  width: auto;
+  height: var(--h-control-sm);
+  font-size: var(--fs-xs);
+}
+
+/* ---- A table's access, on its Structure tab ---------------------------------------- */
+.oaccess .row {
+  margin-bottom: 10px;
+}
+.oaccess .ssection__title {
+  margin-bottom: 0;
+}
+.oaccess__priv {
+  width: 1%;
+  padding: 0 8px !important;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs) !important;
+  text-align: center !important;
+  white-space: nowrap;
+}
+.oaccess__table .stable__name {
+  white-space: nowrap;
+}
+.oaccess__table .stable__name .badge {
+  margin-left: 8px;
+}
+.oaccess__table .stable__name .faint {
+  margin-left: 8px;
+}
+
+@media (max-width: 860px) {
+  .access {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .access__list {
+    max-height: 34vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .aview__head {
+    flex-wrap: wrap;
+    padding: 16px 16px 10px;
+  }
+  .aview__tabs {
+    flex-wrap: wrap;
+    padding: 0 8px;
+  }
+  .aview__scope {
+    width: 100%;
+    margin-left: 0;
+    padding: 8px;
+    flex-wrap: wrap;
+  }
+  .aview__body {
+    padding: 16px 16px 0;
+  }
+  .apending {
+    flex-wrap: wrap;
+    margin: auto -16px 0;
+    padding: 10px 16px;
+  }
+  .amatrix .amatrix__corner,
+  .amatrix tbody th {
+    min-width: 140px;
+  }
+  .amatrix__name {
+    max-width: 150px;
+  }
+}
