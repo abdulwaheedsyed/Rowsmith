@@ -3,6 +3,7 @@ package sqlite
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -23,6 +24,9 @@ func TestResolve(t *testing.T) {
 	}
 	link := func(target, name string) {
 		if err := os.Symlink(target, filepath.Join(dir, name)); err != nil {
+			if runtime.GOOS == "windows" {
+				t.Skip("creating symbolic links needs Developer Mode or an administrator on Windows:", err)
+			}
 			t.Fatal(err)
 		}
 	}
@@ -86,6 +90,18 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+func TestResolveDriveNames(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("only Windows has drive names")
+	}
+	dir := t.TempDir()
+	for _, name := range []string{`\Windows\win.ini`, "C:a.db", `\\server\share\a.db`} {
+		if _, err := resolve(dir, name, true); err == nil || !strings.Contains(err.Error(), "absolute") {
+			t.Errorf("resolve(%q): %v; want it refused as absolute", name, err)
+		}
+	}
+}
+
 func TestResolveRoot(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "missing")
 	if _, err := resolve(dir, "a.db", false); err == nil || !strings.Contains(err.Error(), "ROWSMITH_SQLITE_DIR") {
@@ -101,11 +117,11 @@ func TestResolveRoot(t *testing.T) {
 
 	t.Setenv("ROWSMITH_SQLITE_DIR", "")
 	t.Setenv("ROWSMITH_DATA_DIR", "/srv/rowsmith")
-	if got := root(); got != "/srv/rowsmith/sqlite" {
+	if got := root(); got != filepath.Join("/srv/rowsmith", "sqlite") {
 		t.Errorf("root() = %q", got)
 	}
 	t.Setenv("ROWSMITH_DATA_DIR", "")
-	if got := root(); got != "/data/sqlite" {
+	if got := root(); got != filepath.Join("/data", "sqlite") {
 		t.Errorf("root() = %q", got)
 	}
 	t.Setenv("ROWSMITH_SQLITE_DIR", "/files")

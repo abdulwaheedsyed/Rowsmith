@@ -32,7 +32,9 @@ func resolve(dir, name string, create bool) (string, error) {
 		return "", errors.New("database file is required")
 	case strings.ContainsRune(name, 0):
 		return "", errors.New("the file name contains a NUL byte")
-	case filepath.IsAbs(name):
+	// On Windows a name can also start at the drive's root (\data\a.db) or
+	// name a drive (C:a.db) without being absolute: refuse those as well.
+	case filepath.IsAbs(name) || filepath.VolumeName(name) != "" || strings.HasPrefix(name, "/") || strings.HasPrefix(name, string(filepath.Separator)):
 		return "", errors.New("use a path relative to the SQLite directory, not an absolute path")
 	}
 	for _, part := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == filepath.Separator }) {
