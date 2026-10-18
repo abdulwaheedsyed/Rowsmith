@@ -199,10 +199,17 @@ jobs:
           go test ./... 2>&1 | tee test.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            # Name the failures in an annotation on the run, which anyone can read.
-            failures="$(grep -E -- '^(--- FAIL|FAIL|panic:)|_test\.go:[0-9]+:' test.log | head -n 60 | tr -d '\r')"
-            failures="${failures//'%'/'%25'}"
-            echo "::error title=Tests failed on $RUNNER_OS::${failures//$'\n'/'%0A'}"
+            # Name the failures in annotations on the run, which anyone can read:
+            # the packages, the tests, then the first messages.
+            annotate() {
+              local msg
+              msg="$(tr -d '\r')"
+              msg="${msg//'%'/'%25'}"
+              echo "::error title=$1::${msg//$'\n'/'%0A'}"
+            }
+            grep -E '^FAIL\s' test.log | annotate "Packages failing on $RUNNER_OS"
+            grep -E -- '--- FAIL' test.log | head -n 40 | annotate "Tests failing on $RUNNER_OS"
+            grep -E -- '^panic:|_test\.go:[0-9]+:' test.log | head -n 25 | cut -c1-300 | annotate "First failures on $RUNNER_OS"
           fi
           exit "$status"
 

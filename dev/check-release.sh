@@ -8,7 +8,15 @@ ARCHIVE="${1:?usage: dev/check-release.sh ARCHIVE VERSION}"
 VERSION="${2:?usage: dev/check-release.sh ARCHIVE VERSION}"
 WORK="$(mktemp -d)"
 PID=
-trap 'kill "$PID" 2>/dev/null || true; rm -rf "$WORK"' EXIT
+cleanup() {
+  if [ -n "$PID" ]; then
+    kill "$PID" 2>/dev/null || true
+    wait "$PID" 2>/dev/null || true
+  fi
+  # Windows can keep the server's files locked for a moment after it stops.
+  rm -rf "$WORK" 2>/dev/null || true
+}
+trap cleanup EXIT
 
 # fail explains what went wrong, in GitHub Actions also as an annotation on the run.
 fail() {
