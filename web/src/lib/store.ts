@@ -177,12 +177,14 @@ interface UIState {
   navWidth: number;
   navOpen: boolean; // mobile drawer / desktop collapse
   paletteOpen: boolean;
+  aboutOpen: boolean;
   /** What the navigator shows beside each table: its row count or its size on disk. */
   navMeasure: "rows" | "size";
   setTheme(t: Theme): void;
   setNavWidth(w: number): void;
   setNavOpen(open: boolean): void;
   setPaletteOpen(open: boolean): void;
+  setAboutOpen(open: boolean): void;
   setNavMeasure(m: "rows" | "size"): void;
 }
 
@@ -215,6 +217,7 @@ export const useUI = create<UIState>()(
       navWidth: 272,
       navOpen: true,
       paletteOpen: false,
+      aboutOpen: false,
       navMeasure: "rows",
       setTheme(t) {
         applyTheme(t);
@@ -228,6 +231,9 @@ export const useUI = create<UIState>()(
       },
       setPaletteOpen(open) {
         set({ paletteOpen: open });
+      },
+      setAboutOpen(open) {
+        set({ aboutOpen: open });
       },
       setNavMeasure(m) {
         set({ navMeasure: m });

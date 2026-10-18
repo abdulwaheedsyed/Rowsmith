@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, ShieldOff, KeyRound, Monitor, Moon, Sun, LogOut } from "lucide-react";
+import { ShieldCheck, ShieldOff, KeyRound, Monitor, Moon, Sun, LogOut, Info } from "lucide-react";
 import { ApiError, del, get, patch, post } from "../../lib/api";
 import type { Me } from "../../lib/types";
 import { ago } from "../../lib/format";
 import { toast, useUI } from "../../lib/store";
 import { Alert, Button, Dialog, Field, Spinner } from "../../components/ui";
 import { MfaEnroll, RecoveryCodes } from "../auth/Auth";
+import { isRelease, useVersion } from "../shell/About";
 
 export function Account({ me }: { me: Me }) {
   const qc = useQueryClient();
-  const { theme, setTheme } = useUI();
+  const { theme, setTheme, setAboutOpen } = useUI();
+  const version = useVersion();
   const [pw, setPw] = useState({ current: "", next: "" });
   const [pwError, setPwError] = useState("");
   const [enroll, setEnroll] = useState(false);
@@ -118,6 +120,12 @@ export function Account({ me }: { me: Me }) {
             <button aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon /> Dark</button>
             <button aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun /> Light</button>
           </div>
+        </section>
+
+        <section className="card pcard">
+          <h2 className="pcard__title">About</h2>
+          <p className="pcard__desc">Rowsmith™ {isRelease(version) ? version : `development build ${version}`}</p>
+          <Button onClick={() => setAboutOpen(true)}><Info /> About Rowsmith™</Button>
         </section>
       </div>
 

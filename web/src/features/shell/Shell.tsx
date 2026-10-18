@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as RContext from "@radix-ui/react-context-menu";
 import {
   Plus, Search, Settings, LogOut, Moon, Sun, Monitor, UserRound, BookMarked, Shield, Menu as MenuIcon, X, Home as HomeIcon,
-  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil, CalendarClock, ArrowRightLeft,
+  TerminalSquare, Table2, Lock, PanelLeftClose, PanelLeftOpen, Unplug, Pencil, CalendarClock, ArrowRightLeft, Info,
 } from "lucide-react";
 import { post, setCsrf } from "../../lib/api";
 import { useConnections, useOpenConnections, useServer } from "../../lib/queries";
@@ -16,6 +16,7 @@ import { Home } from "../home/Home";
 import { Workspace } from "../workspace/Workspace";
 import { CItem, Navigator } from "../navigator/Navigator";
 import { CommandPalette } from "./CommandPalette";
+import { AboutDialog } from "./About";
 import { ConnectionDialog } from "../connections/ConnectionForm";
 import { Library } from "../library/Library";
 import { Schedules } from "../schedules/Schedules";
@@ -118,6 +119,7 @@ export function Shell({ me }: { me: Me }) {
       <TransferDialogs />
       <ScheduleDialogHost />
       <ShareDialogHost />
+      <AboutDialog />
       {editing.open && <ConnectionDialog conn={editing.conn} initialDriver={editing.driver} onClose={() => setEditing({ open: false })} />}
     </div>
   );
@@ -229,7 +231,7 @@ function Rail({ me, activeId, onAdd, onEdit }: { me: Me; activeId?: string; onAd
 function AccountMenu({ me, side = "bottom" }: { me: Me; side?: "right" | "bottom" }) {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const { theme, setTheme } = useUI();
+  const { theme, setTheme, setAboutOpen } = useUI();
   const initialsText = me.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
     <Menu>
@@ -248,6 +250,8 @@ function AccountMenu({ me, side = "bottom" }: { me: Me; side?: "right" | "bottom
         <MenuItem icon={<Monitor />} onSelect={() => setTheme("system")} hint={theme === "system" ? "✓" : undefined}>System</MenuItem>
         <MenuItem icon={<Moon />} onSelect={() => setTheme("dark")} hint={theme === "dark" ? "✓" : undefined}>Dark</MenuItem>
         <MenuItem icon={<Sun />} onSelect={() => setTheme("light")} hint={theme === "light" ? "✓" : undefined}>Light</MenuItem>
+        <MenuSep />
+        <MenuItem icon={<Info />} onSelect={() => setAboutOpen(true)}>About Rowsmith™</MenuItem>
         <MenuSep />
         <MenuItem
           icon={<LogOut />}

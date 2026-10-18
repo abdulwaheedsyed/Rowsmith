@@ -30,7 +30,9 @@ import (
 	"rowsmith/internal/vault"
 )
 
-const Version = "0.1.0"
+// Version is set when Rowsmith is built, from the release tag:
+// -ldflags "-X rowsmith/internal/api.Version=0.1.0".
+var Version = "dev"
 
 type Server struct {
 	cfg      *config.Config

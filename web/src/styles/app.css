@@ -451,6 +451,44 @@ body.is-resizing-v * {
   vertical-align: 1.3em;
   color: var(--muted);
 }
+
+/* About dialog */
+.about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: center;
+}
+.about__tagline {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.about__version {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: 2px 2px 2px var(--sp-5);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--raised);
+  font-size: var(--fs-sm);
+}
+.about__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3) var(--sp-6);
+  margin-top: var(--sp-5);
+  font-size: var(--fs-sm);
+}
+.about__legal {
+  max-width: 44ch;
+  margin-top: var(--sp-5);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
 .engine {
   --hue: #8793a6;
   display: inline-grid;

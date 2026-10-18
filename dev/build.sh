@@ -8,5 +8,7 @@ npm run build --silent
 find "$ROOT/internal/web/dist" -mindepth 1 ! -name .keep -delete
 cp -R dist/. "$ROOT/internal/web/dist/"
 cd "$ROOT"
-dev/go.sh build -trimpath -ldflags "-s -w" -o /src/.bin/rowsmith ./cmd/rowsmith
-echo "built .bin/rowsmith"
+# The version is the nearest tag, plus the commits since it: 0.1.0-4-g1a2b3c4
+VERSION="$(git describe --tags --always --dirty --match 'v[0-9]*' 2>/dev/null | sed 's/^v//')"
+dev/go.sh build -trimpath -ldflags "-s -w -X rowsmith/internal/api.Version=${VERSION:-dev}" -o /src/.bin/rowsmith ./cmd/rowsmith
+echo "built .bin/rowsmith ${VERSION:-dev}"

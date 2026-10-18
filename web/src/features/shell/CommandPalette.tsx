@@ -1,7 +1,7 @@
 import { Command } from "cmdk";
 import * as RDialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles, CalendarClock, Link2, ArrowRightLeft } from "lucide-react";
+import { Database, Moon, Plus, Server, Sun, TerminalSquare, Unplug, PencilRuler, FileUp, Download, Activity, BookMarked, Shield, UserRound, Columns3, SlidersHorizontal, Home, Network, Sparkles, CalendarClock, Link2, ArrowRightLeft, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import { get } from "../../lib/api";
 import { useConnections, useObjects, useDriver } from "../../lib/queries";
@@ -48,7 +48,7 @@ function paletteFilter(value: string, search: string) {
 
 
 export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: Connection; onNewConnection(): void }) {
-  const { paletteOpen, setPaletteOpen, setTheme } = useUI();
+  const { paletteOpen, setPaletteOpen, setTheme, setAboutOpen } = useUI();
   const [search, setSearch] = useState("");
   const conns = useConnections();
   const scope = useWorkspace((s) => (conn ? s.scope[conn.id] : undefined));
@@ -221,6 +221,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                 {isAdmin && <Command.Item value="ai assistant settings provider model api key openai openrouter ollama anthropic" onSelect={run(() => go("/admin/ai"))}><Sparkles /> AI assistant settings</Command.Item>}
                 <Command.Item value="theme dark mode" onSelect={run(() => setTheme("dark"))}><Moon /> Dark theme</Command.Item>
                 <Command.Item value="theme light mode" onSelect={run(() => setTheme("light"))}><Sun /> Light theme</Command.Item>
+                <Command.Item value="about rowsmith version release notes license third-party notices report a problem" onSelect={run(() => setAboutOpen(true))}><Info /> About Rowsmith™</Command.Item>
               </Command.Group>
             </Command.List>
           </Command>

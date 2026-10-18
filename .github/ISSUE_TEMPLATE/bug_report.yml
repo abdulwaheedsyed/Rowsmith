@@ -34,9 +34,9 @@ body:
   - type: input
     id: version
     attributes:
-      label: Rowsmith version and commit
-      description: "`rowsmith version` prints the version (in a container: `docker exec rowsmith /rowsmith version`). If you built it yourself, add the commit from `git rev-parse --short HEAD`."
-      placeholder: 0.1.0, commit 7b27d16
+      label: Rowsmith version
+      description: "It's under About Rowsmith™ in the account menu, and `rowsmith version` prints it (in a container: `docker exec rowsmith /rowsmith version`). Builds from a clone include the commit."
+      placeholder: 0.1.0, or 0.1.0-4-g7b27d16 for a build from a clone
     validations:
       required: true
   - type: dropdown

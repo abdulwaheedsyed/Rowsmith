@@ -32,8 +32,8 @@ import (
 func main() {
 	cmd := "serve"
 	args := os.Args[1:]
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		cmd, args = args[0], args[1:]
+	if len(args) > 0 && (!strings.HasPrefix(args[0], "-") || args[0] == "--version" || args[0] == "-version") {
+		cmd, args = strings.TrimLeft(args[0], "-"), args[1:]
 	}
 	var err error
 	switch cmd {
