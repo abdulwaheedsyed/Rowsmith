@@ -52,6 +52,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 - **Import**: CSV (delimiter detected), TSV, JSON, NDJSON and Excel into an existing table, with a preview and column mapping, in one transaction: if a row fails, nothing is kept. SQL files run statement by statement with the console's safety rules.
 - **EXPLAIN / EXPLAIN ANALYZE** turned into a plan tree. PostgreSQL's `ANALYZE` runs inside a transaction that is always rolled back.
 - **Administration**: running processes (with kill), server variables and status
+- **Sizes**: the connection's overview lists its databases and the tables in the one you're in, largest first, with size on disk (indexes included) and rows. The navigator can show each table's size instead of its row count.
 - **Users and access**: manage database accounts and what they may do without writing GRANT statements. See [Users and access](#users-and-access).
   - a privilege editor per user or role: tick privileges server-wide, on a database or schema, on every table (including tables created later, where the engine supports it), or table by table in a matrix
   - quick presets (read only, read & write, full access, no access) and copying another account's access

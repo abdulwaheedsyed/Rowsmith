@@ -214,6 +214,25 @@ func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
 
 func (c *conn) Schemas(context.Context, string) ([]driver.Schema, error) { return nil, nil }
 
+// collStats reads a collection's document count and its size on disk, data
+// and indexes, as listDatabases adds them up for a database.
+func collStats(ctx context.Context, coll *mongo.Collection) (count, size int64, ok bool) {
+	cur, err := coll.Aggregate(ctx, mongo.Pipeline{{{Key: "$collStats", Value: bson.D{{Key: "storageStats", Value: bson.D{}}}}}})
+	if err != nil {
+		return 0, 0, false
+	}
+	defer cur.Close(ctx)
+	var doc bson.D
+	if !cur.Next(ctx) || cur.Decode(&doc) != nil {
+		return 0, 0, false
+	}
+	st, _ := get(doc, "storageStats").(bson.D)
+	if st == nil {
+		return 0, 0, false
+	}
+	return toInt64(get(st, "count")), toInt64(get(st, "storageSize")) + toInt64(get(st, "totalIndexSize")), true
+}
+
 func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, error) {
 	db := c.db(s.Database)
 	cur, err := db.ListCollections(ctx, bson.D{}, options.ListCollections().SetAuthorizedCollections(true))
@@ -242,7 +261,9 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 		}
 		o := driver.Object{Name: name, Kind: kind}
 		if kind == "collection" && budget.Err() == nil {
-			if n, err := db.Collection(name).EstimatedDocumentCount(budget); err == nil {
+			if n, size, ok := collStats(budget, db.Collection(name)); ok {
+				o.Rows, o.Size = &n, &size
+			} else if n, err := db.Collection(name).EstimatedDocumentCount(budget); err == nil {
 				o.Rows = &n
 			}
 		}
@@ -398,7 +419,9 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	if len(t.Columns) == 0 {
 		t.Columns = []driver.Column{{Name: "_id", Type: "objectId", BaseType: "objectId", Kind: driver.KindOther, PrimaryKey: true}}
 	}
-	if n, err := db.Collection(ref.Name).EstimatedDocumentCount(ctx); err == nil {
+	if n, size, ok := collStats(ctx, db.Collection(ref.Name)); ok && t.Kind != "view" {
+		t.RowEstimate, t.Size = &n, &size
+	} else if n, err := db.Collection(ref.Name).EstimatedDocumentCount(ctx); err == nil {
 		t.RowEstimate = &n
 	}
 

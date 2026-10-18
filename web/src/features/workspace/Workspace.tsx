@@ -6,10 +6,10 @@ import {
   X, Plus, Table2, TerminalSquare, Columns3, FileCode2, Activity, SlidersHorizontal, UserRound, Server, Network, RefreshCw, Skull, Database, HardDrive, PencilRuler,
 } from "lucide-react";
 import { get, post, qs } from "../../lib/api";
-import { useDatabases, useDriver, useServer } from "../../lib/queries";
+import { useDatabases, useDriver, useObjects, useServer } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
-import type { Connection, HistoryEntry, Me, Result } from "../../lib/types";
-import { ago, bytes, duration, temperForMs, modKey, cellText } from "../../lib/format";
+import type { Connection, DbObject, HistoryEntry, Me, Result } from "../../lib/types";
+import { ago, bytes, compact, duration, int, pluralize, temperForMs, modKey, cellText } from "../../lib/format";
 import { Alert, Button, Dialog, Empty, EngineBadge, Env, Kbd, Spinner } from "../../components/ui";
 import { BrowseTab } from "../browse/BrowseTab";
 import { QueryTab } from "../query/QueryTab";
@@ -18,6 +18,7 @@ import { DataGrid } from "../grid/DataGrid";
 import { DiagramTab } from "../structure/DiagramTab";
 import { DesignTab } from "../design/DesignTab";
 import { UsersPage } from "../access/UsersPage";
+import { kindIcon } from "../navigator/Navigator";
 import { newQueryTab, openPanel, openObject } from "./actions";
 import { useRuns } from "../query/runs";
 import "./workspace.css";
@@ -158,6 +159,7 @@ function ConnectionHome({ conn }: { conn: Connection }) {
   const server = useServer(conn.id);
   const dbs = useDatabases(conn.id, !!drv?.caps.databases && !server.isError);
   const setScope = useWorkspace((s) => s.setScope);
+  const current = useWorkspace((s) => s.scope[conn.id]?.database);
   const history = useQuery({ queryKey: ["history", conn.id], queryFn: () => get<HistoryEntry[]>(`history${qs({ connection: conn.id, limit: 8 })}`) });
   const extras = Object.entries(server.data?.server.extras ?? {}).filter(([k]) => k !== "Build");
   const maxSize = Math.max(1, ...(dbs.data ?? []).map((d) => d.size ?? 0));
@@ -188,7 +190,8 @@ function ConnectionHome({ conn }: { conn: Connection }) {
             {dbs.isLoading && <Spinner />}
             <div className="dblist">
               {(dbs.data ?? []).filter((d) => !d.system).concat((dbs.data ?? []).filter((d) => d.system)).map((d) => (
-                <button key={d.name} className={`dblist__row ${d.system ? "is-system" : ""}`} onClick={() => setScope(conn.id, { database: d.name, schema: undefined })}>
+                <button key={d.name} className={`dblist__row ${d.system ? "is-system" : ""} ${d.name === current ? "is-current" : ""}`} aria-current={d.name === current || undefined}
+                  title={d.tables !== undefined ? `${d.name} · ${pluralize(d.tables, "table")}` : d.name} onClick={() => setScope(conn.id, { database: d.name, schema: undefined })}>
                   <Database />
                   <span className="dblist__name truncate">{d.name}</span>
                   <span className="dblist__bar"><span style={{ width: `${((d.size ?? 0) / maxSize) * 100}%` }} /></span>
@@ -198,6 +201,7 @@ function ConnectionHome({ conn }: { conn: Connection }) {
             </div>
           </section>
         )}
+        {!server.isError && <TablesCard conn={conn} />}
         <section className="card connhome__card">
           <h2 className="eyebrow">Recent here</h2>
           {history.data?.length === 0 && <p className="muted connhome__empty">Nothing run on this connection yet.</p>}
@@ -227,6 +231,66 @@ function ConnectionHome({ conn }: { conn: Connection }) {
         </section>
       </div>
     </div>
+  );
+}
+
+// Kinds that hold rows on disk; views have no size of their own.
+const STORED = new Set(["table", "partitioned_table", "materialized_view", "collection", "timeseries", "external_table"]);
+const SHOWN = 12;
+
+/** The tables of the database (and schema) the navigator is in, largest first. */
+function TablesCard({ conn }: { conn: Connection }) {
+  const drv = useDriver(conn.driver);
+  const scope = useWorkspace((s) => s.scope[conn.id]);
+  const hasDbs = !!drv?.caps.databases;
+  const hasSchemas = !!drv?.caps.schemas;
+  const ready = !!drv && (!hasDbs || !!scope?.database) && (!hasSchemas || !!scope?.schema);
+  // The navigator's own query: already loaded, kept in step with it.
+  const objs = useObjects(conn.id, scope?.database, scope?.schema, ready);
+  const [all, setAll] = useState(false);
+  // Partitions are counted in their parent table.
+  const list = useMemo(() => (objs.data ?? []).filter((o) => STORED.has(o.kind) && !o.extra?.startsWith("partition of")), [objs.data]);
+  if (!ready) return null;
+  const sized = list.some((o) => o.size !== undefined && o.size !== null);
+  const measure = (o: DbObject) => (sized ? o.size : o.rows) ?? 0;
+  const sorted = [...list].sort((a, b) => measure(b) - measure(a) || a.name.localeCompare(b.name));
+  const max = Math.max(1, ...sorted.map(measure));
+  const total = list.reduce((n, o) => n + (o.size ?? 0), 0);
+  const noun = drv.caps.documents ? "collection" : "table";
+  const where = [scope?.database, scope?.schema].filter(Boolean).join(" · ");
+  const shown = all ? sorted : sorted.slice(0, SHOWN);
+  const has = (v?: number | null): v is number => v !== undefined && v !== null;
+  return (
+    <section className="card connhome__card connhome__card--wide">
+      <div className="connhome__cardhead">
+        <h2 className="eyebrow truncate">{noun === "table" ? "Tables" : "Collections"}{where ? ` in ${where}` : ""}</h2>
+        {list.length > 0 && <span className="faint tnum">{pluralize(list.length, noun)}{sized ? ` · ${bytes(total)}` : ""}</span>}
+      </div>
+      {objs.isLoading && <Spinner />}
+      {objs.error && <Alert kind="danger">{(objs.error as Error).message}</Alert>}
+      {objs.data && list.length === 0 && <p className="muted connhome__empty">No {noun}s here yet.</p>}
+      {list.length > 0 && (
+        <div className="dblist">
+          <div className="dblist__row dblist__row--table dblist__row--head" aria-hidden="true">
+            <span /><span /><span /><span>{sized ? "Size" : "Rows"}</span><span>{sized ? "Rows" : ""}</span>
+          </div>
+          {shown.map((o) => {
+            const Icon = kindIcon(o.kind);
+            return (
+              <button key={o.name} className="dblist__row dblist__row--table" onClick={() => openObject(conn, { database: scope?.database, schema: scope?.schema, name: o.name, kind: o.kind }, "browse")}
+                title={[o.name, has(o.rows) && `${int(o.rows)} rows (est.)`, has(o.size) && `${bytes(o.size)} on disk, with indexes`].filter(Boolean).join(" · ")}>
+                <Icon />
+                <span className="dblist__name truncate">{o.name}</span>
+                <span className="dblist__bar"><span style={{ width: `${(measure(o) / max) * 100}%` }} /></span>
+                <span className="dblist__size mono">{sized ? (has(o.size) ? bytes(o.size) : "") : has(o.rows) ? compact(o.rows) : ""}</span>
+                <span className="dblist__size dblist__rows mono">{sized && has(o.rows) ? compact(o.rows) : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {sorted.length > shown.length && <Button size="sm" variant="ghost" onClick={() => setAll(true)}>Show all {sorted.length}</Button>}
+    </section>
   );
 }
 

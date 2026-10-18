@@ -176,6 +176,32 @@
   width: 13px;
   height: 13px;
 }
+.navgroup__measure {
+  flex: none;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+/* Clear of the + that appears at the end of the bar on hover. */
+.navgroup__bar:has(.navgroup__add) .navgroup__measure {
+  margin-right: 22px;
+}
+.navgroup__measure:hover {
+  border-color: var(--line);
+  color: var(--text-2);
+}
+.navgroup__measure:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .navgroup__count {
   font-weight: 500;
   letter-spacing: 0;

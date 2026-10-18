@@ -244,6 +244,48 @@
 .dblist__row.is-system {
   color: var(--faint);
 }
+.dblist__row.is-current {
+  background: var(--active);
+  color: var(--text);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.dblist__row--table {
+  grid-template-columns: 16px minmax(0, 2fr) minmax(24px, 1fr) 60px 44px;
+  gap: 8px;
+}
+/* The tables card takes two columns where the overview has room for them. */
+@media (min-width: 1200px) {
+  .connhome__card--wide {
+    grid-column: span 2;
+  }
+}
+.dblist__row--head {
+  height: 20px;
+  color: var(--faint);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+  cursor: default;
+}
+.dblist__row--head:hover {
+  background: none;
+}
+.dblist__rows {
+  color: var(--faint);
+}
+.connhome__cardhead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: var(--fs-2xs);
+}
+.connhome__cardhead .eyebrow {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
 .dblist__bar {
   height: 5px;
   border-radius: 3px;

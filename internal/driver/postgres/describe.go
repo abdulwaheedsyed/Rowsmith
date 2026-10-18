@@ -33,7 +33,7 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	var persistence string
 	err = db.QueryRowContext(ctx, `SELECT c.oid, c.relkind::text, COALESCE(obj_description(c.oid, 'pg_class'), ''),
 		CASE WHEN c.reltuples >= 0 THEN c.reltuples::bigint END,
-		CASE WHEN c.relkind IN ('r','m','p','t') THEN pg_total_relation_size(c.oid) END, c.relpersistence::text
+		`+relSize(p.server)+`, c.relpersistence::text
 		FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace WHERE ns.nspname = $1 AND c.relname = $2`, schema, ref.Name).
 		Scan(&oid, &kind, &comment, &n, &size, &persistence)
 	if err == sql.ErrNoRows {

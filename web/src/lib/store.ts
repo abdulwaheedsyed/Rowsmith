@@ -177,10 +177,13 @@ interface UIState {
   navWidth: number;
   navOpen: boolean; // mobile drawer / desktop collapse
   paletteOpen: boolean;
+  /** What the navigator shows beside each table: its row count or its size on disk. */
+  navMeasure: "rows" | "size";
   setTheme(t: Theme): void;
   setNavWidth(w: number): void;
   setNavOpen(open: boolean): void;
   setPaletteOpen(open: boolean): void;
+  setNavMeasure(m: "rows" | "size"): void;
 }
 
 function applyTheme(t: Theme) {
@@ -212,6 +215,7 @@ export const useUI = create<UIState>()(
       navWidth: 272,
       navOpen: true,
       paletteOpen: false,
+      navMeasure: "rows",
       setTheme(t) {
         applyTheme(t);
         set({ theme: t });
@@ -225,8 +229,11 @@ export const useUI = create<UIState>()(
       setPaletteOpen(open) {
         set({ paletteOpen: open });
       },
+      setNavMeasure(m) {
+        set({ navMeasure: m });
+      },
     }),
-    { name: "rowsmith.ui", partialize: (s) => ({ navWidth: s.navWidth, navOpen: s.navOpen }) as UIState },
+    { name: "rowsmith.ui", partialize: (s) => ({ navWidth: s.navWidth, navOpen: s.navOpen, navMeasure: s.navMeasure }) as UIState },
   ),
 );
 

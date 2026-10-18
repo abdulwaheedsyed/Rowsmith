@@ -220,6 +220,17 @@ func (c *conn) pool(ctx context.Context, database string) (*pool, error) {
 	return p, nil
 }
 
+// relSize is the SQL for the size of relation c on disk, with its indexes
+// and TOAST. A partitioned table has no storage of its own: its size is its
+// partitions' (PostgreSQL 12 and later can list them).
+func relSize(server int) string {
+	if server >= 120000 {
+		return `CASE WHEN c.relkind = 'p' THEN (SELECT sum(pg_total_relation_size(t.relid))::bigint FROM pg_partition_tree(c.oid) t)
+			WHEN c.relkind IN ('r','m','t') THEN pg_total_relation_size(c.oid) END`
+	}
+	return `CASE WHEN c.relkind IN ('r','m','p','t') THEN pg_total_relation_size(c.oid) END`
+}
+
 // serverVersion is the server's version number (e.g. 160004), or 0 before
 // the first connection.
 func (c *conn) serverVersion() int {
@@ -426,7 +437,7 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 	var out []driver.Object
 	rows, err := p.db.QueryContext(ctx, `SELECT c.relname, c.relkind::text,
 		CASE WHEN c.reltuples >= 0 THEN c.reltuples::bigint END,
-		CASE WHEN c.relkind IN ('r','m','p','t') THEN pg_total_relation_size(c.oid) END,
+		`+relSize(p.server)+`,
 		COALESCE(obj_description(c.oid, 'pg_class'), ''),
 		CASE WHEN c.relispartition THEN 'partition of ' || (SELECT pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent WHERE i.inhrelid = c.oid LIMIT 1) ELSE '' END,
 		COALESCE((SELECT e.extname FROM pg_depend d JOIN pg_extension e ON e.oid = d.refobjid

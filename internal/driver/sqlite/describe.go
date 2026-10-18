@@ -30,6 +30,9 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	t := &driver.Table{Ref: driver.ObjectRef{Name: name, Kind: kind}, Kind: kind, Options: map[string]string{}}
 	def := parseTable(ddl)
 	if kind == "table" {
+		if n, ok := c.tableSizes(ctx, name)[name]; ok {
+			t.Size = &n
+		}
 		setFlag(t.Options, "without_rowid", def.withoutRowid)
 		setFlag(t.Options, "strict", def.strict)
 		if def.module != "" {

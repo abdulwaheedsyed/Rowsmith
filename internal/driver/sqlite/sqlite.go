@@ -233,7 +233,42 @@ func (c *conn) Objects(ctx context.Context, _ driver.Scope) ([]driver.Object, er
 		}
 		out = append(out, o)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sizes := c.tableSizes(ctx, "")
+	for i, o := range out {
+		if n, ok := sizes[o.Name]; ok && o.Kind == "table" {
+			out[i].Size = &n
+		}
+	}
+	return out, nil
+}
+
+// tableSizes is each table's size in the file (or one table's), with its
+// indexes, from the dbstat table. It reads every page, so a large file gets
+// two seconds.
+func (c *conn) tableSizes(ctx context.Context, table string) map[string]int64 {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	rows, err := c.db.QueryContext(ctx, `SELECT m.tbl_name, SUM(s.pgsize) FROM sqlite_schema m
+		JOIN dbstat s ON s.name = m.name AND s.aggregate = TRUE WHERE ? = '' OR m.tbl_name = ? GROUP BY m.tbl_name`, table, table)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var name string
+		var n int64
+		if rows.Scan(&name, &n) == nil {
+			out[name] = n
+		}
+	}
+	if rows.Err() != nil {
+		return nil
+	}
+	return out
 }
 
 func (c *conn) Browse(ctx context.Context, req driver.BrowseRequest) (*driver.Result, error) {

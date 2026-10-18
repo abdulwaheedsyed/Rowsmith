@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import { go } from "../../lib/nav";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
-import { useWorkspace } from "../../lib/store";
+import { useUI, useWorkspace } from "../../lib/store";
 import type { Connection, DbObject, ObjectRef } from "../../lib/types";
-import { bytes, compact } from "../../lib/format";
+import { bytes, compact, int } from "../../lib/format";
 import { Button, EngineBadge, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip, Alert } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../workspace/actions";
 import { DDLDialog, type DDLAction } from "../structure/DDLDialog";
@@ -33,10 +33,18 @@ export function kindIcon(kind: string) {
 const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
 const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries"]);
 
+/** A table's rows and size, for its tooltip. */
+function facts(o: DbObject) {
+  const has = (v?: number | null): v is number => v !== undefined && v !== null;
+  return [has(o.rows) && `${int(o.rows)} rows (est.)`, has(o.size) && `${bytes(o.size)} on disk`].filter(Boolean).join(" · ");
+}
+
 export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }) {
   const drv = useDriver(conn.driver);
   const server = useServer(conn.id);
   const scope = useWorkspace((s) => s.scope[conn.id]) ?? {};
+  const measure = useUI((s) => s.navMeasure);
+  const setMeasure = useUI((s) => s.setNavMeasure);
   const setScope = useWorkspace((s) => s.setScope);
   const expanded = useWorkspace((s) => s.expanded);
   const toggle = useWorkspace((s) => s.toggle);
@@ -239,6 +247,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
         )}
         {groups.map(([kind, list]) => {
           const key = `nav:${conn.id}:${kind}`;
+          // Tables can show their size on disk instead of their row count.
+          const sized = BROWSABLE.has(kind) && list.some((o) => o.size !== undefined && o.size !== null);
           const info = drv?.kinds.find((k) => k.kind === kind);
           const isOpen = expanded[key] ?? (BROWSABLE.has(kind) || list.length < 30 || !!filter);
           const Icon = kindIcon(kind);
@@ -250,6 +260,12 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                   <span className="grow">{info?.label ?? kind}</span>
                   <span className="navgroup__count tnum">{list.length}</span>
                 </button>
+                {sized && (
+                  <Tip label={measure === "size" ? "Showing size on disk. Show row counts" : "Showing row counts. Show size on disk"}>
+                    <button className="navgroup__measure" onClick={() => setMeasure(measure === "size" ? "rows" : "size")}
+                      aria-label={measure === "size" ? "Show row counts" : "Show sizes on disk"}>{measure === "size" ? "size" : "rows"}</button>
+                  </Tip>
+                )}
                 {(kind === "table" || kind === "collection") && canWrite && drv?.design && (
                   <Tip label={`New ${kind}`}>
                     <button className="navgroup__add" aria-label={`New ${kind}`} onClick={() => openDesign(conn, { database: scope.database, schema: scope.schema })}><Plus /></button>
@@ -270,13 +286,15 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                             <button
                               role="treeitem"
                               className={`navitem ${active ? "is-active" : ""}`}
-                              title={o.comment || o.extra || o.name}
+                              title={[o.name, o.comment || o.extra, facts(o)].filter(Boolean).join("\n")}
                               onClick={() => openObject(conn, ref, browsable ? "browse" : "definition", true)}
                               onDoubleClick={() => openObject(conn, ref, browsable ? "browse" : "definition", false)}
                             >
                               <Icon className="navitem__icon" />
                               <span className="navitem__name truncate">{o.name}</span>
-                              {o.rows !== undefined && o.rows !== null && browsable && <span className="navitem__meta mono">{compact(o.rows)}</span>}
+                              {browsable && measure === "size" && sized && o.size !== undefined && o.size !== null
+                                ? <span className="navitem__meta mono">{bytes(o.size)}</span>
+                                : o.rows !== undefined && o.rows !== null && browsable && <span className="navitem__meta mono">{compact(o.rows)}</span>}
                               {!browsable && o.extra && <span className="navitem__meta truncate mono">{o.extra}</span>}
                             </button>
                           </RContext.Trigger>

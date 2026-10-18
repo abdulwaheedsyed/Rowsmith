@@ -631,3 +631,38 @@ func TestMemory(t *testing.T) {
 		t.Errorf("a second pool shares the scratch database: %v, %v", objs, err)
 	}
 }
+
+func TestSizes(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("ROWSMITH_SQLITE_DIR", t.TempDir())
+	c := open(t, map[string]any{"file": "sizes.db", "create": true}, false)
+	sess, err := c.NewSession(ctx, driver.Scope{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+	run(t, sess, `CREATE TABLE big (id INTEGER PRIMARY KEY, body TEXT); CREATE INDEX big_body ON big (body);
+		CREATE TABLE small (id INTEGER PRIMARY KEY); CREATE VIEW v AS SELECT id FROM small;
+		WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2000) INSERT INTO big SELECT i, printf('%.200c', 'x') FROM n`)
+	objs, err := c.Objects(ctx, driver.Scope{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	size := map[string]int64{}
+	for _, o := range objs {
+		if o.Size != nil {
+			size[o.Name] = *o.Size
+		}
+	}
+	// Each table's size includes its indexes; views have none.
+	if size["big"] < 400_000 || size["small"] <= 0 || size["big"] <= size["small"] {
+		t.Fatalf("sizes: %v", size)
+	}
+	if _, ok := size["v"]; ok {
+		t.Error("a view has a size")
+	}
+	tb, err := c.Describe(ctx, driver.ObjectRef{Name: "big"})
+	if err != nil || tb.Size == nil || *tb.Size != size["big"] {
+		t.Fatalf("describe size = %v, %v (objects said %d)", tb.Size, err, size["big"])
+	}
+}
