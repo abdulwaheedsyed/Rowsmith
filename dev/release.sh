@@ -42,4 +42,4 @@ for target in $TARGETS; do
   fi
   echo "built $name"
 done
-(cd dist && sha256sum -- *.tar.gz *.zip >SHA256SUMS)
+(cd dist && shopt -s nullglob && sha256sum -- *.tar.gz *.zip >SHA256SUMS)
