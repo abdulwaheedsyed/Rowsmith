@@ -16,11 +16,9 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -502,28 +500,13 @@ func configKey(cfg Config) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// bridge adapts an SSH channel into a kernel socket so that callers get full
-// net.Conn semantics, including deadlines.
+// bridge adapts an SSH channel into a local connection so that callers get
+// full net.Conn semantics, including deadlines.
 func bridge(ch net.Conn) (net.Conn, error) {
-	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	a, b, err := socketPair()
 	if err != nil {
 		ch.Close()
 		return nil, err
-	}
-	fa, fb := os.NewFile(uintptr(fds[0]), "rowsmith-tunnel-a"), os.NewFile(uintptr(fds[1]), "rowsmith-tunnel-b")
-	a, errA := net.FileConn(fa)
-	b, errB := net.FileConn(fb)
-	fa.Close()
-	fb.Close()
-	if errA != nil || errB != nil {
-		ch.Close()
-		if a != nil {
-			a.Close()
-		}
-		if b != nil {
-			b.Close()
-		}
-		return nil, errors.Join(errA, errB)
 	}
 	var once sync.Once
 	closeAll := func() { once.Do(func() { ch.Close(); b.Close() }) }
