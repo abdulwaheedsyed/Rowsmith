@@ -312,6 +312,12 @@
 .panel--split {
   flex-direction: row;
 }
+/* Let the main side shrink below its content's width, so a wide result
+   scrolls inside it instead of pushing the side column off screen. */
+.panel--split > .panel {
+  min-width: 0;
+  min-height: 0;
+}
 .panel__bar {
   display: flex;
   align-items: center;
