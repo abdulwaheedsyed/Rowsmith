@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -99,6 +100,16 @@ func TestResolveDriveNames(t *testing.T) {
 		if _, err := resolve(dir, name, true); err == nil || !strings.Contains(err.Error(), "absolute") {
 			t.Errorf("resolve(%q): %v; want it refused as absolute", name, err)
 		}
+	}
+}
+
+func TestFileURI(t *testing.T) {
+	path, want := "/data/sqlite/my shop.db", "file:///data/sqlite/my%20shop.db?mode=rw"
+	if runtime.GOOS == "windows" {
+		path, want = `C:\data\sqlite\my shop.db`, "file:///C:/data/sqlite/my%20shop.db?mode=rw"
+	}
+	if got := fileURI(path, url.Values{"mode": {"rw"}}); got != want {
+		t.Errorf("fileURI(%q) = %q, want %q", path, got, want)
 	}
 }
 

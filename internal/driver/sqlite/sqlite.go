@@ -16,6 +16,7 @@ import (
 	sqldriver "database/sql/driver"
 	"errors"
 	"net/url"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -88,6 +89,17 @@ type conn struct {
 	anchor sqldriver.Conn
 }
 
+// fileURI writes a database's path as the file: URI SQLite opens. A Windows
+// path (C:\data\a.db) becomes file:///C:/data/a.db: written as it is, its
+// drive would be read as the URI's authority.
+func fileURI(path string, q url.Values) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return (&url.URL{Scheme: "file", Path: p, RawQuery: q.Encode()}).String()
+}
+
 func (sqliteDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, error) {
 	name := strings.TrimSpace(p.String("file"))
 	ro := p.ReadOnly || p.Bool("readOnly")
@@ -115,7 +127,7 @@ func (sqliteDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn,
 			q.Set("mode", "rw")
 		}
 	}
-	inner, err := msqlite.NewConnector((&url.URL{Scheme: "file", Path: path, RawQuery: q.Encode()}).String())
+	inner, err := msqlite.NewConnector(fileURI(path, q))
 	if err != nil {
 		return nil, err
 	}
