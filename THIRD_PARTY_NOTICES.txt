@@ -7,7 +7,7 @@ In the server binary (Go):
 
   Go standard library                                                          1.27.2         BSD
   cloud.google.com/go                                                          v0.123.0       Apache-2.0
-  cloud.google.com/go/auth                                                     v0.24.0        Apache-2.0
+  cloud.google.com/go/auth                                                     v0.24.1-0.20261001053825-dbc26066f70a Apache-2.0
   cloud.google.com/go/auth/oauth2adapt                                         v0.3.0         Apache-2.0
   cloud.google.com/go/bigquery                                                 v1.85.0        Apache-2.0
   cloud.google.com/go/compute/metadata                                         v0.10.0        Apache-2.0
@@ -16,7 +16,7 @@ In the server binary (Go):
   github.com/ClickHouse/ch-go                                                  v0.74.0        Apache-2.0
   github.com/ClickHouse/clickhouse-go/v2                                       v2.49.0        Apache-2.0
   github.com/andybalholm/brotli                                                v1.2.6         MIT
-  github.com/anthropics/anthropic-sdk-go                                       v1.78.0        MIT
+  github.com/anthropics/anthropic-sdk-go                                       v1.82.0        MIT
   github.com/apache/arrow/go/v15                                               v15.0.2        Apache-2.0
   github.com/bahlo/generic-list-go                                             v0.2.0         BSD
   github.com/buger/jsonparser                                                  v1.1.2         MIT
@@ -32,9 +32,9 @@ In the server binary (Go):
   github.com/golang-sql/civil                                                  v0.0.0-20220223132316-b832511892a9 Apache-2.0
   github.com/golang-sql/sqlexp                                                 v0.1.0         BSD
   github.com/google/flatbuffers                                                v23.5.26+incompatible Apache-2.0
-  github.com/google/s2a-go                                                     v0.1.10        Apache-2.0
+  github.com/google/s2a-go                                                     v0.1.11        Apache-2.0
   github.com/google/uuid                                                       v1.6.0         BSD
-  github.com/googleapis/enterprise-certificate-proxy                           v0.3.22        Apache-2.0
+  github.com/googleapis/enterprise-certificate-proxy                           v0.3.23        Apache-2.0
   github.com/googleapis/gax-go/v2                                              v2.26.2        BSD
   github.com/invopop/jsonschema                                                v0.14.0        MIT
   github.com/jackc/pgpassfile                                                  v1.0.0         MIT
@@ -61,7 +61,7 @@ In the server binary (Go):
   github.com/xdg-go/stringprep                                                 v1.0.4         Apache-2.0
   github.com/youmark/pkcs8                                                     v0.0.0-20240726163527-a2c0da244d78 MIT
   github.com/zeebo/xxh3                                                        v1.0.2         BSD
-  go.mongodb.org/mongo-driver/v2                                               v2.9.1         Apache-2.0
+  go.mongodb.org/mongo-driver/v2                                               v2.9.2         Apache-2.0
   go.opentelemetry.io/auto/sdk                                                 v1.2.1         Apache-2.0
   go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc  v0.67.0        Apache-2.0
   go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp                v0.69.0        Apache-2.0
@@ -78,10 +78,10 @@ In the server binary (Go):
   golang.org/x/text                                                            v0.43.0        BSD
   golang.org/x/time                                                            v0.16.0        BSD
   golang.org/x/xerrors                                                         v0.0.0-20240903120638-7835f813f4da BSD
-  google.golang.org/api                                                        v0.300.0       BSD
+  google.golang.org/api                                                        v0.304.0       BSD
   google.golang.org/genproto                                                   v0.0.0-20260715232425-e75dac1f907d Apache-2.0
   google.golang.org/genproto/googleapis/api                                    v0.0.0-20260715232425-e75dac1f907d Apache-2.0
-  google.golang.org/genproto/googleapis/rpc                                    v0.0.0-20260921155816-b14227669459 Apache-2.0
+  google.golang.org/genproto/googleapis/rpc                                    v0.0.0-20261005182115-fad411399dd8 Apache-2.0
   google.golang.org/grpc                                                       v1.84.0        Apache-2.0
   google.golang.org/protobuf                                                   v1.36.12       BSD
   modernc.org/libc                                                             v1.77.1        BSD
@@ -269,7 +269,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-cloud.google.com/go/auth v0.24.0
+cloud.google.com/go/auth v0.24.1-0.20261001053825-dbc26066f70a
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -380,7 +380,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-github.com/anthropics/anthropic-sdk-go v1.78.0
+github.com/anthropics/anthropic-sdk-go v1.82.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -1067,7 +1067,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/google/s2a-go v0.1.10
+github.com/google/s2a-go v0.1.11
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -1107,7 +1107,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/googleapis/enterprise-certificate-proxy v0.3.22
+github.com/googleapis/enterprise-certificate-proxy v0.3.23
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -2436,7 +2436,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-go.mongodb.org/mongo-driver/v2 v2.9.1
+go.mongodb.org/mongo-driver/v2 v2.9.2
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -2853,7 +2853,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-google.golang.org/api v0.300.0
+google.golang.org/api v0.304.0
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -2900,7 +2900,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459
+google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
