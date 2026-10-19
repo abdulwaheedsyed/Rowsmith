@@ -283,7 +283,7 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
         }
       >
         <datalist id="rs-folders">{folders.map((f) => <option key={f} value={f} />)}</datalist>
-        <div className="connform">
+        <div className={`connform ${editing ? "connform--edit" : ""}`}>
           {!editing && (
             <div className="connform__engines" role="radiogroup" aria-label="Database type">
               {drivers.data?.map((d) => (

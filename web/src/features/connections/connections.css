@@ -4,6 +4,10 @@
   gap: 22px;
   min-height: 460px;
 }
+.connform--edit {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
 .connform__engines {
   display: flex;
   flex-direction: column;
