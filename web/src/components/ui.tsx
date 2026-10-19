@@ -2,7 +2,7 @@ import * as RDialog from "@radix-ui/react-dialog";
 import * as RMenu from "@radix-ui/react-dropdown-menu";
 import * as RTooltip from "@radix-ui/react-tooltip";
 import { X, CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import { cloneElement, forwardRef, isValidElement, useId, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { Children, cloneElement, forwardRef, isValidElement, useId, type ButtonHTMLAttributes, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useToasts } from "../lib/store";
 
 // ---- Brand ----------------------------------------------------------------------
@@ -296,10 +296,10 @@ export function EngineBadge({ driver, size = 26 }: { driver: string; size?: numb
   );
 }
 
-/** A labelled form control. When the control is a single input, select or
- *  textarea, the label is tied to it automatically, so clicking the label
- *  focuses it and screen readers announce it; for one nested deeper, pass
- *  htmlFor. With group, the label names a group of controls (buttons,
+/** A labelled form control. When the control is an input, select or textarea,
+ *  alone or beside helpers such as a strength meter, the label is tied to it
+ *  automatically, so clicking the label focuses it and screen readers announce
+ *  it; for one nested deeper, pass htmlFor. With group, the label names a group of controls (buttons,
  *  radios) instead: the child becomes a group labelled by it. */
 export function Field({ label, required, help, error, children, htmlFor, group }: { label: ReactNode; required?: boolean; help?: ReactNode; error?: ReactNode; children: ReactNode; htmlFor?: string; group?: boolean }) {
   const auto = useId();
@@ -308,10 +308,16 @@ export function Field({ label, required, help, error, children, htmlFor, group }
   if (group && isValidElement(children)) {
     const el = children as ReactElement<{ role?: string; "aria-labelledby"?: string }>;
     control = cloneElement(el, { role: el.props.role ?? "group", "aria-labelledby": auto });
-  } else if (!target && isValidElement(children) && typeof children.type === "string" && ["input", "select", "textarea"].includes(children.type)) {
-    const el = children as ReactElement<{ id?: string }>;
-    target = el.props.id ?? auto;
-    control = cloneElement(el, { id: target });
+  } else if (!target) {
+    // The control may sit beside helpers, such as a password's strength meter.
+    const kids = Children.toArray(children);
+    const i = kids.findIndex((k) => isValidElement(k) && typeof k.type === "string" && ["input", "select", "textarea"].includes(k.type));
+    if (i >= 0) {
+      const el = kids[i] as ReactElement<{ id?: string }>;
+      target = el.props.id ?? auto;
+      kids[i] = cloneElement(el, { id: target });
+      control = kids;
+    }
   }
   const text = (
     <>
