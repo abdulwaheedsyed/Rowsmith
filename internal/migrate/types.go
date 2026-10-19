@@ -6,6 +6,7 @@ package migrate
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ const (
 	Snowflake  = "snowflake"
 	Trino      = "trino"
 	Cassandra  = "cassandra"
+	Elastic    = "elasticsearch"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -54,6 +56,8 @@ func family(engine string) string {
 		return Postgres
 	case "scylladb":
 		return Cassandra
+	case "opensearch":
+		return Elastic
 	}
 	return engine
 }
@@ -576,6 +580,8 @@ func canonOf(engine string, c driver.Column) canon {
 		return trinoCanon(k, c, base)
 	case Cassandra:
 		return cassandraCanon(k, c, base)
+	case Elastic:
+		return elasticCanon(k, base)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -769,6 +775,8 @@ func typeFor(t target, k canon, u use) mapped {
 		trinoType(t.Connector, k, &m)
 	case Cassandra:
 		cassandraType(k, &m)
+	case Elastic:
+		elasticType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1869,5 +1877,119 @@ func cassandraType(k canon, m *mapped) {
 		m.note(false, "shapes are copied as GeoJSON text")
 	default:
 		m.Type = "text"
+	}
+}
+
+// elasticCanon reads Elasticsearch and OpenSearch field types.
+func elasticCanon(k canon, base string) canon {
+	switch base {
+	case "_id", "keyword", "constant_keyword", "wildcard", "version", "text", "match_only_text", "search_as_you_type":
+		k.T = "text"
+	case "ip":
+		k.T, k.N = "varchar", 45
+	case "long":
+		k.T, k.Bits = "int", 64
+	case "integer":
+		k.T, k.Bits = "int", 32
+	case "short":
+		k.T, k.Bits = "int", 16
+	case "byte":
+		k.T, k.Bits = "int", 8
+	case "unsigned_long":
+		k.T, k.P, k.S = "decimal", 20, 0
+	case "double", "scaled_float":
+		k.T, k.Bits = "float", 64
+	case "float", "half_float":
+		k.T, k.Bits = "float", 32
+	case "boolean":
+		k.T = "bool"
+	case "date":
+		k.T, k.Frac = "timestamptz", 3
+	case "date_nanos":
+		k.T, k.Frac = "timestamptz", 9
+	case "binary":
+		k.T = "blob"
+	case "geo_point", "geo_shape":
+		k.T, k.SRID, k.Geog = "geometry", 4326, true
+		if base == "geo_point" {
+			k.Geo = "point"
+		}
+	case "object", "nested", "flattened", "flat_object", "dense_vector", "knn_vector":
+		k.T = "object"
+	default:
+		k.T, k.Note = "text", base+" values are copied as text"
+	}
+	return k
+}
+
+// elasticType writes field types for Elasticsearch and OpenSearch. Text
+// fields get a keyword sub-field when the index is created.
+func elasticType(k canon, m *mapped) {
+	switch k.T {
+	case "bool":
+		m.Type = "boolean"
+	case "int":
+		switch {
+		case k.Bits == 64 && k.Unsigned:
+			m.Type = "unsigned_long"
+		case k.Bits == 8 && !k.Unsigned:
+			m.Type = "byte"
+		case k.Bits == 16 && !k.Unsigned:
+			m.Type = "short"
+		case k.Bits > 0 && k.Bits < 32 || k.Bits == 32 && !k.Unsigned:
+			m.Type = "integer"
+		default:
+			m.Type = "long"
+		}
+	case "decimal":
+		if k.S >= 0 && k.S <= 4 && k.P > 0 && k.P <= 15 {
+			// Exact to the scale, stored as a long.
+			m.Type = fmt.Sprintf(`{"type": "scaled_float", "scaling_factor": %d}`, int(math.Pow10(max(k.S, 0))))
+		} else {
+			m.Type = "double"
+			m.note(true, "Elasticsearch has no exact decimals; stored as double")
+		}
+	case "float":
+		m.Type = "double"
+		if k.Bits == 32 {
+			m.Type = "float"
+		}
+	case "char", "varchar", "enum", "set", "uuid", "objectid":
+		m.Type = "keyword"
+		if k.T == "varchar" && (k.N <= 0 || k.N > 256) {
+			m.Type = "text"
+		}
+	case "text", "xml":
+		m.Type = "text"
+	case "time", "interval":
+		m.Type = "keyword"
+		m.note(false, "copied as text")
+	case "date":
+		m.Type = "date"
+	case "datetime", "timestamptz":
+		m.Type = "date"
+		if k.Frac > 3 {
+			m.Type = "date_nanos"
+		}
+		if k.T == "datetime" {
+			m.note(false, "stored as UTC")
+		}
+	case "binary", "varbinary", "blob":
+		m.Type = "binary"
+		m.note(false, "stored as base64 and not searchable")
+	case "json", "object", "array":
+		// Any JSON, kept as it is and not indexed.
+		m.Type, m.Canon = `{"type": "object", "enabled": false}`, canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "stored as an object that isn't searchable")
+	case "geometry":
+		m.Type = "geo_shape"
+		if k.Geo == "point" {
+			m.Type = "geo_point"
+		}
+		if k.SRID != 0 && k.SRID != 4326 {
+			m.note(true, "Elasticsearch shapes are in WGS 84 (SRID 4326); coordinates are copied as they are")
+		}
+	default:
+		m.Type = "keyword"
 	}
 }

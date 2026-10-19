@@ -289,6 +289,8 @@ const engines: Record<string, { mono: string; hue: string }> = {
   trino: { mono: "Tr", hue: "#dd00a1" },
   cassandra: { mono: "Ca", hue: "#1287b1" },
   scylladb: { mono: "Sc", hue: "#6c3fc8" },
+  elasticsearch: { mono: "Es", hue: "#00a59c" },
+  opensearch: { mono: "Os", hue: "#005eb8" },
   valkey: { mono: "Vk", hue: "#3f9fa8" },
 };
 

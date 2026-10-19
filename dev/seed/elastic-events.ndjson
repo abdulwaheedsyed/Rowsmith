@@ -1,0 +1,300 @@
+{"create": {}}
+{"@timestamp": "2025-06-01T00:00:00Z", "level": "warn", "service": "search", "message": "order shipped", "latency_ms": 150}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:07:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 569}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:14:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 484}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:21:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 620}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:28:00Z", "level": "info", "service": "search", "message": "stock low", "latency_ms": 317}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:35:00Z", "level": "warn", "service": "checkout", "message": "order shipped", "latency_ms": 78}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:42:00Z", "level": "info", "service": "checkout", "message": "search slow", "latency_ms": 635}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:49:00Z", "level": "info", "service": "checkout", "message": "order shipped", "latency_ms": 429}
+{"create": {}}
+{"@timestamp": "2025-06-01T00:56:00Z", "level": "warn", "service": "checkout", "message": "cache miss", "latency_ms": 247}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:03:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 562}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:10:00Z", "level": "warn", "service": "checkout", "message": "payment declined", "latency_ms": 568}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:17:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 764}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:24:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 693}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:31:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 232}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:38:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 100}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:45:00Z", "level": "info", "service": "checkout", "message": "search slow", "latency_ms": 511}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:52:00Z", "level": "warn", "service": "search", "message": "stock low", "latency_ms": 206}
+{"create": {}}
+{"@timestamp": "2025-06-01T01:59:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 624}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:06:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 722}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:13:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 791}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:20:00Z", "level": "warn", "service": "search", "message": "search slow", "latency_ms": 245}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:27:00Z", "level": "info", "service": "search", "message": "search slow", "latency_ms": 803}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:34:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 363}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:41:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 821}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:48:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 398}
+{"create": {}}
+{"@timestamp": "2025-06-01T02:55:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 396}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:02:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 312}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:09:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 719}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:16:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 647}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:23:00Z", "level": "info", "service": "search", "message": "search slow", "latency_ms": 234}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:30:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 719}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:37:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 437}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:44:00Z", "level": "warn", "service": "search", "message": "order shipped", "latency_ms": 494}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:51:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 824}
+{"create": {}}
+{"@timestamp": "2025-06-01T03:58:00Z", "level": "info", "service": "search", "message": "payment declined", "latency_ms": 15}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:05:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 814}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:12:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 250}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:19:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 330}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:26:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 451}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:33:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 640}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:40:00Z", "level": "warn", "service": "inventory", "message": "cache miss", "latency_ms": 129}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:47:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 183}
+{"create": {}}
+{"@timestamp": "2025-06-01T04:54:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 97}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:01:00Z", "level": "info", "service": "inventory", "message": "payment declined", "latency_ms": 309}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:08:00Z", "level": "error", "service": "inventory", "message": "stock low", "latency_ms": 304}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:15:00Z", "level": "error", "service": "search", "message": "order shipped", "latency_ms": 39}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:22:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 125}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:29:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 828}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:36:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 625}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:43:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 840}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:50:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 799}
+{"create": {}}
+{"@timestamp": "2025-06-01T05:57:00Z", "level": "info", "service": "search", "message": "payment declined", "latency_ms": 479}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:04:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 646}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:11:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 868}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:18:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 507}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:25:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 74}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:32:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 608}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:39:00Z", "level": "info", "service": "checkout", "message": "search slow", "latency_ms": 339}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:46:00Z", "level": "info", "service": "checkout", "message": "search slow", "latency_ms": 476}
+{"create": {}}
+{"@timestamp": "2025-06-01T06:53:00Z", "level": "info", "service": "checkout", "message": "order shipped", "latency_ms": 479}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:00:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 205}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:07:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 504}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:14:00Z", "level": "info", "service": "checkout", "message": "order shipped", "latency_ms": 391}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:21:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 453}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:28:00Z", "level": "info", "service": "search", "message": "cache miss", "latency_ms": 216}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:35:00Z", "level": "info", "service": "search", "message": "payment declined", "latency_ms": 440}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:42:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 488}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:49:00Z", "level": "warn", "service": "search", "message": "order placed", "latency_ms": 249}
+{"create": {}}
+{"@timestamp": "2025-06-01T07:56:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 797}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:03:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 482}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:10:00Z", "level": "info", "service": "search", "message": "cache miss", "latency_ms": 704}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:17:00Z", "level": "error", "service": "search", "message": "cache miss", "latency_ms": 717}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:24:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 399}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:31:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 84}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:38:00Z", "level": "warn", "service": "inventory", "message": "payment declined", "latency_ms": 860}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:45:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 232}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:52:00Z", "level": "info", "service": "search", "message": "payment declined", "latency_ms": 63}
+{"create": {}}
+{"@timestamp": "2025-06-01T08:59:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 347}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:06:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 18}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:13:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 744}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:20:00Z", "level": "warn", "service": "checkout", "message": "payment declined", "latency_ms": 196}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:27:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 757}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:34:00Z", "level": "warn", "service": "checkout", "message": "search slow", "latency_ms": 503}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:41:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 815}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:48:00Z", "level": "error", "service": "checkout", "message": "stock low", "latency_ms": 618}
+{"create": {}}
+{"@timestamp": "2025-06-01T09:55:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 178}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:02:00Z", "level": "warn", "service": "search", "message": "payment declined", "latency_ms": 826}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:09:00Z", "level": "info", "service": "search", "message": "stock low", "latency_ms": 455}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:16:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 329}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:23:00Z", "level": "info", "service": "search", "message": "cache miss", "latency_ms": 37}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:30:00Z", "level": "info", "service": "search", "message": "stock low", "latency_ms": 828}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:37:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 879}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:44:00Z", "level": "warn", "service": "checkout", "message": "search slow", "latency_ms": 254}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:51:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 451}
+{"create": {}}
+{"@timestamp": "2025-06-01T10:58:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 317}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:05:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 412}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:12:00Z", "level": "warn", "service": "inventory", "message": "stock low", "latency_ms": 380}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:19:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 346}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:26:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 279}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:33:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 779}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:40:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 33}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:47:00Z", "level": "warn", "service": "inventory", "message": "order placed", "latency_ms": 754}
+{"create": {}}
+{"@timestamp": "2025-06-01T11:54:00Z", "level": "warn", "service": "search", "message": "order placed", "latency_ms": 457}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:01:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 432}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:08:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 508}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:15:00Z", "level": "info", "service": "search", "message": "stock low", "latency_ms": 518}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:22:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 148}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:29:00Z", "level": "info", "service": "search", "message": "cache miss", "latency_ms": 595}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:36:00Z", "level": "warn", "service": "inventory", "message": "order placed", "latency_ms": 856}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:43:00Z", "level": "info", "service": "inventory", "message": "cache miss", "latency_ms": 615}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:50:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 489}
+{"create": {}}
+{"@timestamp": "2025-06-01T12:57:00Z", "level": "info", "service": "checkout", "message": "cache miss", "latency_ms": 171}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:04:00Z", "level": "warn", "service": "search", "message": "payment declined", "latency_ms": 774}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:11:00Z", "level": "info", "service": "checkout", "message": "order shipped", "latency_ms": 652}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:18:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 339}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:25:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 712}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:32:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 422}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:39:00Z", "level": "info", "service": "inventory", "message": "order placed", "latency_ms": 605}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:46:00Z", "level": "warn", "service": "inventory", "message": "order placed", "latency_ms": 37}
+{"create": {}}
+{"@timestamp": "2025-06-01T13:53:00Z", "level": "info", "service": "checkout", "message": "stock low", "latency_ms": 177}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:00:00Z", "level": "info", "service": "search", "message": "search slow", "latency_ms": 130}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:07:00Z", "level": "warn", "service": "checkout", "message": "stock low", "latency_ms": 568}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:14:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 344}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:21:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 540}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:28:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 22}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:35:00Z", "level": "warn", "service": "inventory", "message": "payment declined", "latency_ms": 727}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:42:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 496}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:49:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 304}
+{"create": {}}
+{"@timestamp": "2025-06-01T14:56:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 95}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:03:00Z", "level": "warn", "service": "inventory", "message": "order placed", "latency_ms": 677}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:10:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 808}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:17:00Z", "level": "info", "service": "search", "message": "cache miss", "latency_ms": 107}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:24:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 597}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:31:00Z", "level": "info", "service": "inventory", "message": "stock low", "latency_ms": 788}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:38:00Z", "level": "warn", "service": "search", "message": "cache miss", "latency_ms": 620}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:45:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 657}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:52:00Z", "level": "info", "service": "search", "message": "payment declined", "latency_ms": 181}
+{"create": {}}
+{"@timestamp": "2025-06-01T15:59:00Z", "level": "info", "service": "checkout", "message": "order placed", "latency_ms": 721}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:06:00Z", "level": "warn", "service": "inventory", "message": "stock low", "latency_ms": 583}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:13:00Z", "level": "info", "service": "inventory", "message": "order shipped", "latency_ms": 860}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:20:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 527}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:27:00Z", "level": "info", "service": "search", "message": "order placed", "latency_ms": 601}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:34:00Z", "level": "error", "service": "search", "message": "order shipped", "latency_ms": 207}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:41:00Z", "level": "info", "service": "inventory", "message": "search slow", "latency_ms": 379}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:48:00Z", "level": "info", "service": "checkout", "message": "search slow", "latency_ms": 743}
+{"create": {}}
+{"@timestamp": "2025-06-01T16:55:00Z", "level": "info", "service": "search", "message": "search slow", "latency_ms": 213}
+{"create": {}}
+{"@timestamp": "2025-06-01T17:02:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 844}
+{"create": {}}
+{"@timestamp": "2025-06-01T17:09:00Z", "level": "info", "service": "checkout", "message": "payment declined", "latency_ms": 6}
+{"create": {}}
+{"@timestamp": "2025-06-01T17:16:00Z", "level": "error", "service": "checkout", "message": "payment declined", "latency_ms": 143}
+{"create": {}}
+{"@timestamp": "2025-06-01T17:23:00Z", "level": "info", "service": "search", "message": "order shipped", "latency_ms": 608}

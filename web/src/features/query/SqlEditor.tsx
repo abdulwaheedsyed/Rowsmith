@@ -9,6 +9,7 @@ import { sql, MySQL, MariaSQL, PostgreSQL, MSSQL, PLSQL, SQLite, StandardSQL, SQ
 import { json } from "@codemirror/lang-json";
 import { javascript } from "@codemirror/lang-javascript";
 import { redisLanguage } from "./redisLang";
+import { esLanguage } from "./esLang";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { autocompletion, closeBrackets, closeBracketsKeymap, closeCompletion, completionKeymap, completionStatus } from "@codemirror/autocomplete";
 import { bracketMatching, indentOnInput, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
@@ -399,6 +400,7 @@ function mongoCompletions(catalog: CatalogTable[] | undefined) {
 function language(p: Props): Extension {
   if (p.language === "json") return json();
   if (p.dialect === "redis") return redisLanguage();
+  if (p.dialect === "elasticsearch") return esLanguage();
   if (p.language === "mongo" || p.dialect === "mongodb") {
     return [javascript(), javascript().language.data.of({ autocomplete: mongoCompletions(p.catalog) })];
   }

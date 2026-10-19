@@ -67,6 +67,7 @@ body:
         - MongoDB
         - Redis / Valkey
         - Cassandra / ScyllaDB
+        - Elasticsearch / OpenSearch
         - BigQuery
         - Snowflake
         - Trino / Iceberg / Delta Lake

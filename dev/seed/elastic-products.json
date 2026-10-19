@@ -1,0 +1,65 @@
+{
+  "mappings": {
+    "_meta": {
+      "primary_key": "sku"
+    },
+    "properties": {
+      "sku": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "price": {
+        "type": "double"
+      },
+      "stock": {
+        "type": "integer"
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "added": {
+        "type": "date"
+      },
+      "rating": {
+        "type": "half_float"
+      },
+      "available": {
+        "type": "boolean"
+      },
+      "warehouse": {
+        "type": "geo_point"
+      },
+      "attributes": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "keyword"
+          },
+          "weight_g": {
+            "type": "integer"
+          }
+        }
+      },
+      "description": {
+        "type": "text"
+      }
+    }
+  },
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    }
+  }
+}

@@ -21,6 +21,7 @@ func TestTypeMapping(t *testing.T) {
 	deltaT := target{Engine: Trino, Connector: "delta_lake"}
 	hive := target{Engine: Trino, Connector: "hive"}
 	cass := target{Engine: Cassandra}
+	es := target{Engine: Elastic}
 	cases := []struct {
 		src  string
 		col  driver.Column
@@ -86,6 +87,14 @@ func TestTypeMapping(t *testing.T) {
 		{Postgres, driver.Column{Type: "uuid", BaseType: "uuid", Kind: driver.KindUUID}, deltaT, use{}, "varchar"},
 		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, deltaT, use{}, "varchar"},
 		{MySQL, driver.Column{Type: "datetime(6)", BaseType: "datetime", Kind: driver.KindDateTime}, cass, use{}, "timestamp"},
+		{MySQL, driver.Column{Type: "decimal(10,2)", BaseType: "decimal", Kind: driver.KindDecimal, Precision: i64(10), Scale: i64(2)}, es, use{}, `{"type": "scaled_float", "scaling_factor": 100}`},
+		{MySQL, driver.Column{Type: "varchar(40)", BaseType: "varchar", Kind: driver.KindString, Length: i64(40)}, es, use{}, "keyword"},
+		{MySQL, driver.Column{Type: "longtext", BaseType: "longtext", Kind: driver.KindText}, es, use{}, "text"},
+		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, es, use{}, `{"type": "object", "enabled": false}`},
+		{MySQL, driver.Column{Type: "point", BaseType: "point", Kind: driver.KindGeometry, SRID: 4326, GeometryType: "point"}, es, use{}, "geo_point"},
+		{Elastic, driver.Column{Type: "geo_point", BaseType: "geo_point", Kind: driver.KindGeometry}, pg, use{}, "geography(Point,4326)"},
+		{"opensearch", driver.Column{Type: "keyword", BaseType: "keyword", Kind: driver.KindString}, pg, use{}, "text"},
+		{Elastic, driver.Column{Type: "half_float", BaseType: "half_float", Kind: driver.KindFloat}, my, use{}, "float"},
 		{MySQL, driver.Column{Type: "bigint unsigned", BaseType: "bigint", Kind: driver.KindInt, Unsigned: true}, cass, use{}, "varint"},
 		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, cass, use{}, "text"},
 		{Postgres, driver.Column{Type: "smallint", BaseType: "int2", Kind: driver.KindInt}, cass, use{}, "smallint"},

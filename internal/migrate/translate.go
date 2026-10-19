@@ -63,6 +63,9 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 	if dst == MongoDB {
 		return nil, ""
 	}
+	if dst == Elastic {
+		return nil, "Elasticsearch fields have no defaults; the default " + def + " was not carried over"
+	}
 	if dst == Cassandra {
 		return nil, "Cassandra columns have no defaults; the default " + def + " was not carried over"
 	}
@@ -215,6 +218,8 @@ func DefaultCase(srcEngine, dstEngine string) string {
 		return "upper" // unquoted names in Snowflake are upper case
 	case srcEngine == Snowflake && dstEngine != Snowflake && family(dstEngine) != Oracle && dstEngine != MongoDB:
 		return "lower"
+	case family(dstEngine) == Elastic && family(srcEngine) != Elastic:
+		return "lower" // index names are lower case
 	}
 	return "keep"
 }

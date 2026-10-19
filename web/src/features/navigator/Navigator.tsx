@@ -37,7 +37,7 @@ export function kindIcon(kind: string) {
 
 const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
 export const KEY_KINDS = new Set(["string", "hash", "list", "set", "zset", "stream", "ReJSON-RL"]);
-const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary", ...KEY_KINDS]);
+const BROWSABLE = new Set(["data_stream", "alias", "table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary", ...KEY_KINDS]);
 // Most keys the navigator lists (the server's limit).
 const KEY_LIMIT = 2000;
 
@@ -369,6 +369,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
 export function sampleQuery(dialect: string | undefined, ref: ObjectRef, q: string) {
   if (dialect === "redis") return redisRead(ref);
   if (dialect === "mongodb") return `db.getCollection(${JSON.stringify(ref.name)}).find({}).limit(100)`;
+  if (dialect === "elasticsearch") return `GET /${ref.name}/_search\n{\n  "query": { "match_all": {} },\n  "size": 100\n}`;
   if (dialect === "mssql") return `SELECT TOP (100) *\nFROM ${qualified(ref, q)}`;
   if (dialect === "plsql") return `SELECT *\nFROM ${qualified(ref, q)}\nFETCH FIRST 100 ROWS ONLY`;
   return `SELECT *\nFROM ${qualified(ref, q)}\nLIMIT 100`;

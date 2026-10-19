@@ -397,6 +397,63 @@ def main():
     stream(c, conns["cassandra"], "DROP KEYSPACE smoke_mig", database="shop", confirm=True)
     stream(c, conns["postgres"], "DROP SCHEMA smoke_wide CASCADE", database="city", confirm=True)
 
+    # Elasticsearch (HTTP, password) and OpenSearch (HTTPS, self-signed): mappings, search filters, versioned edits, Dev Tools console.
+    for engine, params, pw in (("elasticsearch", {"host": "elasticsearch", "user": "elastic", "tls": "disable"}, PW),
+                               ("opensearch", {"host": "opensearch", "user": "admin", "tls": "require"}, PW + "Aa1!")):
+        _, cv = c.req("POST", "/api/connections", {"name": f"Search ({engine}) {time.time_ns()}", "driver": engine, "environment": "development",
+            "params": params, "secrets": {"password": pw}}, 201)
+        xid = cv["id"]
+        conns[engine] = xid
+        _, srv = c.req("GET", f"/api/c/{xid}/server", expect=200)
+        _, objs = c.req("GET", "/api/c/" + xid + "/objects", expect=200)
+        kinds = {o["name"]: o["kind"] for o in objs}
+        assert kinds.get("products") == "table" and kinds.get("events-app") == "data_stream" and kinds.get("catalog") == "alias", kinds
+        _, t = c.req("GET", f"/api/c/{xid}/describe?name=products", expect=200)
+        assert t["columns"][0]["name"] == "_id" and t["rowEstimate"] == 240, t
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": {"name": "products"}, "limit": 3,
+            "filters": [{"column": "category", "op": "=", "value": "tea"}, {"column": "price", "op": "<", "value": "100"}],
+            "sort": [{"column": "name"}]}, 200)
+        assert len(res["rows"]) == 3 and "name.keyword" in res["sql"], res
+        ok(f"{engine}: {srv['server']['product']} {srv['server']['version']}, {len(objs)} indices, data streams and aliases; typed filters, sort by keyword sub-field")
+        code, ev = stream(c, xid, 'DELETE /smoke-notes?ignore_unavailable=true\n\nPUT /smoke-notes\n{"mappings": {"properties": {"body": {"type": "keyword"}}}}\n\nPUT /smoke-notes/_doc/1?refresh=true\n{"body": "one"}\n\nPUT /smoke-notes/_doc/2?refresh=true\n{"body": "two"}', confirm=True)
+        errs = [e["error"]["message"] for e in ev if e["t"] == "stmtEnd" and e.get("error")]
+        assert not errs, errs
+        nref = {"name": "smoke-notes", "kind": "table"}
+        c.req("POST", f"/api/c/{xid}/edit", {"ref": nref, "edits": [{"op": "update", "key": {"_id": "1"}, "values": {"body": "uno"}}, {"op": "delete", "key": {"_id": "2"}}]}, 200)
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": nref, "limit": 10}, 200)
+        assert res["rows"] == [["1", "uno"]], res["rows"]
+        code, ev = stream(c, xid, 'GET /products/_search\n{"size": 0, "aggs": {"by": {"terms": {"field": "category"}}}}')
+        results = [e for e in ev if e["t"] == "cols"]
+        assert len(results) == 1 and results[0]["cols"][0]["name"] == "key", ev
+        _, plan = c.req("POST", f"/api/c/{xid}/explain", {"sql": 'GET /products/_search\n{"query": {"term": {"category": "coffee"}}}', "analyze": True}, 200)
+        code, body = stream(c, xid, "DELETE /products")
+        assert code == 409, body
+        ok(f"{engine} versioned edits, aggregations as a table, profile {plan['root']['children'][0]['operation']}, DELETE of an index needs confirmation")
+        stream(c, xid, "DELETE /smoke-notes", confirm=True)
+    # Migrations: MySQL tables into Elasticsearch indices, and an index out into PostgreSQL.
+    stream(c, conns["postgres"], "DROP SCHEMA IF EXISTS smoke_search CASCADE;\nCREATE SCHEMA smoke_search", database="city", confirm=True)
+    stream(c, conns["elasticsearch"], "DELETE /stores?ignore_unavailable=true\n\nDELETE /categories?ignore_unavailable=true", confirm=True)
+    for src, dst, pick, label in (
+        ({"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": conns["elasticsearch"]}, ("stores", "categories"), "MySQL -> Elasticsearch"),
+        ({"connectionId": conns["opensearch"]}, {"connectionId": conns["postgres"], "database": "city", "schema": "smoke_search"}, ("products",), "OpenSearch -> PostgreSQL"),
+    ):
+        _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+            "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+        plan = pr["plan"]
+        for tp in plan["tables"]:
+            tp["include"] = tp["source"]["name"] in pick
+        _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+        for _ in range(180):
+            _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+            if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+                break
+            time.sleep(1)
+        done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+        assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
+        ok(f"migration {label}: {done}")
+    stream(c, conns["elasticsearch"], "DELETE /stores\n\nDELETE /categories", confirm=True)
+    stream(c, conns["postgres"], "DROP SCHEMA smoke_search CASCADE", database="city", confirm=True)
+
     # Trino over the lake: Iceberg tables, plain Parquet and CSV files, and a migration into Iceberg.
     _, cv = c.req("POST", "/api/connections", {"name": f"Lake (Trino) {time.time_ns()}", "driver": "trino", "environment": "development",
         "params": {"host": "trino", "user": "rowsmith", "catalog": "iceberg", "schema": "shop", "tls": "disable"}, "secrets": {}}, 201)

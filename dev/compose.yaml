@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB, Elasticsearch, OpenSearch, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -375,6 +375,63 @@ services:
         touch /tmp/ready
         exec sleep infinity
     volumes: ["./seed/cassandra.cql:/seed/cassandra.cql:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+
+  # Elasticsearch with password sign-in over plain HTTP.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      ELASTIC_PASSWORD: ${DEV_DB_PASSWORD}
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
+      xpack.security.transport.ssl.enabled: "false"
+      xpack.ml.enabled: "false"
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    networks: [dev]
+
+  elasticsearch-seed:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    depends_on:
+      elasticsearch: { condition: service_started }
+    environment:
+      URL: http://elasticsearch:9200
+      AUTH: elastic:${DEV_DB_PASSWORD}
+    entrypoint: ["/seed/elastic-seed.sh"]
+    volumes: ["./seed:/seed:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+
+  # OpenSearch with its demo certificates (HTTPS) and the admin user.
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    environment:
+      discovery.type: single-node
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${DEV_DB_PASSWORD}Aa1!
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    networks: [dev]
+
+  opensearch-seed:
+    image: opensearchproject/opensearch:3.9.0
+    depends_on:
+      opensearch: { condition: service_started }
+    environment:
+      URL: https://opensearch:9200
+      AUTH: admin:${DEV_DB_PASSWORD}Aa1!
+      CURL_OPTS: -k
+    entrypoint: ["/seed/elastic-seed.sh"]
+    volumes: ["./seed:/seed:ro"]
     networks: [dev]
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/ready"]
