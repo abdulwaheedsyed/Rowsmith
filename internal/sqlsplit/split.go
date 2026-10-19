@@ -235,6 +235,15 @@ func (sp *splitter) detectMode(words []string) splitMode {
 		if sp.d == MySQL && first == "BEGIN" && len(words) >= 2 && words[1] == "NOT" {
 			return modeBlock // MariaDB BEGIN NOT ATOMIC
 		}
+	case Snowflake:
+		// Snowflake Scripting: DECLARE … BEGIN … END and BEGIN … END
+		// blocks, unlike BEGIN [TRANSACTION | WORK].
+		if first == "DECLARE" {
+			return modeBlock
+		}
+		if first == "BEGIN" && len(words) >= 2 && words[1] != "TRANSACTION" && words[1] != "WORK" && words[1] != "NAME" {
+			return modeBlock
+		}
 	case BigQuery:
 		if first == "CREATE" && definesRoutine(words, false) {
 			return modeBlock

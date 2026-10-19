@@ -43,6 +43,18 @@ type Dialect interface {
 	LimitOne() (prefix, suffix string)
 }
 
+// SelectInserter is implemented by dialects that cannot call functions in
+// INSERT … VALUES (Snowflake refuses PARSE_JSON and TO_GEOGRAPHY there):
+// their inserts take rows from SELECT … UNION ALL SELECT ….
+type SelectInserter interface {
+	InsertsFromSelect() bool
+}
+
+func insertsFromSelect(d Dialect) bool {
+	si, ok := d.(SelectInserter)
+	return ok && si.InsertsFromSelect()
+}
+
 // ExactSelecter is implemented by dialects whose SelectExpr shortens values
 // for display (large geometries); exports and migrations use the exact form.
 type ExactSelecter interface {

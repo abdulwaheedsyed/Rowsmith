@@ -88,6 +88,18 @@ func Classify(sql string, d Dialect) (driver.StatementKind, driver.Danger) {
 			return k, dg
 		}
 	}
+	if d == Snowflake {
+		switch {
+		case first == "PUT" || first == "GET" || first == "REMOVE" || first == "RM":
+			return driver.StmtWrite, danger(first, toks[i:], driver.StmtWrite) // stage files
+		case first == "LIST" || first == "LS":
+			return driver.StmtRead, driver.Danger{}
+		case first == "ALTER" && word(i+1) == "SESSION":
+			return driver.StmtSession, driver.Danger{}
+		case first == "DECLARE":
+			return driver.StmtUnknown, driver.Danger{} // a Snowflake Scripting block
+		}
+	}
 	switch first {
 	case "SELECT", "WITH", "VALUES", "TABLE":
 		kind = driver.StmtRead
@@ -133,6 +145,10 @@ func Classify(sql string, d Dialect) (driver.StatementKind, driver.Danger) {
 		switch {
 		case first == "START" && word(i+1) != "TRANSACTION":
 			kind = driver.StmtWrite // START SLAVE / REPLICA / GROUP_REPLICATION
+		case first == "BEGIN" && d == Snowflake:
+			if w := word(i + 1); w != "" && w != "TRANSACTION" && w != "WORK" && w != "NAME" {
+				kind = driver.StmtUnknown // Snowflake Scripting block
+			}
 		case first == "BEGIN" && (d == Oracle || d == BigQuery) && word(i+1) != "TRANSACTION":
 			kind = driver.StmtUnknown // anonymous block
 		case first == "BEGIN" && d == MSSQL && word(i+1) != "TRAN" && word(i+1) != "TRANSACTION" && word(i+1) != "DISTRIBUTED":

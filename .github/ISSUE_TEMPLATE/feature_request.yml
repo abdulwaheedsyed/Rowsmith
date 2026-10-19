@@ -41,6 +41,7 @@ body:
         - MongoDB
         - Redis / Valkey
         - BigQuery
+        - Snowflake
         - SQLite
         - All of them
         - A database Rowsmith doesn't support yet

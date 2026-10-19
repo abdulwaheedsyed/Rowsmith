@@ -167,3 +167,22 @@ func TestSplitClickHouse(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitSnowflake(t *testing.T) {
+	expect(t, "slash comment", Split("SELECT 1 // a;b\n; SELECT 2", Snowflake), "SELECT 1 // a;b", "SELECT 2")
+	expect(t, "backslash", Split(`SELECT 'it\'s;'; SELECT 2`, Snowflake), `SELECT 'it\'s;'`, "SELECT 2")
+	expect(t, "dollar body", Split("CREATE PROCEDURE p() RETURNS STRING LANGUAGE SQL AS $$ BEGIN RETURN 'a;b'; END; $$; CALL p()", Snowflake),
+		"CREATE PROCEDURE p() RETURNS STRING LANGUAGE SQL AS $$ BEGIN RETURN 'a;b'; END; $$", "CALL p()")
+	expect(t, "scripting block", Split("BEGIN\n  LET x := 1;\n  RETURN x;\nEND;\nSELECT 2", Snowflake),
+		"BEGIN\n  LET x := 1;\n  RETURN x;\nEND", "SELECT 2")
+	expect(t, "transaction", Split("BEGIN; INSERT INTO t VALUES (1); COMMIT", Snowflake), "BEGIN", "INSERT INTO t VALUES (1)", "COMMIT")
+	for stmt, want := range map[string]driver.StatementKind{
+		"BEGIN": driver.StmtTCL, "BEGIN TRANSACTION": driver.StmtTCL, "ALTER SESSION SET TIMEZONE = 'UTC'": driver.StmtSession,
+		"LIST @my_stage": driver.StmtRead, "PUT file:///tmp/x @~": driver.StmtWrite, "SHOW TABLES": driver.StmtRead,
+		"USE WAREHOUSE wh": driver.StmtSession, "DECLARE x INT; BEGIN RETURN 1; END": driver.StmtUnknown,
+	} {
+		if got, _ := Classify(stmt, Snowflake); got != want {
+			t.Errorf("Classify(%q) = %s, want %s", stmt, got, want)
+		}
+	}
+}

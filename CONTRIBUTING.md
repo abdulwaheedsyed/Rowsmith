@@ -89,6 +89,7 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 | Oracle | `ROWSMITH_TEST_ORACLE_HOST=oracle`, `ROWSMITH_TEST_ORACLE_USER=shop`, `ROWSMITH_TEST_ORACLE_PASSWORD=$DEV_DB_PASSWORD` |
 | MongoDB | `ROWSMITH_TEST_MONGO_HOST=mongo`, `ROWSMITH_TEST_MONGO_PASSWORD=$DEV_DB_PASSWORD` |
 | BigQuery | `ROWSMITH_TEST_BQ_ENDPOINT=http://bigquery:9050` |
+| Snowflake | `ROWSMITH_TEST_SNOWFLAKE_ACCOUNT`, `_USER`, `_KEY_FILE` (an unencrypted PKCS#8 key), `_WAREHOUSE`, `_ROLE`: an account of your own, as Snowflake has no local server. The test creates a database, loads `dev/seed/snowflake.sql` into it and drops it, using about a minute of an X-Small warehouse. Run it with `go test` on the host, as it needs only the internet. |
 | Redis, Valkey | `ROWSMITH_TEST_REDIS_HOST=redis`, `ROWSMITH_TEST_REDIS_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_VALKEY_HOST=valkey`, `ROWSMITH_TEST_VALKEY_USER=rowsmith`, `ROWSMITH_TEST_VALKEY_PASSWORD=$DEV_DB_PASSWORD` |
 
 MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis and Valkey are also covered by the smoke test.

@@ -12,9 +12,9 @@ var (
 	numberRe   = regexp.MustCompile(`^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$`)
 	stringRe   = regexp.MustCompile(`^[Nn]?'((?:[^']|'')*)'$`)
 	pgCastRe   = regexp.MustCompile(`^(.*?)::[a-z_ ]+(\[\])?(\(\d+(,\d+)?\))?$`)
-	nowRe      = regexp.MustCompile(`^(now\(\)|current_timestamp(\(\d*\))?|getdate\(\)|sysdatetime\(\)|getutcdate\(\)|sysutcdatetime\(\)|sysdatetimeoffset\(\)|sysdate|systimestamp|localtimestamp(\(\d*\))?|statement_timestamp\(\)|transaction_timestamp\(\)|clock_timestamp\(\)|datetime\('now'\)|utc_timestamp(\(\d*\))?)$`)
-	todayRe    = regexp.MustCompile(`^(current_date|curdate\(\)|cast\(getdate\(\) as date\)|trunc\(sysdate\)|date\('now'\))$`)
-	uuidGenRe  = regexp.MustCompile(`^(gen_random_uuid\(\)|uuid_generate_v4\(\)|newid\(\)|uuid\(\)|newsequentialid\(\))$`)
+	nowRe      = regexp.MustCompile(`^(now\(\)|current_timestamp(\(\d*\))?|sysdate\(\)|getdate\(\)|sysdatetime\(\)|getutcdate\(\)|sysutcdatetime\(\)|sysdatetimeoffset\(\)|sysdate|systimestamp|localtimestamp(\(\d*\))?|statement_timestamp\(\)|transaction_timestamp\(\)|clock_timestamp\(\)|datetime\('now'\)|utc_timestamp(\(\d*\))?)$`)
+	todayRe    = regexp.MustCompile(`^(current_date(\(\))?|curdate\(\)|cast\(getdate\(\) as date\)|trunc\(sysdate\)|date\('now'\))$`)
+	uuidGenRe  = regexp.MustCompile(`^(gen_random_uuid\(\)|uuid_generate_v4\(\)|newid\(\)|uuid\(\)|newsequentialid\(\)|uuid_string\(\))$`)
 	identityRe = regexp.MustCompile(`(?i)^(nextval\(|generated\s+(by\s+default|always)\s+(on\s+null\s+)?as\s+identity)`)
 )
 
@@ -77,7 +77,7 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 			return skip()
 		}
 		switch {
-		case dst == Postgres || (dst == Oracle && strings.EqualFold(dstType, "BOOLEAN")):
+		case dst == Postgres || dst == Snowflake || (dst == Oracle && strings.EqualFold(dstType, "BOOLEAN")):
 			return out(map[bool]string{true: "TRUE", false: "FALSE"}[on])
 		default:
 			return out(map[bool]string{true: "1", false: "0"}[on])
@@ -111,6 +111,8 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 				return out("SYSDATE")
 			}
 			return out("SYSTIMESTAMP")
+		case Snowflake:
+			return out("CURRENT_TIMESTAMP()")
 		}
 		return out("CURRENT_TIMESTAMP")
 	case todayRe.MatchString(low):
@@ -129,6 +131,8 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 			return out("(UUID())")
 		case Postgres:
 			return out("gen_random_uuid()")
+		case Snowflake:
+			return out("UUID_STRING()")
 		case MSSQL:
 			if k.T == "uuid" {
 				return out("NEWID()")
@@ -201,6 +205,10 @@ func DefaultCase(srcEngine, dstEngine string) string {
 		return "lower"
 	case family(dstEngine) == Postgres && (srcEngine == MSSQL):
 		return "lower"
+	case dstEngine == Snowflake && srcEngine != Snowflake && family(srcEngine) != Oracle:
+		return "upper" // unquoted names in Snowflake are upper case
+	case srcEngine == Snowflake && dstEngine != Snowflake && family(dstEngine) != Oracle && dstEngine != MongoDB:
+		return "lower"
 	}
 	return "keep"
 }
@@ -213,6 +221,8 @@ func maxIdent(engine string) int {
 		return 64
 	case Oracle:
 		return 128
+	case Snowflake:
+		return 255
 	}
 	return 128
 }

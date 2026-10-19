@@ -368,9 +368,12 @@ func (e *Engine) ApplyEdits(ctx context.Context, t *driver.Table, edits []driver
 				cols = append(cols, e.D.QuoteIdent(c.Name))
 				vals = append(vals, b.bind(expr, arg))
 			}
-			if len(cols) == 0 {
+			switch {
+			case len(cols) == 0:
 				q = "INSERT INTO " + target + " DEFAULT VALUES"
-			} else {
+			case insertsFromSelect(e.D):
+				q = "INSERT INTO " + target + " (" + strings.Join(cols, ", ") + ") SELECT " + strings.Join(vals, ", ")
+			default:
 				q = "INSERT INTO " + target + " (" + strings.Join(cols, ", ") + ") VALUES (" + strings.Join(vals, ", ") + ")"
 			}
 		case "update", "delete":

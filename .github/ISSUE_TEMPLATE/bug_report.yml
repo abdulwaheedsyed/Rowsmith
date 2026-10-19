@@ -67,6 +67,7 @@ body:
         - MongoDB
         - Redis / Valkey
         - BigQuery
+        - Snowflake
         - SQLite
         - None in particular
   - type: input

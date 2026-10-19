@@ -27,6 +27,7 @@ const (
 	BigQuery   = "bigquery"
 	MongoDB    = "mongodb"
 	ClickHouse = "clickhouse"
+	Snowflake  = "snowflake"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -565,6 +566,8 @@ func canonOf(engine string, c driver.Column) canon {
 		}
 	case ClickHouse:
 		return clickhouseCanon(k, c)
+	case Snowflake:
+		return snowflakeCanon(k, c, base)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -749,6 +752,8 @@ func typeFor(t target, k canon, u use) mapped {
 		sqliteType(k, &m)
 	case ClickHouse:
 		clickhouseType(k, &m)
+	case Snowflake:
+		snowflakeType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1439,5 +1444,142 @@ func clickhouseType(k canon, m *mapped) {
 		asJSON("copied as JSON text")
 	default:
 		m.Type = "String"
+	}
+}
+
+// snowflakeCanon reads the types the Snowflake driver describes (NUMBER,
+// VARCHAR, TIMESTAMP_NTZ…, VARIANT, GEOGRAPHY).
+func snowflakeCanon(k canon, c driver.Column, base string) canon {
+	switch base {
+	case "number":
+		p, s := iptr(c.Precision), iptr(c.Scale)
+		if p <= 0 {
+			p = 38
+		}
+		if s <= 0 {
+			if p <= 18 {
+				k.T, k.Bits = "int", 64
+				return k
+			}
+			k.T, k.P, k.S = "decimal", p, 0
+			return k
+		}
+		k.T, k.P, k.S = "decimal", p, s
+	case "float":
+		k.T, k.Bits = "float", 64
+	case "varchar":
+		if n := iptr(c.Length); n > 0 && n < 16777216 {
+			k.T, k.N = "varchar", n
+		} else {
+			k.T = "text"
+		}
+	case "boolean":
+		k.T = "bool"
+	case "binary":
+		if n := iptr(c.Length); n > 0 && n < 8388608 {
+			k.T, k.N = "varbinary", n
+		} else {
+			k.T = "blob"
+		}
+	case "date":
+		k.T = "date"
+	case "time":
+		k.T, k.Frac = "time", 9
+	case "timestamp_ntz":
+		k.T, k.Frac = "datetime", 9
+	case "timestamp_tz", "timestamp_ltz":
+		k.T, k.Frac = "timestamptz", 9
+	case "variant", "object", "map", "array":
+		k.T = "json"
+	case "geography":
+		k.T, k.Geog, k.SRID, k.Geo = "geometry", true, 4326, ""
+	case "geometry":
+		k.T, k.Geo = "geometry", ""
+	default:
+		k.T, k.Note = "text", c.Type+" is copied as text"
+	}
+	if (k.T == "time" || k.T == "datetime" || k.T == "timestamptz") && c.Scale != nil {
+		k.Frac = int(*c.Scale)
+	}
+	return k
+}
+
+func snowflakeType(k canon, m *mapped) {
+	frac := func(name string) string {
+		if k.Frac >= 0 && k.Frac < 9 {
+			return fmt.Sprintf("%s(%d)", name, k.Frac)
+		}
+		return name
+	}
+	switch k.T {
+	case "bool":
+		m.Type = "BOOLEAN"
+	case "int":
+		m.Type = "NUMBER(38,0)"
+		if k.Unsigned && k.Bits == 64 {
+			m.Type = "NUMBER(20,0)"
+		}
+	case "decimal":
+		switch {
+		case k.P <= 0:
+			m.Type = "NUMBER(38,9)"
+			m.note(true, "a decimal without fixed precision is stored as NUMBER(38,9)")
+		case k.P > 38:
+			m.Type = fmt.Sprintf("NUMBER(38,%d)", min(max(k.S, 0), 37))
+			m.note(true, "Snowflake numbers hold 38 digits")
+		default:
+			m.Type = fmt.Sprintf("NUMBER(%d,%d)", k.P, max(k.S, 0))
+		}
+	case "float":
+		m.Type = "FLOAT"
+	case "char", "varchar":
+		if k.N > 0 {
+			m.Type = fmt.Sprintf("VARCHAR(%d)", k.N)
+		} else {
+			m.Type = "VARCHAR"
+		}
+	case "text", "xml", "interval", "set":
+		m.Type = "VARCHAR"
+		if k.T == "interval" {
+			m.note(false, "Snowflake has no interval columns; stored as text")
+		}
+	case "binary", "varbinary":
+		if k.N > 0 {
+			m.Type = fmt.Sprintf("BINARY(%d)", k.N)
+		} else {
+			m.Type = "BINARY"
+		}
+	case "blob":
+		m.Type = "BINARY"
+		m.note(false, "Snowflake binary values hold up to 8 MB")
+	case "date":
+		m.Type = "DATE"
+	case "time":
+		m.Type = frac("TIME")
+	case "datetime":
+		m.Type = frac("TIMESTAMP_NTZ")
+	case "timestamptz":
+		m.Type = frac("TIMESTAMP_TZ")
+	case "json", "object", "array":
+		m.Type = "VARIANT"
+	case "uuid":
+		m.Type = "VARCHAR(36)"
+	case "objectid":
+		m.Type = "VARCHAR(24)"
+	case "enum":
+		m.Type = fmt.Sprintf("VARCHAR(%d)", max(maxLen(k.Values), 1))
+		m.note(false, "Snowflake has no enums and does not enforce checks, so any text is accepted")
+	case "geometry":
+		if k.Geog {
+			m.Type = "GEOGRAPHY"
+		} else {
+			m.Type = "GEOMETRY"
+			if k.SRID == 4326 {
+				m.Type = "GEOGRAPHY"
+				m.note(false, "shapes in SRID 4326 become GEOGRAPHY")
+			}
+		}
+	default:
+		m.Type = "VARCHAR"
 	}
 }

@@ -44,10 +44,39 @@ const ClickHouseSQL = SQLDialect.define({
   identifierQuotes: '`"',
 });
 
+// Snowflake SQL: $$ strings (routine bodies, scripting), // comments,
+// backslash escapes, and its semi-structured and spatial types.
+const SnowflakeSQL = SQLDialect.define({
+  keywords:
+    "select from where group by order limit offset fetch with having qualify join inner left right full outer cross natural lateral " +
+    "on using as and or not in between like ilike rlike is null distinct union intersect except minus case when then else end cast " +
+    "insert into values overwrite update set delete merge matched create replace table view materialized dynamic transient temporary " +
+    "external database schema warehouse stage pipe stream task sequence function procedure returns language returning if exists " +
+    "primary key foreign references unique constraint cluster comment default autoincrement identity collate alter add drop modify column " +
+    "rename to truncate undrop show describe desc explain use grant revoke role user call execute immediate begin commit rollback " +
+    "declare let return for loop while repeat until exception raise copy put get list remove pivot unpivot sample tablesample " +
+    "match_recognize flatten over partition rows range unbounded preceding following current row asc nulls first last at before",
+  types:
+    "number numeric decimal int integer bigint smallint tinyint byteint float float4 float8 double real varchar char character string " +
+    "text binary varbinary boolean date datetime time timestamp timestamp_ltz timestamp_ntz timestamp_tz variant object array map " +
+    "geography geometry vector",
+  builtin:
+    "count sum avg min max listagg array_agg object_agg count_if approx_count_distinct median percentile_cont iff ifnull nvl nvl2 " +
+    "coalesce zeroifnull current_timestamp current_date current_time sysdate dateadd datediff date_trunc to_date to_timestamp " +
+    "to_timestamp_ntz to_timestamp_tz to_varchar to_number to_boolean to_binary to_geography to_geometry parse_json try_parse_json " +
+    "to_json object_construct array_construct get get_path flatten split split_part regexp_like regexp_replace regexp_substr " +
+    "lower upper initcap trim length substr concat lpad rpad replace uuid_string seq4 seq8 uniform random hash md5 sha2 " +
+    "st_asgeojson st_astext st_distance st_contains st_intersects st_makepoint st_area last_query_id result_scan generator",
+  slashComments: true,
+  doubleDollarQuotedStrings: true,
+  backslashEscapes: true,
+});
+
 export function dialectFor(d?: string, driverId?: string): SQLDialect {
   if (driverId === "mariadb") return MariaSQL;
   switch (d) {
     case "clickhouse": return ClickHouseSQL;
+    case "snowflake": return SnowflakeSQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

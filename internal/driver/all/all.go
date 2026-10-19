@@ -10,5 +10,6 @@ import (
 	_ "rowsmith/internal/driver/oracle"
 	_ "rowsmith/internal/driver/postgres"
 	_ "rowsmith/internal/driver/redis"
+	_ "rowsmith/internal/driver/snowflake"
 	_ "rowsmith/internal/driver/sqlite"
 )

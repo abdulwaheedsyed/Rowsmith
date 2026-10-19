@@ -21,7 +21,9 @@ const (
 	// ClickHouse: '#' comments, backslash escapes, "double-quoted" and
 	// `backquoted` identifiers, $heredoc$ strings.
 	ClickHouse Dialect = "clickhouse"
-	Generic    Dialect = "generic"
+	// Snowflake: '//' comments, backslash escapes in strings, $$ strings.
+	Snowflake Dialect = "snowflake"
+	Generic   Dialect = "generic"
 )
 
 type tokType uint8
@@ -102,6 +104,9 @@ func (l *lexer) next() token {
 	case c == '#' && (l.d == MySQL || l.d == BigQuery || l.d == ClickHouse):
 		return emit(tComment, lineEnd(s, i))
 
+	case c == '/' && l.peekByte(1) == '/' && l.d == Snowflake:
+		return emit(tComment, lineEnd(s, i))
+
 	case c == '/' && l.peekByte(1) == '*':
 		return emit(tComment, l.blockComment(i))
 
@@ -138,7 +143,7 @@ func (l *lexer) next() token {
 		}
 		return emit(tQuoted, len(s))
 
-	case c == '$' && (l.d == Postgres || l.d == ClickHouse):
+	case c == '$' && (l.d == Postgres || l.d == ClickHouse || l.d == Snowflake):
 		if tag, ok := dollarTag(s, i); ok {
 			if k := strings.Index(s[i+len(tag):], tag); k >= 0 {
 				return emit(tString, i+len(tag)+k+len(tag))
@@ -217,6 +222,8 @@ func (l *lexer) backslashIn(q byte) bool {
 	switch l.d {
 	case MySQL, BigQuery, ClickHouse:
 		return true
+	case Snowflake:
+		return q == '\''
 	}
 	return false
 }

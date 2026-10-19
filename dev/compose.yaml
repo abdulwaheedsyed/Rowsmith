@@ -14,7 +14,9 @@ volumes:
 
 services:
   rowsmith:
-    image: debian:bookworm-slim
+    # The production image's base: CA certificates for cloud databases
+    # (BigQuery, Snowflake) and AI providers, and nothing else.
+    image: gcr.io/distroless/static-debian12:latest
     command: ["/app/rowsmith"]
     working_dir: /app
     volumes:

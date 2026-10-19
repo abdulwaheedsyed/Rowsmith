@@ -285,6 +285,7 @@ const engines: Record<string, { mono: string; hue: string }> = {
   cockroachdb: { mono: "Cr", hue: "#6b5bd9" },
   yugabytedb: { mono: "Yb", hue: "#e8873a" },
   tidb: { mono: "Ti", hue: "#cf4f8b" },
+  snowflake: { mono: "Sf", hue: "#29b5e8" },
   valkey: { mono: "Vk", hue: "#3f9fa8" },
 };
 

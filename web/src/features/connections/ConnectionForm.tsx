@@ -62,18 +62,33 @@ function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<st
   return next;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, sqlite: and bigquery:// URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, snowflake://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
     const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", redis: "redis", rediss: "redis", valkey: "valkey", valkeys: "valkey",
-      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb" } as Record<string, string>)[scheme];
+      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb", snowflake: "snowflake" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
     if (driver === "sqlite") {
       // sqlite:reports/sales.db or sqlite:///reports/sales.db — relative to the server's SQLite directory.
       params.file = decodeURIComponent((u.host + u.pathname).replace(/^\/+/, ""));
+      return { driver, params, secrets };
+    }
+    if (driver === "snowflake") {
+      // snowflake://user@myorg-myaccount/database/schema?warehouse=WH&role=ROLE
+      params.account = decodeURIComponent(u.hostname).replace(/\.snowflakecomputing\.com$/i, "");
+      if (u.username) params.user = decodeURIComponent(u.username);
+      if (u.password) secrets.password = decodeURIComponent(u.password);
+      const [db, schema] = u.pathname.replace(/^\//, "").split("/").map(decodeURIComponent);
+      if (db) params.database = db;
+      if (schema) params.schema = schema;
+      for (const k of ["warehouse", "role"]) {
+        const v = u.searchParams.get(k);
+        if (v) params[k] = v;
+      }
+      if (u.password) params.auth = "password";
       return { driver, params, secrets };
     }
     if (driver === "bigquery") {

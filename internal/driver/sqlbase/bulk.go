@@ -71,6 +71,9 @@ func (e *Engine) BeginImport(ctx context.Context, t *driver.Table, cols []string
 		im.maxParams, im.maxRows = 60000, 1000
 	}
 	im.prefix = "INSERT INTO " + target + " (" + strings.Join(names, ", ") + ") " + values + " "
+	if insertsFromSelect(e.D) {
+		im.prefix, im.selects = "INSERT INTO "+target+" ("+strings.Join(names, ", ")+") ", true
+	}
 	im.into = "INTO " + target + " (" + strings.Join(names, ", ") + ") VALUES "
 	if empty {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+target); err != nil {
@@ -89,6 +92,7 @@ type importer struct {
 	prefix    string
 	into      string // INSERT ALL form (Oracle)
 	insertAll bool
+	selects   bool // rows as SELECT … UNION ALL SELECT … (see SelectInserter)
 	after     string
 	maxParams int
 	maxRows   int
@@ -109,10 +113,16 @@ func (im *importer) Insert(ctx context.Context, rows [][]any) error {
 			switch {
 			case im.insertAll:
 				q.WriteString(" " + im.into)
+			case im.selects && i > 0:
+				q.WriteString(" UNION ALL ")
 			case i > 0:
 				q.WriteString(", ")
 			}
-			q.WriteByte('(')
+			if im.selects {
+				q.WriteString("SELECT ")
+			} else {
+				q.WriteByte('(')
+			}
 			for j, c := range im.cols {
 				if j > 0 {
 					q.WriteString(", ")
@@ -127,7 +137,9 @@ func (im *importer) Insert(ctx context.Context, rows [][]any) error {
 				}
 				q.WriteString(b.bind(expr, arg))
 			}
-			q.WriteByte(')')
+			if !im.selects {
+				q.WriteByte(')')
+			}
 		}
 		if im.insertAll {
 			q.WriteString(" SELECT 1 FROM DUAL")
