@@ -2,14 +2,14 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-10-19
 
 ### Engines
 
 - CockroachDB (24.1 and later, and CockroachDB Cloud), YugabyteDB (2.20 and later, and YugabyteDB Aeon) and TiDB (7.5 and later, and TiDB Cloud), each in the connection form with its own default port, through the PostgreSQL and MySQL drivers.
 - CockroachDB: row counts from table statistics, keyless tables edited by their hidden rowid, its own plan tree, cluster sessions you can cancel, jobs, and cluster settings, all without the restricted crdb_internal tables. TLS is on by default.
 - TiDB: TiDB's plans, schema changes applied one per statement, CHECK constraints when enforced, and grants read from its own tables.
-- Migrations into and out of all three, with types translated; TiDB stores spatial columns as GeoJSON.
+- Migrations into and out of CockroachDB, YugabyteDB and TiDB, with types translated; TiDB stores spatial columns as GeoJSON.
 - Snowflake: sign in with a key pair, a programmatic access token, an OAuth token or a password, through SSH tunnels too. The catalog, keys and DDL come from SHOW commands and GET_DDL, which never wake a warehouse. VARIANT, OBJECT and ARRAY columns are shown and edited as JSON, shapes go on the map, and numbers stay exact. The console handles $$ bodies and scripting blocks and refuses PUT and GET, which would touch files on the Rowsmith server. Plans with partition pruning, running queries you can cancel, session parameters and warehouses, users and roles, the structure editor (clustering keys and transient tables included), imports, exports, and migrations into and out of Snowflake.
 
 ### Fixes
