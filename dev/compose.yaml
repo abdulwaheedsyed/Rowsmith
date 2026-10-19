@@ -155,7 +155,7 @@ services:
     volumes: ["./seed/redis.txt:/seed/redis.txt:ro"]
     networks: [dev]
     healthcheck:   # answers once first-run seeding is done
-      test: ["CMD-SHELL", "redis-cli -a \"$$PW\" --no-auth-warning EXISTS cache:stats | grep -q 1"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$PW\" --no-auth-warning -n 1 EXISTS cache:stats | grep -q 1"]
       interval: 3s
       timeout: 5s
       retries: 100
@@ -178,7 +178,7 @@ services:
     volumes: ["./seed/redis.txt:/seed/redis.txt:ro"]
     networks: [dev]
     healthcheck:   # answers once first-run seeding is done
-      test: ["CMD-SHELL", "valkey-cli --user rowsmith --pass \"$$PW\" --no-auth-warning EXISTS cache:stats | grep -q 1"]
+      test: ["CMD-SHELL", "valkey-cli --user rowsmith --pass \"$$PW\" --no-auth-warning -n 1 EXISTS cache:stats | grep -q 1"]
       interval: 3s
       timeout: 5s
       retries: 100
