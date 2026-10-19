@@ -180,8 +180,11 @@ services:
         done
         for p in 7001 7002 7003; do until cli -p $$p ping >/dev/null 2>&1; do sleep 0.2; done; done
         cli -p 7001 cluster info | grep -q cluster_state:ok || cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-replicas 0 --cluster-yes >/dev/null
-        until cli -p 7001 cluster info | grep -q cluster_state:ok; do sleep 0.5; done
-        [ "$$(cli -c -p 7001 EXISTS shop:name)" = 1 ] || cli -c -p 7001 < /seed/redis-cluster.txt >/dev/null
+        # Every node must know the slots before writes land; repeat the seed
+        # (it only sets keys) until all 23 keys exist across the nodes.
+        for p in 7001 7002 7003; do until cli -p $$p cluster info | grep -q cluster_state:ok; do sleep 0.5; done; done
+        keys() { n=0; for p in 7001 7002 7003; do n=$$((n + $$(cli -p $$p dbsize))); done; echo $$n; }
+        until [ "$$(keys)" -ge 23 ]; do cli -c -p 7001 < /seed/redis-cluster.txt >/dev/null 2>&1; sleep 1; done
         touch /tmp/ready
         trap 'for p in 7001 7002 7003; do cli -p $$p shutdown nosave; done; exit 0' TERM INT
         sleep infinity & wait
