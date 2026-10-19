@@ -340,11 +340,15 @@ func (c *conn) AlterTableSQL(from *driver.Table, to driver.TableDef) ([]string, 
 	clauses = append(clauses, opts...)
 
 	var out []string
-	if len(pre) > 0 {
-		out = append(out, "ALTER TABLE "+target+"\n  "+strings.Join(pre, ",\n  "))
-	}
-	if len(clauses) > 0 {
-		out = append(out, "ALTER TABLE "+target+"\n  "+strings.Join(clauses, ",\n  "))
+	if c.flavor == "tidb" {
+		out = append(tidbAlter(target, pre), tidbAlter(target, clauses)...)
+	} else {
+		if len(pre) > 0 {
+			out = append(out, "ALTER TABLE "+target+"\n  "+strings.Join(pre, ",\n  "))
+		}
+		if len(clauses) > 0 {
+			out = append(out, "ALTER TABLE "+target+"\n  "+strings.Join(clauses, ",\n  "))
+		}
 	}
 	if to.Ref.Name != "" && to.Ref.Name != from.Ref.Name {
 		out = append(out, "RENAME TABLE "+target+" TO "+qualify(from.Ref.Database, to.Ref.Name))

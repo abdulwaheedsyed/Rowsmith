@@ -282,6 +282,9 @@ const engines: Record<string, { mono: string; hue: string }> = {
   bigquery: { mono: "Bq", hue: "#5f8fe6" },
   clickhouse: { mono: "Ch", hue: "#9b7be0" },
   redis: { mono: "Re", hue: "#d9586f" },
+  cockroachdb: { mono: "Cr", hue: "#6b5bd9" },
+  yugabytedb: { mono: "Yb", hue: "#e8873a" },
+  tidb: { mono: "Ti", hue: "#cf4f8b" },
   valkey: { mono: "Vk", hue: "#3f9fa8" },
 };
 

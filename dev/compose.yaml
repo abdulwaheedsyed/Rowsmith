@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -182,6 +182,80 @@ services:
       interval: 3s
       timeout: 5s
       retries: 100
+
+  cockroach:
+    image: cockroachdb/cockroach:latest-v26.3
+    # Secure mode with generated certificates; rowsmith signs in with a
+    # password over TLS, as on CockroachDB Cloud.
+    command: start-single-node
+    environment:
+      COCKROACH_DATABASE: shop
+      COCKROACH_USER: rowsmith
+      COCKROACH_PASSWORD: ${DEV_DB_PASSWORD}
+    volumes: ["./seed/pgwire.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro"]
+    networks: [dev]
+    healthcheck:   # answers once first-run seeding is done
+      test: ["CMD-SHELL", "cd /cockroach && cockroach sql --url=\"$$(cat server.url)\" -e 'SELECT 1 FROM shop.reporting.targets LIMIT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 10s
+      retries: 100
+
+  yugabyte:
+    image: yugabytedb/yugabyte:2026.1.2.0-b137
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    # One node with password sign-in (yugabyte / $$PW), seeded once.
+    command:
+      - sh
+      - -c
+      - |
+        bin/yugabyted start --advertise_address="$$(hostname)" --tserver_flags=ysql_enable_auth=true --background=true >/dev/null
+        ysql() { PGPASSWORD="$$1" bin/ysqlsh -h "$$(hostname)" -U yugabyte -v ON_ERROR_STOP=1 -q "$${@:2}"; }
+        until ysql "$$PW" -c 'SELECT 1' >/dev/null 2>&1 || ysql yugabyte -c 'SELECT 1' >/dev/null 2>&1; do sleep 1; done
+        if ysql yugabyte -c 'SELECT 1' >/dev/null 2>&1; then
+          ysql yugabyte -c 'CREATE DATABASE shop' && ysql yugabyte -d shop -f /seed/pgwire.sql && ysql yugabyte -c "ALTER ROLE yugabyte PASSWORD '$$PW'"
+        fi
+        exec tail -f /dev/null
+    volumes: ["./seed/pgwire.sql:/seed/pgwire.sql:ro"]
+    networks: [dev]
+    healthcheck:   # answers once first-run seeding is done
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$PW\" bin/ysqlsh -h \"$$(hostname)\" -U yugabyte -d shop -c 'SELECT 1 FROM reporting.targets LIMIT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 100
+
+  tidb:
+    image: pingcap/tidb:v8.5.5
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:10080/status >/dev/null"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  # TiDB has no init scripts: this seeds it once, sets root's password,
+  # and reports healthy when the data is there.
+  tidb-seed:
+    image: mysql:8.4
+    depends_on:
+      tidb: { condition: service_healthy }
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if mysql -h tidb -P 4000 -uroot -e 'SELECT 1' >/dev/null 2>&1; then
+          mysql -h tidb -P 4000 -uroot < /seed/tidb.sql && mysql -h tidb -P 4000 -uroot -e "ALTER USER 'root'@'%' IDENTIFIED BY '$$PW'"
+        fi
+        exec sleep infinity
+    volumes: ["./seed/tidb.sql:/seed/tidb.sql:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h tidb -P 4000 -uroot -p\"$$PW\" -e 'SELECT 1 FROM shop.categories LIMIT 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 200
 
   bigquery:
     profiles: [full]

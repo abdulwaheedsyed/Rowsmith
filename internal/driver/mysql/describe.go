@@ -327,8 +327,11 @@ func (c *conn) describeChecks(ctx context.Context, t *driver.Table) {
 	q := `SELECT cc.CONSTRAINT_NAME, cc.CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS cc
 		JOIN information_schema.TABLE_CONSTRAINTS tc ON tc.CONSTRAINT_SCHEMA = cc.CONSTRAINT_SCHEMA AND tc.CONSTRAINT_NAME = cc.CONSTRAINT_NAME
 		WHERE tc.TABLE_SCHEMA = ? AND tc.TABLE_NAME = ? AND tc.CONSTRAINT_TYPE = 'CHECK'`
-	if c.flavor == "mariadb" {
+	switch c.flavor {
+	case "mariadb":
 		q = `SELECT CONSTRAINT_NAME, CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ?`
+	case "tidb":
+		q = `SELECT CONSTRAINT_NAME, CHECK_CLAUSE FROM information_schema.TIDB_CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = ?`
 	}
 	rows, err := c.db.QueryContext(ctx, q, t.Ref.Database, t.Ref.Name)
 	if err != nil {

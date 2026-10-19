@@ -31,7 +31,10 @@ body:
       options:
         - MySQL
         - MariaDB
+        - TiDB
         - PostgreSQL / PostGIS
+        - CockroachDB
+        - YugabyteDB
         - SQL Server
         - Oracle
         - ClickHouse

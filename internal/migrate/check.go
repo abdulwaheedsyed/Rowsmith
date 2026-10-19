@@ -20,7 +20,7 @@ func Validate(p *Plan, src, dst Endpoint) error {
 	if p.SourceEngine != src.engine() || p.TargetEngine != dst.engine() {
 		return fmt.Errorf("the plan was made for other connections; plan it again")
 	}
-	p.SameEngine = family(src.engine()) == family(dst.engine())
+	p.SameEngine = sameEngine(src.engine(), dst.engine())
 	p.Options.normalize()
 	n := 0
 	for _, t := range p.Tables {

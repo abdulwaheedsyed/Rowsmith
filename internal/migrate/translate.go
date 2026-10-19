@@ -228,7 +228,7 @@ func clipIdent(engine, name string) string {
 // the index should be left out.
 func indexType(srcEngine, dstEngine string, ix driver.Index, geo bool, offered []string) (string, string, bool) {
 	t := strings.ToLower(ix.Type)
-	same := family(srcEngine) == family(dstEngine)
+	same := sameEngine(srcEngine, dstEngine)
 	has := func(x string) bool {
 		for _, o := range offered {
 			if strings.EqualFold(o, x) {
@@ -246,8 +246,14 @@ func indexType(srcEngine, dstEngine string, ix driver.Index, geo bool, offered [
 		}
 		switch family(dstEngine) {
 		case Postgres:
-			return "gist", "", true
-		case MySQL, Oracle:
+			if has("gist") {
+				return "gist", "", true
+			}
+		case MySQL:
+			if has("spatial") {
+				return "spatial", "", true
+			}
+		case Oracle:
 			return "spatial", "", true
 		case MongoDB:
 			return "2dsphere", "", true

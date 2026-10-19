@@ -16,10 +16,15 @@ function runFrom(conn: Connection, target: string): string | undefined {
   switch (conn.driver) {
     case "postgres":
       return [configured, "postgres", "template1"].find((d) => d && d !== target);
+    case "yugabytedb":
+      return [configured, "yugabyte", "postgres"].find((d) => d && d !== target);
+    case "cockroachdb":
+      return [configured, "defaultdb", "postgres"].find((d) => d && d !== target);
     case "mssql":
       return "master";
     case "mysql":
     case "mariadb":
+    case "tidb":
       return configured && configured !== target ? configured : undefined;
   }
   return undefined;
@@ -42,8 +47,9 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
   const name = isDb ? target.database! : isSchema ? target.schema! : target.name;
   const what = isDb ? "database" : isSchema ? (conn.driver === "bigquery" ? "dataset" : "schema") : (target.kind ?? "object").replace("_", " ");
   const startsHere = isDb && String((conn.params as Record<string, unknown>).database ?? "") === name;
-  const canCascade = (action === "drop" && conn.driver === "postgres") || (isSchema && (conn.driver === "postgres" || conn.driver === "bigquery"));
-  const canForce = isDb && (conn.driver === "postgres" || conn.driver === "mssql");
+  const pgFamily = ["postgres", "cockroachdb", "yugabytedb"].includes(conn.driver);
+  const canCascade = (action === "drop" && pgFamily) || (isSchema && (pgFamily || conn.driver === "bigquery"));
+  const canForce = isDb && ["postgres", "yugabytedb", "mssql"].includes(conn.driver);
 
   useEffect(() => {
     setScript(null);

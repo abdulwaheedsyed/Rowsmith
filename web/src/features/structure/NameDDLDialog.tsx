@@ -19,7 +19,7 @@ export function NameDDLDialog({ conn, action, target, onClose, onDone }: {
   const [script, setScript] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const withCollation = action === "create_database" && (conn.driver === "mysql" || conn.driver === "mariadb" || conn.driver === "mssql");
+  const withCollation = action === "create_database" && ["mysql", "mariadb", "tidb", "mssql"].includes(conn.driver);
   const unchanged = action === "rename" && name === target?.name;
 
   useEffect(() => {

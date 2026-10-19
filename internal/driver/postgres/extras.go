@@ -19,6 +19,9 @@ func (c *conn) Explain(ctx context.Context, s driver.Scope, stmt string, analyze
 	if err != nil {
 		return nil, err
 	}
+	if p.flavor == flavorCockroach {
+		return c.crdbExplain(ctx, p, s, stmt, analyze)
+	}
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -112,6 +115,9 @@ func (c *conn) Processes(ctx context.Context) (*driver.Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if p.flavor == flavorCockroach {
+		return c.crdbProcesses(ctx, p)
+	}
 	return sqlbase.Collect(ctx, dialect{}, p.db, 0, `SELECT pid, usename AS "user", datname AS "database", client_addr::text AS client,
 		application_name AS application, state, backend_start, xact_start, query_start,
 		CASE WHEN state = 'active' THEN round(extract(epoch FROM now() - query_start)::numeric, 1) END AS "seconds",
@@ -120,13 +126,16 @@ func (c *conn) Processes(ctx context.Context) (*driver.Result, error) {
 }
 
 func (c *conn) KillProcess(ctx context.Context, id string) error {
-	pid, err := strconv.Atoi(id)
-	if err != nil {
-		return fmt.Errorf("invalid pid %q", id)
-	}
 	p, err := c.pool(ctx, "")
 	if err != nil {
 		return err
+	}
+	if p.flavor == flavorCockroach {
+		return c.crdbKill(ctx, p, id)
+	}
+	pid, err := strconv.Atoi(id)
+	if err != nil {
+		return fmt.Errorf("invalid pid %q", id)
 	}
 	var ok bool
 	if err := p.db.QueryRowContext(ctx, "SELECT pg_terminate_backend($1)", pid).Scan(&ok); err != nil {
@@ -142,6 +151,9 @@ func (c *conn) Variables(ctx context.Context, kind string) (*driver.Result, erro
 	p, err := c.pool(ctx, "")
 	if err != nil {
 		return nil, err
+	}
+	if p.flavor == flavorCockroach {
+		return c.crdbVariables(ctx, p, kind)
 	}
 	if kind == "status" {
 		return sqlbase.Collect(ctx, dialect{}, p.db, 0, `SELECT datname AS "database", numbackends AS connections, xact_commit AS commits,

@@ -265,6 +265,68 @@ def main():
     _, an = c.req("POST", f"/api/c/{mid}/analyze", {"sql": "db.a.find({})\ndb.a.drop()"}, 200)
     ok("mongo analyze markers: " + str([(s["line"], s["kind"], s["danger"]["level"]) for s in an["statements"]]))
 
+    # PostgreSQL- and MySQL-compatible servers (CockroachDB over TLS)
+    for engine, product, params in (
+        ("cockroachdb", "CockroachDB", {"host": "cockroach", "user": "rowsmith", "database": "shop", "tls": "require"}),
+        ("yugabytedb", "YugabyteDB", {"host": "yugabyte", "user": "yugabyte", "database": "shop", "tls": "disable"}),
+        ("tidb", "TiDB", {"host": "tidb", "user": "root", "database": "shop", "tls": "disable"}),
+    ):
+        _, cv = c.req("POST", "/api/connections", {"name": f"Shop ({product}) {time.time_ns()}", "driver": engine, "environment": "development",
+            "params": params, "secrets": {"password": PW}}, 201)
+        xid = cv["id"]
+        pg = engine != "tidb"
+        scope = "db=shop&schema=public" if pg else "db=shop"
+        _, srv = c.req("GET", f"/api/c/{xid}/server", expect=200)
+        assert srv["server"]["product"] == product, srv
+        _, objs = c.req("GET", f"/api/c/{xid}/objects?{scope}", expect=200)
+        kinds = {o["name"]: o["kind"] for o in objs}
+        assert kinds.get("orders") == "table" and kinds.get("customer_revenue") == "view", kinds
+        ok(f"{engine}: {product} {srv['server']['version']}, {len(objs)} objects in shop")
+        ref = {"database": "shop", "schema": "public", "name": "orders"} if pg else {"database": "shop", "name": "orders"}
+        _, t = c.req("GET", f"/api/c/{xid}/describe?{scope}&name=customers", expect=200)
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": ref, "limit": 3, "filters": [{"column": "status", "op": "=", "value": "paid"}],
+            "sort": [{"column": "placed_at", "desc": True}]}, 200)
+        assert len(res["rows"]) == 3, res
+        ok(f"{engine} browse with filters; customers has {len(t['columns'])} columns, row key {t['rowKey']}")
+        code, ev = stream(c, xid, "DROP TABLE IF EXISTS smoke_notes;\nCREATE TABLE smoke_notes (id INT PRIMARY KEY, body TEXT);\nINSERT INTO smoke_notes VALUES (1, 'one'), (2, 'two');\nSELECT count(*) FROM smoke_notes",
+            database="shop", schema="public" if pg else None, confirm=True)
+        errs = [e["error"]["message"] for e in ev if e["t"] == "stmtEnd" and e.get("error")]
+        assert not errs, errs
+        nref = dict(ref, name="smoke_notes")
+        c.req("POST", f"/api/c/{xid}/edit", {"ref": nref, "edits": [{"op": "update", "key": {"id": 1}, "values": {"body": "uno"}}, {"op": "delete", "key": {"id": 2}}]}, 200)
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": nref, "limit": 10}, 200)
+        assert res["rows"] == [[1, "uno"]], res["rows"]
+        ok(f"{engine} console DDL and grid edits")
+        _, plan = c.req("POST", f"/api/c/{xid}/explain", {"database": "shop", "schema": "public" if pg else None, "sql": "SELECT * FROM orders WHERE customer_id = 7"}, 200)
+        _, pl = c.req("GET", f"/api/c/{xid}/processes", expect=200)
+        ok(f"{engine} plan root {plan['root']['operation']}, {len(pl['rows'])} sessions")
+        code, ev = stream(c, xid, "DROP TABLE smoke_notes", database="shop", schema="public" if pg else None, confirm=True)
+        assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev
+
+    # A migration into TiDB: spatial columns become GeoJSON, and every copy is checked value by value.
+    _, cv = c.req("POST", "/api/connections", {"name": f"Mig (TiDB) {time.time_ns()}", "driver": "tidb", "environment": "development",
+        "params": {"host": "tidb", "user": "root", "database": "shop", "tls": "disable"}, "secrets": {"password": PW}}, 201)
+    tid = cv["id"]
+    stream(c, tid, "DROP DATABASE IF EXISTS smoke_mig;\nCREATE DATABASE smoke_mig", confirm=True)
+    src, dst = {"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": tid, "database": "smoke_mig"}
+    _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+        "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+    plan = pr["plan"]
+    for tp in plan["tables"]:
+        tp["include"] = tp["source"]["name"] in ("stores", "categories")
+    loc = next(col for tp in plan["tables"] if tp["source"]["name"] == "stores" for col in tp["columns"] if col["source"] == "location")
+    assert loc["type"] == "json", loc
+    _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+    for _ in range(120):
+        _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+        if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+            break
+        time.sleep(1)
+    done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+    assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), done
+    ok(f"migration MySQL -> TiDB: {done}, shapes as GeoJSON")
+    stream(c, tid, "DROP DATABASE smoke_mig", confirm=True)
+
     # Redis and Valkey (Valkey signs in as an ACL user)
     for engine, params in (("redis", {"host": "redis"}), ("valkey", {"host": "valkey", "user": "rowsmith"})):
         _, cv = c.req("POST", "/api/connections", {"name": f"Cache ({engine}) {time.time_ns()}", "driver": engine, "environment": "development",

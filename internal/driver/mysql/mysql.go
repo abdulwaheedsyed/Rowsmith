@@ -22,13 +22,14 @@ import (
 )
 
 type mysqlDriver struct {
-	id, name string
-	order    int
+	id, name    string
+	order, port int
 }
 
 func init() {
-	driver.Register(&mysqlDriver{id: "mysql", name: "MySQL", order: 10})
-	driver.Register(&mysqlDriver{id: "mariadb", name: "MariaDB", order: 11})
+	driver.Register(&mysqlDriver{id: "mysql", name: "MySQL", order: 10, port: 3306})
+	driver.Register(&mysqlDriver{id: "mariadb", name: "MariaDB", order: 11, port: 3306})
+	driver.Register(&mysqlDriver{id: "tidb", name: "TiDB", order: 12, port: 4000})
 }
 
 var kinds = []driver.KindInfo{
@@ -47,8 +48,14 @@ var types = []string{
 	"geometry", "point", "linestring", "polygon", "multipolygon",
 }
 
+var tidbTypes = []string{
+	"int", "bigint", "tinyint", "smallint", "mediumint", "decimal(10,2)", "float", "double", "bit(1)",
+	"varchar(255)", "char(36)", "text", "mediumtext", "longtext", "json", "enum('a','b')", "set('a','b')",
+	"date", "datetime", "timestamp", "time", "year", "binary(16)", "varbinary(255)", "blob", "longblob",
+}
+
 func (d *mysqlDriver) Info() driver.Info {
-	fields := driver.NetworkFields(3306, "Database", false)
+	fields := driver.NetworkFields(d.port, "Database", false)
 	fields[0].Help = "A host name or IP address, or the path of a Unix socket mounted into the Rowsmith container, such as /run/mysqld/mysqld.sock."
 	fields = append(fields, driver.TLSFields("prefer")...)
 	fields = append(fields,
@@ -56,15 +63,25 @@ func (d *mysqlDriver) Info() driver.Info {
 		driver.Field{Key: "timezone", Label: "Session time zone", Type: driver.FieldText, Placeholder: "server default, e.g. +00:00", Section: "advanced", Span: 3},
 		driver.Field{Key: "allowCleartext", Label: "Allow cleartext password plugin (only over TLS/SSH)", Type: driver.FieldBool, Section: "advanced"},
 	)
-	return driver.Info{
+	info := driver.Info{
 		ID: d.id, Name: d.name, Order: d.order,
-		Description: map[string]string{"mysql": "MySQL 5.7, 8.x and 9.x, Percona, Aurora MySQL", "mariadb": "MariaDB 10.x and 11.x"}[d.id],
-		Dialect:     "mysql", DefaultPort: 3306, Fields: fields, SSH: true,
+		Description: map[string]string{"mysql": "MySQL 5.7, 8.x and 9.x, Percona, Aurora MySQL", "mariadb": "MariaDB 10.x and 11.x",
+			"tidb": "TiDB 7.5+ self-hosted, and TiDB Cloud"}[d.id],
+		Dialect: "mysql", DefaultPort: d.port, Fields: fields, SSH: true,
 		Caps: driver.Caps{Databases: true, SQL: true, Transactions: true, EditRows: true, DDL: true, CreateDatabase: true, DropDatabase: true,
 			ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true, Geometry: true, Dump: true},
 		Kinds: kinds, Types: types, URLSchemes: []string{"mysql", "mariadb"}, QuoteChar: "`",
 		Design: &design,
 	}
+	if d.id == "tidb" {
+		// TiDB has no spatial types, stored routines, triggers or events.
+		info.Caps.Geometry = false
+		info.Kinds = kinds[:2]
+		info.Types = tidbTypes
+		info.Design = &tidbDesign
+		info.URLSchemes = []string{"tidb", "mysql"}
+	}
+	return info
 }
 
 // checkSocket accepts only an existing Unix socket, so the host field cannot
@@ -81,7 +98,7 @@ func checkSocket(path string) error {
 type conn struct {
 	eng     *sqlbase.Engine
 	db      *sql.DB
-	flavor  string // "mysql" or "mariadb"
+	flavor  string // "mysql", "mariadb" or "tidb"
 	version string
 	major   int
 	minor   int
@@ -89,7 +106,7 @@ type conn struct {
 }
 
 func (d *mysqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, error) {
-	host, port := driver.HostPort(p, 3306)
+	host, port := driver.HostPort(p, d.port)
 	if host == "" {
 		return nil, errors.New("host is required")
 	}
@@ -165,8 +182,11 @@ func (d *mysqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Con
 	}
 	c.version = ver
 	c.flavor = "mysql"
-	if strings.Contains(strings.ToLower(ver), "mariadb") {
+	switch {
+	case strings.Contains(strings.ToLower(ver), "mariadb"):
 		c.flavor = "mariadb"
+	case strings.Contains(ver, "-TiDB-"):
+		c.flavor = "tidb"
 	}
 	c.major, c.minor = parseVersion(ver)
 	return c, nil
@@ -190,11 +210,21 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	if err := c.db.QueryRowContext(ctx, "SELECT CURRENT_USER(), DATABASE()").Scan(&user, &db); err != nil {
 		return nil, err
 	}
-	product := "MySQL"
-	if c.flavor == "mariadb" {
+	product, version := "MySQL", c.version
+	switch c.flavor {
+	case "mariadb":
 		product = "MariaDB"
+	case "tidb":
+		// 8.0.11-TiDB-v8.5.5: TiDB 8.5.5, compatible with MySQL 8.0.11
+		product = "TiDB"
+		_, tidbVer, _ := strings.Cut(c.version, "-TiDB-")
+		version = strings.TrimPrefix(tidbVer, "v")
 	}
-	info := &driver.ServerInfo{Product: product, Version: c.version, User: user.String, Database: db.String, Extras: map[string]string{}}
+	info := &driver.ServerInfo{Product: product, Version: version, User: user.String, Database: db.String, Extras: map[string]string{}}
+	if c.flavor == "tidb" {
+		mysqlVer, _, _ := strings.Cut(c.version, "-TiDB-")
+		info.Extras["MySQL compatibility"] = mysqlVer
+	}
 	var comment sql.NullString
 	if err := c.db.QueryRowContext(ctx, "SELECT @@version_comment").Scan(&comment); err == nil && comment.String != "" {
 		info.Extras["Distribution"] = comment.String
@@ -205,7 +235,7 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	return info, nil
 }
 
-var systemDBs = map[string]bool{"mysql": true, "information_schema": true, "performance_schema": true, "sys": true}
+var systemDBs = map[string]bool{"mysql": true, "information_schema": true, "performance_schema": true, "sys": true, "metrics_schema": true}
 
 func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
 	rows, err := c.db.QueryContext(ctx, `SELECT s.SCHEMA_NAME, s.DEFAULT_COLLATION_NAME,
@@ -398,4 +428,18 @@ var design = driver.TableDesign{
 			{Value: "ARCHIVE", Label: "ARCHIVE"}, {Value: "Aria", Label: "Aria (MariaDB)"}}},
 		{Key: "collation", Label: "Default collation", Type: driver.FieldText, Span: 3, Placeholder: "server default, e.g. utf8mb4_0900_ai_ci"},
 	},
+}
+
+// tidbDesign: TiDB stores every table the same way (no storage engines),
+// and has no spatial or full-text indexes in its open-source releases.
+var tidbDesign = driver.TableDesign{
+	Columns: true, ReorderColumns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true,
+	Generated: true, GeneratedVirtual: true, GeneratedStored: true, OnUpdate: true, Checks: true, PrimaryKey: true, ForeignKeys: true,
+	Indexes: true, IndexLengths: true,
+	IndexTypes: []string{"btree"},
+	FKActions:  []string{"NO ACTION", "CASCADE", "SET NULL", "RESTRICT"},
+	Options: []driver.Field{
+		{Key: "collation", Label: "Default collation", Type: driver.FieldText, Span: 3, Placeholder: "server default, e.g. utf8mb4_bin"},
+	},
+	Note: "TiDB changes the schema online; new columns can go anywhere.",
 }

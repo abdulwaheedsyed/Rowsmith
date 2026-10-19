@@ -138,9 +138,14 @@ func newConverter(srcEngine, dstEngine string, sk, dk canon) conv {
 			}
 		}
 		if s, ok := v.(string); ok && sk.T == "geometry" {
-			// SQL Server and Oracle send shapes as (E)WKT; GeoJSON carries
-			// the same shape to every engine without axis-order surprises.
-			if raw, ok := wktToGeoJSON(s); ok {
+			// SQL Server and Oracle send shapes as (E)WKT, others as GeoJSON
+			// text; GeoJSON carries the same shape to every engine without
+			// axis-order surprises.
+			raw, ok := wktToGeoJSON(s)
+			if !ok && strings.HasPrefix(strings.TrimSpace(s), "{") && json.Valid([]byte(s)) {
+				raw, ok = []byte(s), true
+			}
+			if ok {
 				if dk.T == "geometry" || toMongo {
 					return map[string]any{"$geo": json.RawMessage(raw)}, nil
 				}
@@ -535,9 +540,18 @@ func geoKey(v any) string {
 	var g geom.T
 	switch x := v.(type) {
 	case map[string]any:
-		raw, _ := json.Marshal(x["$geo"])
+		// A shape cell ({"$geo": …}), or GeoJSON read back from a JSON column.
+		var src any = x
+		if gv, ok := x["$geo"]; ok {
+			src = gv
+		}
+		raw, _ := json.Marshal(src)
 		if err := geojson.Unmarshal(raw, &g); err != nil {
 			return string(raw)
+		}
+	case json.RawMessage:
+		if err := geojson.Unmarshal(x, &g); err != nil {
+			return string(x)
 		}
 	case string:
 		s := strings.TrimSpace(x)

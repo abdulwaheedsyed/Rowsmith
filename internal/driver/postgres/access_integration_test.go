@@ -42,7 +42,7 @@ func TestIntegrationAccess(t *testing.T) {
 	if admin == "" {
 		admin = "postgres"
 	}
-	dc, err := pgDriver{}.Open(ctx, pgParams(t, admin, os.Getenv("ROWSMITH_TEST_PG_PASSWORD")))
+	dc, err := postgresDriver.Open(ctx, pgParams(t, admin, os.Getenv("ROWSMITH_TEST_PG_PASSWORD")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,12 +76,12 @@ func TestIntegrationAccess(t *testing.T) {
 	// the SCRAM-SHA-256 verifier is right.
 	run(c.AccountSQL(driver.AccountOp{Op: "create", Kind: "user", Name: "rs_acc_user", Password: "Wild-Otter-Lantern-42", Attrs: map[string]string{"conn_limit": "3"}}))
 	run(c.AccountSQL(driver.AccountOp{Op: "create", Kind: "role", Name: "rs_acc_readers"}))
-	uc, err := pgDriver{}.Open(ctx, pgParams(t, "rs_acc_user", "Wild-Otter-Lantern-42"))
+	uc, err := postgresDriver.Open(ctx, pgParams(t, "rs_acc_user", "Wild-Otter-Lantern-42"))
 	if err != nil {
 		t.Fatalf("signing in with the password set through AccountSQL: %v", err)
 	}
 	uc.Close()
-	if _, err := (pgDriver{}).Open(ctx, pgParams(t, "rs_acc_user", "wrong")); err == nil {
+	if _, err := postgresDriver.Open(ctx, pgParams(t, "rs_acc_user", "wrong")); err == nil {
 		t.Fatal("a wrong password signed in")
 	}
 

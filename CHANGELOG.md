@@ -2,6 +2,19 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.3.0 - Unreleased
+
+### Engines
+
+- CockroachDB (24.1 and later, and CockroachDB Cloud), YugabyteDB (2.20 and later, and YugabyteDB Aeon) and TiDB (7.5 and later, and TiDB Cloud), each in the connection form with its own default port, through the PostgreSQL and MySQL drivers.
+- CockroachDB: row counts from table statistics, keyless tables edited by their hidden rowid, its own plan tree, cluster sessions you can cancel, jobs, and cluster settings, all without the restricted crdb_internal tables. TLS is on by default.
+- TiDB: TiDB's plans, schema changes applied one per statement, CHECK constraints when enforced, and grants read from its own tables.
+- Migrations into and out of all three, with types translated; TiDB stores spatial columns as GeoJSON.
+
+### Fixes
+
+- Migrating shapes from MySQL or MariaDB to a server without spatial types (PostgreSQL without PostGIS) stored each one as a quoted JSON string instead of a GeoJSON object.
+
 ## 0.2.0 - 2026-10-19
 
 ### Engines

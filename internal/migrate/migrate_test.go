@@ -16,6 +16,7 @@ func TestTypeMapping(t *testing.T) {
 	ms := target{Engine: MSSQL}
 	ora := target{Engine: Oracle, Version: 23}
 	lite := target{Engine: SQLite}
+	tidb := target{Engine: "tidb"}
 	cases := []struct {
 		src  string
 		col  driver.Column
@@ -32,6 +33,8 @@ func TestTypeMapping(t *testing.T) {
 		{MySQL, driver.Column{Type: "datetime(6)", BaseType: "datetime", Kind: driver.KindDateTime}, ms, use{}, "datetime2(6)"},
 		{MySQL, driver.Column{Type: "point", BaseType: "point", Kind: driver.KindGeometry, SRID: 4326, GeometryType: "point"}, pg, use{}, "geometry(Point,4326)"},
 		{MySQL, driver.Column{Type: "json", BaseType: "json", Kind: driver.KindJSON}, pg, use{}, "json"},
+		{MySQL, driver.Column{Type: "point", BaseType: "point", Kind: driver.KindGeometry, GeometryType: "point"}, tidb, use{}, "json"},
+		{"cockroachdb", driver.Column{Type: "text", BaseType: "text", Kind: driver.KindText}, tidb, use{}, "longtext"},
 		{MySQL, driver.Column{Type: "enum('a','b')", BaseType: "enum", Kind: driver.KindEnum, Enum: []string{"a", "bb"}}, pg, use{}, "character varying(2)"},
 		{Postgres, driver.Column{Type: "text", BaseType: "text", Kind: driver.KindText}, my, use{}, "longtext"},
 		{Postgres, driver.Column{Type: "text", BaseType: "text", Kind: driver.KindText}, my, use{Indexed: true}, "varchar(768)"},
@@ -142,6 +145,8 @@ func TestConvert(t *testing.T) {
 		{MySQL, Postgres, canon{T: "datetime"}, canon{T: "timestamptz"}, "2024-02-29 23:59:59.999999", "2024-02-29 23:59:59.999999+00:00"},
 		{Postgres, MySQL, canon{T: "time"}, canon{T: "time"}, "13:45:59+03", "13:45:59"},
 		{Postgres, MySQL, canon{T: "array"}, canon{T: "json"}, "{1,2,3}", "[1,2,3]"},
+		{MySQL, "tidb", canon{T: "geometry"}, canon{T: "json"}, `{"type": "Point", "coordinates": [4.9, 52.4]}`, `{"type": "Point", "coordinates": [4.9, 52.4]}`},
+		{"oracle", Postgres, canon{T: "geometry"}, canon{T: "json"}, "POINT (4.9 52.4)", `{"type":"Point","coordinates":[4.9,52.4]}`},
 		{Postgres, MySQL, canon{T: "decimal", Note: "money is copied as a decimal"}, canon{T: "decimal"}, "$1,234.50", "1234.50"},
 		{MongoDB, Postgres, canon{T: "objectid"}, canon{T: "varchar"}, map[string]any{"$oid": "65a1b2c3d4e5f6a7b8c9d0e1"}, "65a1b2c3d4e5f6a7b8c9d0e1"},
 		{MongoDB, MySQL, canon{T: "timestamptz"}, canon{T: "datetime"}, map[string]any{"$date": "2024-02-29T09:00:00.000Z"}, "2024-02-29 09:00:00"},
@@ -268,5 +273,23 @@ func TestParentsFirst(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "parent,child,tree" {
 		t.Fatalf("order: %v", names)
+	}
+}
+
+func TestSameEngine(t *testing.T) {
+	for _, c := range []struct {
+		src, dst string
+		want     bool
+	}{
+		{MySQL, MariaDB, true}, {Postgres, Postgres, true}, {"tidb", "tidb", true}, {"cockroachdb", "cockroachdb", true},
+		{MySQL, "tidb", false}, {"tidb", MySQL, false}, {"cockroachdb", Postgres, false}, {Postgres, "yugabytedb", false},
+		{MySQL, Postgres, false},
+	} {
+		if got := sameEngine(c.src, c.dst); got != c.want {
+			t.Errorf("sameEngine(%s, %s) = %v", c.src, c.dst, got)
+		}
+		if family("tidb") != MySQL || family("cockroachdb") != Postgres || family("yugabytedb") != Postgres {
+			t.Fatal("families")
+		}
 	}
 }

@@ -12,13 +12,16 @@ import (
 )
 
 // Integration tests run against real servers when ROWSMITH_TEST_MYSQL_HOST
-// is set; ROWSMITH_TEST_MARIADB_HOST adds a MariaDB run. They create and
-// drop their own accounts and database.
+// is set; ROWSMITH_TEST_MARIADB_HOST and ROWSMITH_TEST_TIDB_HOST add
+// MariaDB and TiDB runs. They create and drop their own accounts and
+// database.
 //
-//	ROWSMITH_TEST_MYSQL_HOST, ROWSMITH_TEST_MARIADB_HOST, _PASSWORD (for root)
+//	ROWSMITH_TEST_MYSQL_HOST, ROWSMITH_TEST_MARIADB_HOST, ROWSMITH_TEST_TIDB_HOST (port 4000), _PASSWORD (for root)
+
+var testPorts = map[string]string{"mysql": "3306", "mariadb": "3306", "tidb": "4000"}
 
 func TestIntegrationAccess(t *testing.T) {
-	for flavor, env := range map[string]string{"mysql": "ROWSMITH_TEST_MYSQL_HOST", "mariadb": "ROWSMITH_TEST_MARIADB_HOST"} {
+	for flavor, env := range map[string]string{"mysql": "ROWSMITH_TEST_MYSQL_HOST", "mariadb": "ROWSMITH_TEST_MARIADB_HOST", "tidb": "ROWSMITH_TEST_TIDB_HOST"} {
 		t.Run(flavor, func(t *testing.T) {
 			host := os.Getenv(env)
 			if host == "" {
@@ -33,7 +36,7 @@ func testAccess(t *testing.T, flavor, host string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	open := func(user, password string) (*conn, error) {
-		dc, err := (&mysqlDriver{id: flavor}).Open(ctx, driver.OpenParams{Params: map[string]any{"host": host, "port": "3306", "user": user, "tls": "disable"},
+		dc, err := (&mysqlDriver{id: flavor}).Open(ctx, driver.OpenParams{Params: map[string]any{"host": host, "port": testPorts[flavor], "user": user, "tls": "disable"},
 			Secrets: map[string]string{"password": password}, AppName: "rowsmith-test"})
 		if err != nil {
 			return nil, err
@@ -85,7 +88,7 @@ func testAccess(t *testing.T, flavor, host string) {
 	}
 	i := slices.IndexFunc(ps, func(p driver.Principal) bool { return p.Name == "rs_acc_user@%" })
 	j := slices.IndexFunc(ps, func(p driver.Principal) bool { return p.Name == role })
-	if i < 0 || j < 0 || ps[i].Attributes["conn_limit"] != 4 || !slices.Contains(ps[i].MemberOf, role) || ps[j].Kind != "role" {
+	if i < 0 || j < 0 || (flavor != "tidb" && ps[i].Attributes["conn_limit"] != 4) || !slices.Contains(ps[i].MemberOf, role) || ps[j].Kind != "role" {
 		t.Fatalf("principals: %+v", ps)
 	}
 

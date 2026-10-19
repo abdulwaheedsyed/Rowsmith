@@ -23,9 +23,45 @@ import (
 	"rowsmith/internal/sqlsplit"
 )
 
-type pgDriver struct{}
+// pgDriver serves PostgreSQL and the servers that speak its protocol and
+// catalog. The flavor sets the form's defaults; the server's own version
+// string decides how the connection behaves (see conn.flavor).
+type pgDriver struct {
+	id, name    string
+	order, port int
+	desc        string
+	defaultDB   string
+	schemes     []string
+}
 
-func init() { driver.Register(pgDriver{}) }
+var (
+	postgresDriver  = pgDriver{id: "postgres", name: "PostgreSQL", order: 20, port: 5432, defaultDB: "postgres", schemes: []string{"postgres", "postgresql"}, desc: "PostgreSQL 10+ with PostGIS, TimescaleDB, Supabase, Neon, Aurora, AlloyDB, Cloud SQL"}
+	cockroachDriver = pgDriver{id: "cockroachdb", name: "CockroachDB", order: 21, port: 26257, defaultDB: "defaultdb", schemes: []string{"cockroachdb", "cockroach", "postgresql", "postgres"}, desc: "CockroachDB 24.1+ self-hosted, and CockroachDB Cloud"}
+	yugabyteDriver  = pgDriver{id: "yugabytedb", name: "YugabyteDB", order: 22, port: 5433, defaultDB: "yugabyte", schemes: []string{"yugabytedb", "yugabyte", "postgresql", "postgres"}, desc: "YugabyteDB 2.20+ (YSQL), and YugabyteDB Aeon"}
+)
+
+func init() {
+	driver.Register(postgresDriver)
+	driver.Register(cockroachDriver)
+	driver.Register(yugabyteDriver)
+}
+
+// Server flavors, from version().
+const (
+	flavorPostgres  = "postgres"
+	flavorCockroach = "cockroachdb"
+	flavorYugabyte  = "yugabytedb"
+)
+
+func flavorOf(version string) string {
+	switch {
+	case strings.Contains(version, "CockroachDB"):
+		return flavorCockroach
+	case strings.Contains(version, "-YB-"):
+		return flavorYugabyte
+	}
+	return flavorPostgres
+}
 
 var kinds = []driver.KindInfo{
 	{Kind: "table", Label: "Tables", Icon: "table", Browse: true},
@@ -47,23 +83,33 @@ var types = []string{
 	"geometry(LineString,4326)", "geometry(MultiPolygon,4326)", "geography(Point,4326)",
 }
 
-func (pgDriver) Info() driver.Info {
-	fields := driver.NetworkFields(5432, "Database", false)
-	fields = append(fields, driver.TLSFields("prefer")...)
+func (d pgDriver) Info() driver.Info {
+	fields := driver.NetworkFields(d.port, "Database", false)
+	tls := "prefer"
+	if d.id == cockroachDriver.id {
+		tls = "require" // secure clusters, CockroachDB Cloud included, take only TLS
+	}
+	fields = append(fields, driver.TLSFields(tls)...)
 	fields = append(fields,
 		driver.Field{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
 		driver.Field{Key: "searchPath", Label: "Search path", Type: driver.FieldText, Placeholder: "e.g. app, public", Section: "advanced", Span: 3},
 		driver.Field{Key: "onlyDatabase", Label: "Only show the configured database", Type: driver.FieldBool, Section: "advanced"},
 	)
+	des := design
+	switch d.id {
+	case cockroachDriver.id:
+		des = cockroachDesign
+	case yugabyteDriver.id:
+		des = yugabyteDesign
+	}
 	return driver.Info{
-		ID: "postgres", Name: "PostgreSQL", Order: 20,
-		Description: "PostgreSQL 10+ with PostGIS, TimescaleDB, Supabase, Neon, Aurora, AlloyDB, Cloud SQL",
-		Dialect:     "postgresql", DefaultPort: 5432, Fields: fields, SSH: true,
+		ID: d.id, Name: d.name, Order: d.order, Description: d.desc,
+		Dialect: "postgresql", DefaultPort: d.port, Fields: fields, SSH: true,
 		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, Transactions: true, EditRows: true, DDL: true,
 			CreateDatabase: true, DropDatabase: true, ForeignKeys: true, Explain: true, Processes: true, Variables: true, Users: true,
 			Geometry: true, Dump: true},
-		Kinds: kinds, Types: types, URLSchemes: []string{"postgres", "postgresql"}, QuoteChar: `"`,
-		Design: &design,
+		Kinds: kinds, Types: types, URLSchemes: d.schemes, QuoteChar: `"`,
+		Design: &des,
 	}
 }
 
@@ -74,6 +120,7 @@ type conn struct {
 	defaultDB string
 	only      bool
 	ro        bool
+	flavor    string // the server's, whichever form was used to connect
 
 	mu    sync.Mutex
 	pools map[string]*pool
@@ -86,10 +133,12 @@ type pool struct {
 	eng     *sqlbase.Engine
 	postgis string // version, "" when absent
 	server  int    // server_version_num
+	flavor  string
+	version string // version()
 }
 
-func (pgDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, error) {
-	host, port := driver.HostPort(p, 5432)
+func (d pgDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, error) {
+	host, port := driver.HostPort(p, d.port)
 	if host == "" {
 		return nil, errors.New("host is required")
 	}
@@ -134,11 +183,13 @@ func (pgDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, err
 	c.notices.init()
 	cfg.OnNotice = c.notices.handler
 	if c.defaultDB == "" {
-		c.defaultDB = "postgres"
+		c.defaultDB = d.defaultDB
 	}
-	if _, err := c.pool(ctx, c.defaultDB); err != nil {
+	first, err := c.pool(ctx, c.defaultDB)
+	if err != nil {
 		return nil, err
 	}
+	c.flavor = first.flavor
 	live.Lock()
 	live.conns[c] = true
 	live.Unlock()
@@ -191,14 +242,18 @@ func (c *conn) pool(ctx context.Context, database string) (*pool, error) {
 	pctx, cancel := context.WithTimeout(ctx, c.base.ConnectTimeout+5*time.Second)
 	defer cancel()
 	p := &pool{db: db}
-	if err := db.QueryRowContext(pctx, "SELECT current_setting('server_version_num')::int").Scan(&p.server); err != nil {
+	if err := db.QueryRowContext(pctx, "SELECT current_setting('server_version_num')::int, version()").Scan(&p.server, &p.version); err != nil {
 		db.Close()
 		return nil, mapConnError(err)
 	}
+	p.flavor = flavorOf(p.version)
 	var gis sql.NullString
 	_ = db.QueryRowContext(pctx, "SELECT extversion FROM pg_extension WHERE extname = 'postgis'").Scan(&gis)
 	p.postgis = gis.String
 	p.eng = &sqlbase.Engine{DB: db, D: dialect{}, RowIDExpr: "ctid"}
+	if p.flavor == flavorCockroach {
+		p.eng.RowIDExpr = "rowid" // the hidden column of tables without a primary key
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -222,9 +277,13 @@ func (c *conn) pool(ctx context.Context, database string) (*pool, error) {
 
 // relSize is the SQL for the size of relation c on disk, with its indexes
 // and TOAST. A partitioned table has no storage of its own: its size is its
-// partitions' (PostgreSQL 12 and later can list them).
-func relSize(server int) string {
-	if server >= 120000 {
+// partitions' (PostgreSQL 12 and later can list them). CockroachDB keeps
+// tables in ranges and reports no relation sizes.
+func relSize(p *pool) string {
+	if p.flavor == flavorCockroach {
+		return "NULL::bigint"
+	}
+	if p.server >= 120000 {
 		return `CASE WHEN c.relkind = 'p' THEN (SELECT sum(pg_total_relation_size(t.relid))::bigint FROM pg_partition_tree(c.oid) t)
 			WHEN c.relkind IN ('r','m','t') THEN pg_total_relation_size(c.oid) END`
 	}
@@ -356,6 +415,21 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 		info.Version = f[1]
 		info.Extras["Build"] = ver
 	}
+	switch p.flavor {
+	case flavorCockroach:
+		// CockroachDB CCL v26.3.2 (x86_64-pc-linux-gnu, …)
+		info.Product = "CockroachDB"
+		if m := regexp.MustCompile(`v(\d+\.\d+\.\d+\S*)`).FindStringSubmatch(ver); m != nil {
+			info.Version = m[1]
+		}
+	case flavorYugabyte:
+		// PostgreSQL 15.12-YB-2026.1.2.0-b0 on …: YugabyteDB 2026.1.2.0, PostgreSQL 15.12
+		info.Product = "YugabyteDB"
+		if pg, yb, ok := strings.Cut(info.Version, "-YB-"); ok {
+			info.Version = strings.TrimSuffix(regexp.MustCompile(`-b\d+$`).ReplaceAllString(yb, ""), "-b0")
+			info.Extras["PostgreSQL"] = pg
+		}
+	}
 	if p.postgis != "" {
 		info.Extras["PostGIS"] = p.postgis
 	}
@@ -374,8 +448,12 @@ func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
 	if err != nil {
 		return nil, err
 	}
+	size := "CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.oid) END"
+	if p.flavor == flavorCockroach {
+		size = "NULL::bigint" // CockroachDB reports no database sizes (pg_database_size is always 0)
+	}
 	q := `SELECT d.datname,
-		CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.oid) END,
+		` + size + `,
 		d.datcollate, pg_get_userbyid(d.datdba), d.datistemplate, COALESCE(shobj_description(d.oid, 'pg_database'), '')
 		FROM pg_database d WHERE d.datallowconn`
 	if c.only {
@@ -397,6 +475,9 @@ func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
 			return nil, err
 		}
 		d.Size, d.Collation, d.Owner, d.System = sqlbase.NullInt(size), coll.String, owner.String, tmpl
+		if p.flavor == flavorCockroach && d.Name == "system" {
+			d.System = true
+		}
 		out = append(out, d)
 	}
 	return out, rows.Err()
@@ -437,7 +518,7 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 	var out []driver.Object
 	rows, err := p.db.QueryContext(ctx, `SELECT c.relname, c.relkind::text,
 		CASE WHEN c.reltuples >= 0 THEN c.reltuples::bigint END,
-		`+relSize(p.server)+`,
+		`+relSize(p)+`,
 		COALESCE(obj_description(c.oid, 'pg_class'), ''),
 		CASE WHEN c.relispartition THEN 'partition of ' || (SELECT pc.relname FROM pg_inherits i JOIN pg_class pc ON pc.oid = i.inhparent WHERE i.inhrelid = c.oid LIMIT 1) ELSE '' END,
 		COALESCE((SELECT e.extname FROM pg_depend d JOIN pg_extension e ON e.oid = d.refobjid
@@ -465,6 +546,14 @@ func (c *conn) Objects(ctx context.Context, s driver.Scope) ([]driver.Object, er
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+	if p.flavor == flavorCockroach {
+		counts := crdbRowCounts(ctx, p.db, schema)
+		for i := range out {
+			if n, ok := counts[out[i].Name]; ok {
+				out[i].Rows = &n
+			}
+		}
 	}
 
 	prokind := "p.prokind"
@@ -682,6 +771,26 @@ func qualify(schema, name string) string {
 }
 
 func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+
+// cockroachDesign leaves out what CockroachDB lacks: column collations in
+// ALTER, and index methods other than its own (prefix, inverted for JSON
+// and arrays, and spatial).
+var cockroachDesign = driver.TableDesign{
+	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Generated: true, GeneratedStored: true, GeneratedVirtual: true,
+	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	IndexTypes: []string{"btree", "gin", "gist"},
+	FKActions:  []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},
+	Note:       "CockroachDB adds new columns at the end and changes the schema online, in the background.",
+}
+
+// yugabyteDesign: YSQL indexes are LSM trees (ASC/DESC/HASH); GIN exists.
+var yugabyteDesign = driver.TableDesign{
+	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true, GeneratedStored: true,
+	Checks: true, PrimaryKey: true, ForeignKeys: true, Indexes: true, PartialIndexes: true,
+	IndexTypes: []string{"lsm", "gin"},
+	FKActions:  []string{"NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT"},
+	Note:       "YugabyteDB cannot move existing columns; new columns are added at the end.",
+}
 
 var design = driver.TableDesign{
 	Columns: true, AutoIncrement: true, ColumnComments: true, TableComment: true, Collation: true, Generated: true, GeneratedStored: true,

@@ -27,6 +27,9 @@ func (c *conn) Explain(ctx context.Context, s driver.Scope, stmt string, analyze
 			return nil, err
 		}
 	}
+	if c.flavor == "tidb" {
+		return c.tidbExplain(ctx, sc, stmt, analyze)
+	}
 	treeOK := c.flavor == "mysql" && (c.major > 8 || c.major == 8)
 	var q, format string
 	switch {

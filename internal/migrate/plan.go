@@ -149,6 +149,9 @@ func CanTarget(dst Endpoint) error {
 
 func targetOf(dst Endpoint) target {
 	t := target{Engine: dst.engine()}
+	if t.Engine == "cockroachdb" {
+		t.PostGIS = true // spatial types are built in, with PostGIS's names
+	}
 	if dst.Server != nil {
 		v := dst.Server.Version
 		if i := strings.IndexAny(v, ". "); i > 0 {
@@ -183,7 +186,7 @@ func BuildPlan(ctx context.Context, src, dst Endpoint, opts Options) (*Plan, err
 		opts.NameCase = DefaultCase(src.engine(), dst.engine())
 	}
 	opts.normalize()
-	p := &Plan{SourceEngine: src.engine(), TargetEngine: dst.engine(), SameEngine: family(src.engine()) == family(dst.engine()),
+	p := &Plan{SourceEngine: src.engine(), TargetEngine: dst.engine(), SameEngine: sameEngine(src.engine(), dst.engine()),
 		Options: opts, Tables: []*TablePlan{}, Objects: []ObjectNote{}, Skipped: []ObjectNote{}, Warnings: []string{},
 		TypeChoices: dst.Info.Types, Design: dst.Info.Design}
 
@@ -297,7 +300,7 @@ func isDefinable(kind string) bool {
 
 func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, names map[string]int) *TablePlan {
 	sEng, dEng := src.engine(), dst.engine()
-	same := family(sEng) == family(dEng)
+	same := sameEngine(sEng, dEng)
 	design := dst.Info.Design
 	if design == nil {
 		design = &driver.TableDesign{}

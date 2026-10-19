@@ -31,7 +31,7 @@ You need Docker, Node 22.12 or later, and Python 3 for the dev scripts. Go runs 
    ./dev/build.sh
    ```
 
-3. Start Rowsmith with throwaway MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis and Valkey servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
+3. Start Rowsmith with throwaway MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis and Valkey servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
 
    ```bash
    docker compose -f dev/compose.yaml --env-file dev/.env up -d
@@ -69,7 +69,7 @@ cd web && npm run typecheck
 python3 dev/smoke.py
 ```
 
-The smoke test runs end to end against the dev stack on MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis and Valkey: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
+The smoke test runs end to end against the dev stack on MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis and Valkey: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
 
 ### Integration tests
 
@@ -82,7 +82,8 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 | Engine | Variables, with the dev stack's values |
 |---|---|
 | PostgreSQL | `ROWSMITH_TEST_PG_HOST=postgis`, `ROWSMITH_TEST_PG_DATABASE=city`, `ROWSMITH_TEST_PG_PASSWORD=$DEV_DB_PASSWORD` |
-| MySQL, MariaDB | `ROWSMITH_TEST_MYSQL_HOST=mysql`, `ROWSMITH_TEST_MARIADB_HOST=mariadb`, `ROWSMITH_TEST_MYSQL_PASSWORD=$DEV_DB_PASSWORD` |
+| MySQL, MariaDB, TiDB | `ROWSMITH_TEST_MYSQL_HOST=mysql`, `ROWSMITH_TEST_MARIADB_HOST=mariadb`, `ROWSMITH_TEST_TIDB_HOST=tidb`, `ROWSMITH_TEST_MYSQL_PASSWORD=$DEV_DB_PASSWORD` |
+| CockroachDB, YugabyteDB | `ROWSMITH_TEST_COCKROACH_HOST=cockroach`, `ROWSMITH_TEST_COCKROACH_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_YUGABYTE_HOST=yugabyte`, `ROWSMITH_TEST_YUGABYTE_PASSWORD=$DEV_DB_PASSWORD` |
 | ClickHouse | `ROWSMITH_TEST_CLICKHOUSE_HOST=clickhouse`, `ROWSMITH_TEST_CLICKHOUSE_PASSWORD=$DEV_DB_PASSWORD` |
 | SQL Server | `ROWSMITH_TEST_MSSQL_HOST=mssql`, `ROWSMITH_TEST_MSSQL_PASSWORD=${DEV_DB_PASSWORD}Aa1!` |
 | Oracle | `ROWSMITH_TEST_ORACLE_HOST=oracle`, `ROWSMITH_TEST_ORACLE_USER=shop`, `ROWSMITH_TEST_ORACLE_PASSWORD=$DEV_DB_PASSWORD` |
@@ -90,7 +91,7 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 | BigQuery | `ROWSMITH_TEST_BQ_ENDPOINT=http://bigquery:9050` |
 | Redis, Valkey | `ROWSMITH_TEST_REDIS_HOST=redis`, `ROWSMITH_TEST_REDIS_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_VALKEY_HOST=valkey`, `ROWSMITH_TEST_VALKEY_USER=rowsmith`, `ROWSMITH_TEST_VALKEY_PASSWORD=$DEV_DB_PASSWORD` |
 
-MySQL, MariaDB, PostgreSQL, ClickHouse, MongoDB, Redis and Valkey are also covered by the smoke test.
+MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis and Valkey are also covered by the smoke test.
 
 ## Writing code
 

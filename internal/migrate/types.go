@@ -14,7 +14,9 @@ import (
 	"rowsmith/internal/driver/clickhouse/chtype"
 )
 
-// Engines are driver IDs; MariaDB differs from MySQL in a few type details.
+// Engines are driver IDs; MariaDB differs from MySQL in a few type details,
+// and the servers that speak MySQL's or PostgreSQL's dialect (TiDB,
+// CockroachDB, YugabyteDB) map types as their family does.
 const (
 	MySQL      = "mysql"
 	MariaDB    = "mariadb"
@@ -27,9 +29,26 @@ const (
 	ClickHouse = "clickhouse"
 )
 
+// compatible are the servers that speak another engine's dialect without all
+// of it (spatial types, extensions, index methods, routines).
+var compatible = map[string]bool{"tidb": true, "cockroachdb": true, "yugabytedb": true}
+
+// sameEngine says whether definitions copy as they are. Between servers of
+// one family that holds only for the engine itself and MySQL with MariaDB;
+// the compatible servers take translated types in either direction.
+func sameEngine(src, dst string) bool {
+	if family(src) != family(dst) {
+		return false
+	}
+	return src == dst || (!compatible[src] && !compatible[dst])
+}
+
 func family(engine string) string {
-	if engine == MariaDB {
+	switch engine {
+	case MariaDB, "tidb":
 		return MySQL
+	case "cockroachdb", "yugabytedb":
+		return Postgres
 	}
 	return engine
 }
@@ -856,6 +875,11 @@ func mysqlType(t target, k canon, u use, m *mapped) {
 			m.Type = "varchar(255)"
 		}
 	case "geometry":
+		if t.Engine == "tidb" {
+			m.Type = "json"
+			m.note(true, "TiDB has no spatial types, so shapes are stored as GeoJSON")
+			return
+		}
 		m.Type = geoName(k)
 		if k.SRID > 0 {
 			if t.Engine == MariaDB {

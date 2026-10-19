@@ -33,7 +33,7 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	var persistence string
 	err = db.QueryRowContext(ctx, `SELECT c.oid, c.relkind::text, COALESCE(obj_description(c.oid, 'pg_class'), ''),
 		CASE WHEN c.reltuples >= 0 THEN c.reltuples::bigint END,
-		`+relSize(p.server)+`, c.relpersistence::text
+		`+relSize(p)+`, c.relpersistence::text
 		FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace WHERE ns.nspname = $1 AND c.relname = $2`, schema, ref.Name).
 		Scan(&oid, &kind, &comment, &n, &size, &persistence)
 	if err == sql.ErrNoRows {
@@ -45,6 +45,11 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	t.Kind = relkind(kind)
 	t.Ref.Kind = t.Kind
 	t.Comment, t.RowEstimate, t.Size = comment, sqlbase.NullInt(n), sqlbase.NullInt(size)
+	if p.flavor == flavorCockroach {
+		if n, ok := crdbRowCounts(ctx, db, schema)[ref.Name]; ok {
+			t.RowEstimate = &n
+		}
+	}
 	if persistence == "u" {
 		t.Options["unlogged"] = "true"
 	}
@@ -79,6 +84,9 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 		}
 		describeChecks(ctx, db, oid, t)
 		describeTriggers(ctx, db, oid, t)
+		if p.flavor == flavorCockroach {
+			crdbHideColumns(ctx, db, schema, ref.Name, t)
+		}
 		sqlbase.ChooseRowKey(t, t.Kind == "table")
 	}
 	switch t.Kind {
@@ -221,6 +229,14 @@ func describeIndexes(ctx context.Context, db *sql.DB, oid uint32, t *driver.Tabl
 		var cols string
 		if err := rows.Scan(&ix.Name, &ix.Unique, &ix.Primary, &ix.Type, &ix.Definition, &ix.Where, &cols, &ix.Comment); err != nil {
 			return err
+		}
+		// CockroachDB names its access methods prefix (ordinary indexes) and
+		// inverted (JSON, arrays and full text), PostgreSQL's btree and gin.
+		switch ix.Type {
+		case "prefix":
+			ix.Type = "btree"
+		case "inverted":
+			ix.Type = "gin"
 		}
 		var raw []string
 		_ = json.Unmarshal([]byte(cols), &raw)

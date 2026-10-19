@@ -57,6 +57,9 @@ func (c *conn) AccessModel() driver.AccessModel {
 		m.Roles = false // roles arrived in MySQL 8.0
 		m.CanCreate = []string{"user"}
 	}
+	if c.flavor == "tidb" {
+		m.Attributes = slices.DeleteFunc(slices.Clone(m.Attributes), func(a driver.AccountAttr) bool { return a.Key == "conn_limit" })
+	}
 	return m
 }
 
@@ -104,8 +107,15 @@ func fromGrantee(g string) string {
 
 func (c *conn) Principals(ctx context.Context) ([]driver.Principal, error) {
 	q := `SELECT User, Host, account_locked = 'Y', max_user_connections, ssl_type <> '', account_locked = 'Y' AND authentication_string = '' FROM mysql.user ORDER BY User, Host`
-	if c.flavor == "mariadb" {
+	switch c.flavor {
+	case "mariadb":
 		q = `SELECT u.User, u.Host, COALESCE(JSON_VALUE(g.Priv, '$.account_locked'), 'false') = 'true', u.max_user_connections, u.ssl_type <> '', u.is_role = 'Y'
+			FROM mysql.user u LEFT JOIN mysql.global_priv g ON g.User = u.User AND g.Host = u.Host ORDER BY u.User, u.Host`
+	case "tidb":
+		// TiDB keeps the TLS requirement in mysql.global_priv, and has no
+		// connection limit (it accepts MAX_USER_CONNECTIONS and ignores it).
+		q = `SELECT u.User, u.Host, u.Account_locked = 'Y', 0, COALESCE(JSON_EXTRACT(g.Priv, '$.ssl_type'), 0) <> 0,
+			u.Account_locked = 'Y' AND u.authentication_string = ''
 			FROM mysql.user u LEFT JOIN mysql.global_priv g ON g.User = u.User AND g.Host = u.Host ORDER BY u.User, u.Host`
 	}
 	rows, err := c.db.QueryContext(ctx, q)
@@ -199,6 +209,27 @@ func (c *conn) Access(ctx context.Context, principal string, scope driver.Scope)
 		if scope.Database == "" {
 			continue
 		}
+		if c.flavor == "tidb" {
+			dbp, err := c.tidbSchemaPrivs(ctx, scope.Database)
+			if err != nil {
+				return nil, err
+			}
+			tp, err := c.tidbTablePrivs(ctx, scope.Database, "")
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range dbp {
+				if r.grantee == g {
+					add(driver.LevelDatabase, "", r.priv, r.grantable)
+				}
+			}
+			for _, r := range tp {
+				if r.grantee == g {
+					add(driver.LevelTable, r.table, r.priv, r.grantable)
+				}
+			}
+			continue
+		}
 		rows, err = c.db.QueryContext(ctx, `SELECT PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.SCHEMA_PRIVILEGES WHERE GRANTEE = ? AND TABLE_SCHEMA = ?`, g, scope.Database)
 		if err != nil {
 			return nil, err
@@ -246,11 +277,33 @@ func (c *conn) ObjectAccess(ctx context.Context, ref driver.ObjectRef) ([]driver
 		}
 		return rows.Err()
 	}
-	if err := collect(`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`, "", ref.Database, ref.Name); err != nil {
-		return nil, err
-	}
-	if err := collect(`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA = ?`, "the whole database", ref.Database); err != nil {
-		return nil, err
+	if c.flavor == "tidb" {
+		add := func(rs []privRow, via string) {
+			for _, r := range rs {
+				if via != "" && !slices.Contains(tablePrivs, r.priv) {
+					continue
+				}
+				out = append(out, driver.Grant{Principal: fromGrantee(r.grantee), Level: driver.LevelTable, Database: ref.Database, Object: ref.Name,
+					Privilege: r.priv, WithGrant: r.grantable == "YES", Via: via})
+			}
+		}
+		tp, err := c.tidbTablePrivs(ctx, ref.Database, ref.Name)
+		if err != nil {
+			return nil, err
+		}
+		dbp, err := c.tidbSchemaPrivs(ctx, ref.Database)
+		if err != nil {
+			return nil, err
+		}
+		add(tp, "")
+		add(dbp, "the whole database")
+	} else {
+		if err := collect(`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`, "", ref.Database, ref.Name); err != nil {
+			return nil, err
+		}
+		if err := collect(`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA = ?`, "the whole database", ref.Database); err != nil {
+			return nil, err
+		}
 	}
 	if err := collect(`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.USER_PRIVILEGES WHERE PRIVILEGE_TYPE <> 'USAGE'`, "server-wide"); err != nil {
 		return nil, err
@@ -357,7 +410,7 @@ func (c *conn) AccountSQL(op driver.AccountOp) ([]string, error) {
 		if op.Password != "" {
 			s += " IDENTIFIED BY " + lit(op.Password)
 		}
-		opts, err := userOptions(op.Attrs)
+		opts, err := c.userOptions(op.Attrs)
 		if err != nil {
 			return nil, err
 		}
@@ -366,7 +419,7 @@ func (c *conn) AccountSQL(op driver.AccountOp) ([]string, error) {
 		}
 		return []string{s}, nil
 	case "alter":
-		opts, err := userOptions(op.Attrs)
+		opts, err := c.userOptions(op.Attrs)
 		if err != nil {
 			return nil, err
 		}
@@ -400,12 +453,12 @@ func (c *conn) AccountSQL(op driver.AccountOp) ([]string, error) {
 
 // userOptions renders ALTER/CREATE USER options in the order MySQL expects:
 // REQUIRE, then WITH resource limits, then ACCOUNT LOCK.
-func userOptions(attrs map[string]string) (string, error) {
+func (c *conn) userOptions(attrs map[string]string) (string, error) {
 	var parts []string
 	if v, ok := attrs["require_tls"]; ok {
 		parts = append(parts, map[bool]string{true: "REQUIRE SSL", false: "REQUIRE NONE"}[v == "true"])
 	}
-	if v, ok := attrs["conn_limit"]; ok {
+	if v, ok := attrs["conn_limit"]; ok && c.flavor != "tidb" {
 		n, err := strconv.Atoi(strings.TrimSpace(v))
 		if err != nil || n < 0 {
 			return "", errors.New("the connection limit must be a whole number, 0 for no limit")
