@@ -24,7 +24,10 @@ const (
 	// Snowflake: '//' comments, backslash escapes in strings, $$ strings.
 	Snowflake Dialect = "snowflake"
 	// Trino: standard SQL quoting; no backslash escapes or dollar quotes.
-	Trino   Dialect = "trino"
+	Trino Dialect = "trino"
+	// CQL (Cassandra, ScyllaDB): '//' comments and $$ strings; BEGIN BATCH …
+	// APPLY BATCH holds several statements.
+	CQL     Dialect = "cql"
 	Generic Dialect = "generic"
 )
 
@@ -106,7 +109,7 @@ func (l *lexer) next() token {
 	case c == '#' && (l.d == MySQL || l.d == BigQuery || l.d == ClickHouse):
 		return emit(tComment, lineEnd(s, i))
 
-	case c == '/' && l.peekByte(1) == '/' && l.d == Snowflake:
+	case c == '/' && l.peekByte(1) == '/' && (l.d == Snowflake || l.d == CQL):
 		return emit(tComment, lineEnd(s, i))
 
 	case c == '/' && l.peekByte(1) == '*':
@@ -145,7 +148,7 @@ func (l *lexer) next() token {
 		}
 		return emit(tQuoted, len(s))
 
-	case c == '$' && (l.d == Postgres || l.d == ClickHouse || l.d == Snowflake):
+	case c == '$' && (l.d == Postgres || l.d == ClickHouse || l.d == Snowflake || l.d == CQL):
 		if tag, ok := dollarTag(s, i); ok {
 			if k := strings.Index(s[i+len(tag):], tag); k >= 0 {
 				return emit(tString, i+len(tag)+k+len(tag))

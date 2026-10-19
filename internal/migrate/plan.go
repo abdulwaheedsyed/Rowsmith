@@ -466,6 +466,18 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 			Columns: tp.PrimaryKey, Include: opts.Indexes && dEng != MongoDB, Note: "ClickHouse's sorting key, as a plain index: it doesn't make rows unique"})
 		tp.PrimaryKey = []string{}
 	}
+	if family(dEng) == Cassandra && !same {
+		if len(tp.PrimaryKey) == 0 {
+			tp.Include = false
+			tp.Notes = append(tp.Notes, "Cassandra places rows by their primary key, and this table has none: add one on the source, or create the table by hand")
+		}
+		if len(st.Indexes) > 0 {
+			tp.Notes = append(tp.Notes, "indexes were left out: Cassandra's suit occasional lookups, so add the ones you need in the structure editor")
+		}
+		if len(st.ForeignKeys) > 0 {
+			tp.Notes = append(tp.Notes, "foreign keys have no Cassandra equivalent and were left out")
+		}
+	}
 	if dEng == Trino {
 		if len(tp.PrimaryKey) > 0 && !same {
 			tp.Notes = append(tp.Notes, "Trino tables have no keys or indexes: the primary key was left out")
@@ -484,7 +496,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 	}
 	for _, ix := range st.Indexes {
-		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino {
+		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino || (family(dEng) == Cassandra && !same) {
 			continue
 		}
 		ip := &IndexPlan{Name: ix.Name, Columns: slices.Clone(ix.Columns), Unique: ix.Unique, Where: ix.Where, Include: opts.Indexes}
@@ -535,7 +547,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 		tp.Indexes = append(tp.Indexes, ip)
 	}
-	if dEng != MongoDB && dEng != Trino && design.ForeignKeys {
+	if dEng != MongoDB && dEng != Trino && family(dEng) != Cassandra && design.ForeignKeys {
 		for _, fk := range st.ForeignKeys {
 			tp.ForeignKeys = append(tp.ForeignKeys, &FKPlan{
 				Name: uniqueNames(names, tp.Target, clipIdent(dEng, applyCase(fk.Name, opts.NameCase)), dEng), Columns: slices.Clone(fk.Columns),

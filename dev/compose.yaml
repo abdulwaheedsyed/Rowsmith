@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -289,6 +289,98 @@ services:
       interval: 3s
       timeout: 5s
       retries: 200
+
+  # Cassandra with password sign-in, materialized views and SAI indexes.
+  cassandra:
+    image: cassandra:5.0.9
+    environment:
+      MAX_HEAP_SIZE: 768M
+      HEAP_NEWSIZE: 128M
+      CASSANDRA_CLUSTER_NAME: rowsmith
+      CASSANDRA_DC: dc1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+    entrypoint:
+      - sh
+      - -c
+      - |
+        sed -i -e 's/^authenticator:.*/authenticator: PasswordAuthenticator/' -e 's/^authorizer:.*/authorizer: CassandraAuthorizer/' \
+          -e 's/^materialized_views_enabled:.*/materialized_views_enabled: true/' /etc/cassandra/cassandra.yaml
+        exec docker-entrypoint.sh cassandra -f
+    networks: [dev]
+
+  # Creates the rowsmith role and the shop keyspace once, then reports healthy.
+  cassandra-seed:
+    image: cassandra:5.0.9
+    depends_on:
+      cassandra: { condition: service_started }
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        until cqlsh cassandra -u cassandra -p cassandra -e 'SELECT now() FROM system.local' >/dev/null 2>&1 || cqlsh cassandra -u rowsmith -p "$$PW" -e 'SELECT now() FROM system.local' >/dev/null 2>&1; do sleep 3; done
+        cqlsh cassandra -u cassandra -p cassandra -e "CREATE ROLE IF NOT EXISTS rowsmith WITH PASSWORD = '$$PW' AND LOGIN = true AND SUPERUSER = true" 2>/dev/null
+        q() { cqlsh cassandra -u rowsmith -p "$$PW" "$$@"; }
+        if ! q -e 'DESCRIBE KEYSPACE shop' >/dev/null 2>&1; then
+          q -e "CREATE KEYSPACE shop WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}"
+          q -f /seed/cassandra.cql
+          q -e "CREATE INDEX customers_email ON shop.customers (email) USING 'sai'; CREATE INDEX customers_tier ON shop.customers (tier) USING 'sai'"
+        fi
+        touch /tmp/ready
+        exec sleep infinity
+    volumes: ["./seed/cassandra.cql:/seed/cassandra.cql:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+
+  # ScyllaDB in developer mode on one core, with password sign-in. It has
+  # no default superuser: rowsmith is created at first start.
+  scylla:
+    image: scylladb/scylla:2026.3.2
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        # In scylla.yaml, where the hash's $ signs are not expanded by a shell.
+        sed -i '/^auth_superuser_/d' /etc/scylla/scylla.yaml
+        printf "auth_superuser_name: rowsmith\nauth_superuser_salted_password: '%s'\n" "$$(openssl passwd -6 "$$PW")" >> /etc/scylla/scylla.yaml
+        exec /docker-entrypoint.py --smp 1 --memory 1G --overprovisioned 1 --developer-mode 1 \
+          --authenticator PasswordAuthenticator --authorizer CassandraAuthorizer
+    networks: [dev]
+
+  scylla-seed:
+    image: scylladb/scylla:2026.3.2
+    depends_on:
+      scylla: { condition: service_started }
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        q() { cqlsh scylla -u rowsmith -p "$$PW" "$$@"; }
+        until cqlsh scylla -u rowsmith -p "$$PW" -e 'SELECT now() FROM system.local' >/dev/null 2>&1; do sleep 3; done
+        if ! q -e 'DESCRIBE KEYSPACE shop' >/dev/null 2>&1; then
+          # Materialized views need vnodes rather than tablets on some versions.
+          q -e "CREATE KEYSPACE shop WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 1} AND tablets = {'enabled': false}"
+          q -f /seed/cassandra.cql
+          q -e "CREATE INDEX customers_email ON shop.customers (email); CREATE INDEX customers_tier ON shop.customers (tier)"
+        fi
+        touch /tmp/ready
+        exec sleep infinity
+    volumes: ["./seed/cassandra.cql:/seed/cassandra.cql:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
 
   # A small lake: SeaweedFS as S3, an Iceberg REST catalog, and Trino with
   # iceberg, delta, hive (plain Parquet/ORC/CSV files) and tpch catalogs.

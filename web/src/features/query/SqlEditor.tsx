@@ -72,6 +72,26 @@ const SnowflakeSQL = SQLDialect.define({
   backslashEscapes: true,
 });
 
+// CQL (Cassandra, ScyllaDB): // comments, $$ bodies, collections and
+// cqlsh's session commands.
+const CQL = SQLDialect.define({
+  keywords:
+    "select from where and in contains key limit per partition allow filtering order by asc desc group distinct json as token " +
+    "insert into values if not exists json default unset update set delete using ttl timestamp begin unlogged counter batch apply " +
+    "create alter drop truncate keyspace table columnfamily materialized view index custom type function aggregate trigger role user " +
+    "with replication durable_writes primary clustering compact storage static add rename to frozen returns language called on null " +
+    "input sfunc stype finalfunc initcond use grant revoke permission permissions all of keyspaces describe desc list roles users " +
+    "superuser login password consistency serial tracing paging expand is",
+  types:
+    "ascii bigint blob boolean counter date decimal double duration float inet int smallint text time timestamp timeuuid tinyint " +
+    "uuid varchar varint list set map tuple frozen vector",
+  builtin:
+    "now uuid currenttimestamp currentdate currenttime currenttimeuuid totimestamp todate tounixtimestamp mintimeuuid maxtimeuuid " +
+    "writetime ttl token count min max sum avg tojson fromjson cast blobasbigint bigintasblob textasblob blobastext similarity_cosine",
+  slashComments: true,
+  doubleDollarQuotedStrings: true,
+});
+
 // Trino SQL: standard quoting, with its lake syntax (FOR VERSION AS OF,
 // table properties, metadata tables) and nested types.
 const TrinoSQL = SQLDialect.define({
@@ -101,6 +121,7 @@ export function dialectFor(d?: string, driverId?: string): SQLDialect {
     case "clickhouse": return ClickHouseSQL;
     case "snowflake": return SnowflakeSQL;
     case "trino": return TrinoSQL;
+    case "cql": return CQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

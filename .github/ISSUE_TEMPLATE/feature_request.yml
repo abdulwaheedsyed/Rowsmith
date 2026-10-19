@@ -40,6 +40,7 @@ body:
         - ClickHouse
         - MongoDB
         - Redis / Valkey
+        - Cassandra / ScyllaDB
         - BigQuery
         - Snowflake
         - Trino / Iceberg / Delta Lake

@@ -88,6 +88,14 @@ func Classify(sql string, d Dialect) (driver.StatementKind, driver.Danger) {
 			return k, dg
 		}
 	}
+	if d == CQL {
+		switch first {
+		case "BEGIN":
+			return driver.StmtWrite, danger(first, toks[i:], driver.StmtWrite) // a batch
+		case "USE", "CONSISTENCY", "SERIAL", "TRACING", "PAGING", "EXPAND":
+			return driver.StmtSession, driver.Danger{}
+		}
+	}
 	if d == Snowflake {
 		switch {
 		case first == "PUT" || first == "GET" || first == "REMOVE" || first == "RM":

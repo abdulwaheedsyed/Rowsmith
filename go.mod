@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.85.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
 	github.com/anthropics/anthropic-sdk-go v1.82.0
+	github.com/apache/cassandra-gocql-driver/v2 v2.1.2
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/golang-sql/sqlexp v0.1.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -21,6 +22,7 @@ require (
 	go.mongodb.org/mongo-driver/v2 v2.9.2
 	golang.org/x/crypto v0.58.0
 	google.golang.org/api v0.304.0
+	gopkg.in/inf.v0 v0.9.1
 	modernc.org/sqlite v1.60.1
 )
 

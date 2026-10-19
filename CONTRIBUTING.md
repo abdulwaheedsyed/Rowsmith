@@ -31,7 +31,7 @@ You need Docker, Node 22.12 or later, and Python 3 for the dev scripts. Go runs 
    ./dev/build.sh
    ```
 
-3. Start Rowsmith with throwaway MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis (a single server and a three-node cluster), Valkey and Trino (with Iceberg, Delta Lake and Hive tables on S3 storage) servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
+3. Start Rowsmith with throwaway MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis (a single server and a three-node cluster), Valkey, Cassandra, ScyllaDB and Trino (with Iceberg, Delta Lake and Hive tables on S3 storage) servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
 
    ```bash
    docker compose -f dev/compose.yaml --env-file dev/.env up -d
@@ -69,7 +69,7 @@ cd web && npm run typecheck
 python3 dev/smoke.py
 ```
 
-The smoke test runs end to end against the dev stack on MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey and Trino: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
+The smoke test runs end to end against the dev stack on MySQL, MariaDB, TiDB, PostGIS, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB and Trino: first-run setup and sign-in, connections and SSH tunnels, browsing, editing, queries and plans, read-only and production safeguards, viewer permissions and the audit log.
 
 ### Integration tests
 
@@ -90,10 +90,11 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 | MongoDB | `ROWSMITH_TEST_MONGO_HOST=mongo`, `ROWSMITH_TEST_MONGO_PASSWORD=$DEV_DB_PASSWORD` |
 | BigQuery | `ROWSMITH_TEST_BQ_ENDPOINT=http://bigquery:9050` |
 | Snowflake | `ROWSMITH_TEST_SNOWFLAKE_ACCOUNT`, `_USER`, `_KEY_FILE` (an unencrypted PKCS#8 key), `_WAREHOUSE`, `_ROLE`: an account of your own, as Snowflake has no local server. The test creates a database, loads `dev/seed/snowflake.sql` into it and drops it, using about a minute of an X-Small warehouse. Run it with `go test` on the host, as it needs only the internet. |
+| Cassandra, ScyllaDB | `ROWSMITH_TEST_CASSANDRA_HOST=cassandra`, `ROWSMITH_TEST_CASSANDRA_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_SCYLLA_HOST=scylla`, `ROWSMITH_TEST_SCYLLA_PASSWORD=$DEV_DB_PASSWORD` (user `rowsmith`). The seed containers load `dev/seed/cassandra.cql` into a `shop` keyspace once each server is up, which takes a minute or two. |
 | Trino | `ROWSMITH_TEST_TRINO_HOST=trino`. The dev stack runs Trino with an Iceberg REST catalog and SeaweedFS as S3 storage; `trino-seed` loads `dev/seed/trino.sql`: Iceberg tables in `iceberg.shop` (with several snapshots) and Parquet and CSV files under `hive.raw`, and `dev/seed/trino-delta.sql`: a Delta Lake table in `delta.sales` with several versions. |
 | Redis, Valkey | `ROWSMITH_TEST_REDIS_HOST=redis`, `ROWSMITH_TEST_REDIS_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_VALKEY_HOST=valkey`, `ROWSMITH_TEST_VALKEY_USER=rowsmith`, `ROWSMITH_TEST_VALKEY_PASSWORD=$DEV_DB_PASSWORD`, and for the three-node cluster `ROWSMITH_TEST_REDIS_CLUSTER_HOST=redis-cluster`, `ROWSMITH_TEST_REDIS_CLUSTER_PASSWORD=$DEV_DB_PASSWORD` |
 
-MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis, Valkey and Trino are also covered by the smoke test.
+MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis, Valkey, Cassandra, ScyllaDB and Trino are also covered by the smoke test.
 
 ## Writing code
 

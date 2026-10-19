@@ -29,6 +29,7 @@ const (
 	ClickHouse = "clickhouse"
 	Snowflake  = "snowflake"
 	Trino      = "trino"
+	Cassandra  = "cassandra"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -51,6 +52,8 @@ func family(engine string) string {
 		return MySQL
 	case "cockroachdb", "yugabytedb":
 		return Postgres
+	case "scylladb":
+		return Cassandra
 	}
 	return engine
 }
@@ -571,6 +574,8 @@ func canonOf(engine string, c driver.Column) canon {
 		return snowflakeCanon(k, c, base)
 	case Trino:
 		return trinoCanon(k, c, base)
+	case Cassandra:
+		return cassandraCanon(k, c, base)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -762,6 +767,8 @@ func typeFor(t target, k canon, u use) mapped {
 		snowflakeType(k, &m)
 	case Trino:
 		trinoType(t.Connector, k, &m)
+	case Cassandra:
+		cassandraType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1754,5 +1761,113 @@ func trinoType(connector string, k canon, m *mapped) {
 		m.note(false, "shapes are copied as GeoJSON text")
 	default:
 		m.Type = "varchar"
+	}
+}
+
+// cassandraCanon reads the types Cassandra and ScyllaDB describe (text,
+// bigint, decimal, timeuuid, frozen<list<int>>, a user type's name…).
+func cassandraCanon(k canon, c driver.Column, base string) canon {
+	switch base {
+	case "ascii", "text", "varchar":
+		k.T = "text"
+	case "inet":
+		k.T, k.N = "varchar", 45
+	case "tinyint":
+		k.T, k.Bits = "int", 8
+	case "smallint":
+		k.T, k.Bits = "int", 16
+	case "int":
+		k.T, k.Bits = "int", 32
+	case "bigint", "counter":
+		k.T, k.Bits = "int", 64
+	case "varint":
+		k.T, k.S = "decimal", 0
+	case "decimal":
+		k.T = "decimal"
+	case "float":
+		k.T, k.Bits = "float", 32
+	case "double":
+		k.T, k.Bits = "float", 64
+	case "boolean":
+		k.T = "bool"
+	case "uuid", "timeuuid":
+		k.T = "uuid"
+	case "timestamp":
+		k.T, k.Frac = "timestamptz", 3
+	case "date":
+		k.T = "date"
+	case "time":
+		k.T, k.Frac = "time", 9
+	case "duration":
+		k.T, k.Note = "text", "durations are copied as text, such as 1h30m"
+	case "blob":
+		k.T = "blob"
+	default:
+		// Collections, tuples, vectors and user types.
+		k.T = "object"
+	}
+	return k
+}
+
+// cassandraType writes Cassandra's types, which ScyllaDB shares.
+func cassandraType(k canon, m *mapped) {
+	switch k.T {
+	case "bool":
+		m.Type = "boolean"
+	case "int":
+		switch {
+		case k.Bits == 64 && k.Unsigned:
+			m.Type = "varint"
+		case k.Bits == 8 && !k.Unsigned:
+			m.Type = "tinyint"
+		case k.Bits == 16 && !k.Unsigned:
+			m.Type = "smallint"
+		case k.Bits > 0 && k.Bits < 32 || k.Bits == 32 && !k.Unsigned:
+			m.Type = "int"
+		default:
+			m.Type = "bigint"
+		}
+	case "decimal":
+		m.Type = "decimal"
+	case "float":
+		m.Type = "double"
+		if k.Bits == 32 {
+			m.Type = "float"
+		}
+	case "char", "varchar", "text", "xml", "objectid":
+		m.Type = "text"
+	case "set":
+		m.Type = "text"
+		m.note(false, "the set's values are copied as text")
+	case "enum":
+		m.Type = "text"
+		m.note(false, "Cassandra has no enums or checks, so any text is accepted")
+	case "interval":
+		m.Type = "text"
+		m.note(false, "intervals are copied as text")
+	case "binary", "varbinary", "blob":
+		m.Type = "blob"
+	case "date":
+		m.Type = "date"
+	case "time":
+		m.Type = "time"
+	case "datetime", "timestamptz":
+		m.Type = "timestamp"
+		if k.Frac > 3 || k.Frac < 0 {
+			m.note(true, "Cassandra timestamps keep milliseconds; finer fractions are dropped")
+		}
+		if k.T == "datetime" {
+			m.note(false, "stored as UTC")
+		}
+	case "uuid":
+		m.Type = "uuid"
+	case "json", "object", "array":
+		m.Type, m.Canon = "text", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "stored as JSON text")
+	case "geometry":
+		m.Type, m.Canon = "text", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "shapes are copied as GeoJSON text")
+	default:
+		m.Type = "text"
 	}
 }

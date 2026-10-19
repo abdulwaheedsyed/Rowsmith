@@ -20,6 +20,7 @@ func TestTypeMapping(t *testing.T) {
 	ice := target{Engine: Trino, Connector: "iceberg"}
 	deltaT := target{Engine: Trino, Connector: "delta_lake"}
 	hive := target{Engine: Trino, Connector: "hive"}
+	cass := target{Engine: Cassandra}
 	cases := []struct {
 		src  string
 		col  driver.Column
@@ -84,6 +85,14 @@ func TestTypeMapping(t *testing.T) {
 		{Postgres, driver.Column{Type: "uuid", BaseType: "uuid", Kind: driver.KindUUID}, ice, use{}, "uuid"},
 		{Postgres, driver.Column{Type: "uuid", BaseType: "uuid", Kind: driver.KindUUID}, deltaT, use{}, "varchar"},
 		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, deltaT, use{}, "varchar"},
+		{MySQL, driver.Column{Type: "datetime(6)", BaseType: "datetime", Kind: driver.KindDateTime}, cass, use{}, "timestamp"},
+		{MySQL, driver.Column{Type: "bigint unsigned", BaseType: "bigint", Kind: driver.KindInt, Unsigned: true}, cass, use{}, "varint"},
+		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, cass, use{}, "text"},
+		{Postgres, driver.Column{Type: "smallint", BaseType: "int2", Kind: driver.KindInt}, cass, use{}, "smallint"},
+		{Cassandra, driver.Column{Type: "frozen<address>", BaseType: "frozen", Kind: driver.KindObject}, pg, use{}, "jsonb"},
+		{"scylladb", driver.Column{Type: "timeuuid", BaseType: "timeuuid", Kind: driver.KindUUID}, pg, use{}, "uuid"},
+		{Cassandra, driver.Column{Type: "varint", BaseType: "varint", Kind: driver.KindDecimal}, pg, use{}, "numeric"},
+		{Cassandra, driver.Column{Type: "timestamp", BaseType: "timestamp", Kind: driver.KindTimestamp}, my, use{}, "datetime(3)"},
 		{Trino, driver.Column{Type: "decimal(12,2)", BaseType: "decimal", Kind: driver.KindDecimal, Precision: i64(12), Scale: i64(2)}, pg, use{}, "numeric(12,2)"},
 		{Trino, driver.Column{Type: "map(varchar, varchar)", BaseType: "map", Kind: driver.KindObject}, pg, use{}, "jsonb"},
 		{Trino, driver.Column{Type: "timestamp(3) with time zone", BaseType: "timestamp", Kind: driver.KindTimestamp, Scale: i64(3)}, my, use{}, "datetime(3)"},

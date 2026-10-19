@@ -63,6 +63,9 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 	if dst == MongoDB {
 		return nil, ""
 	}
+	if dst == Cassandra {
+		return nil, "Cassandra columns have no defaults; the default " + def + " was not carried over"
+	}
 	if dst == Trino {
 		return nil, "Trino tables have no column defaults; the default " + def + " was not carried over"
 	}
@@ -226,6 +229,8 @@ func maxIdent(engine string) int {
 		return 128
 	case Snowflake:
 		return 255
+	case Cassandra:
+		return 48 // keyspace, table and index names
 	}
 	return 128
 }

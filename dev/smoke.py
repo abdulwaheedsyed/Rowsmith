@@ -343,6 +343,60 @@ def main():
     _, pl = c.req("GET", f"/api/c/{rcid}/processes", expect=200)
     ok(f"redis cluster: {srv['server']['extras']['Mode']}, 12 product keys across nodes, edit and console routed by key, {len(pl['rows'])} clients on all nodes")
 
+    # Cassandra and ScyllaDB: keyspaces, partitions and clustering order, edits as lightweight transactions.
+    for engine, host in (("cassandra", "cassandra"), ("scylladb", "scylla")):
+        _, cv = c.req("POST", "/api/connections", {"name": f"Wide rows ({engine}) {time.time_ns()}", "driver": engine, "environment": "development",
+            "params": {"host": host, "user": "rowsmith", "database": "shop", "tls": "disable"}, "secrets": {"password": PW}}, 201)
+        xid = cv["id"]
+        conns[engine] = xid
+        _, srv = c.req("GET", f"/api/c/{xid}/server", expect=200)
+        _, objs = c.req("GET", f"/api/c/{xid}/objects?db=shop", expect=200)
+        kinds = {o["name"]: o["kind"] for o in objs}
+        assert kinds.get("orders_by_customer") == "table" and kinds.get("orders_by_status") == "materialized_view" and kinds.get("address") == "type", kinds
+        _, t = c.req("GET", f"/api/c/{xid}/describe?db=shop&name=orders_by_customer", expect=200)
+        assert t["options"]["partition_key"] == "customer_id" and t["options"]["clustering_order"] == "placed_at DESC, order_id ASC", t["options"]
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": {"database": "shop", "name": "sensor_readings"}, "limit": 3,
+            "filters": [{"column": "sensor_id", "op": "=", "value": "fridge-1"}, {"column": "day", "op": "=", "value": "2025-06-03"}],
+            "sort": [{"column": "ts", "desc": True}]}, 200)
+        assert len(res["rows"]) == 3 and "ORDER BY ts DESC" in res["sql"], res
+        ok(f"{engine}: {srv['server']['product']} {srv['server']['version']}, {len(objs)} objects in shop, partition browse newest first")
+        code, ev = stream(c, xid, "DROP TABLE IF EXISTS smoke_notes;\nCREATE TABLE smoke_notes (id int PRIMARY KEY, body text, tags set<text>);\nINSERT INTO smoke_notes (id, body) VALUES (1, 'one');\nINSERT INTO smoke_notes (id, body) VALUES (2, 'two')",
+            database="shop", confirm=True)
+        assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev
+        nref = {"database": "shop", "name": "smoke_notes"}
+        c.req("POST", f"/api/c/{xid}/edit", {"ref": nref, "edits": [{"op": "update", "key": {"id": 1}, "values": {"body": "uno", "tags": ["a", "b"]}},
+            {"op": "delete", "key": {"id": 2}}]}, 200)
+        _, res = c.req("POST", f"/api/c/{xid}/browse", {"ref": nref, "limit": 10}, 200)
+        assert res["rows"] == [[1, "uno", ["a", "b"]]], res["rows"]
+        code, body = c.req("POST", f"/api/c/{xid}/edit", {"ref": nref, "edits": [{"op": "insert", "values": {"id": 1, "body": "again"}}]})
+        assert code >= 400 and "already exists" in json.dumps(body), (code, body)
+        _, plan = c.req("POST", f"/api/c/{xid}/explain", {"database": "shop", "sql": "SELECT * FROM sensor_readings WHERE sensor_id = 'boiler-1' AND day = '2025-06-01'", "analyze": True}, 200)
+        ok(f"{engine} grid edits as lightweight transactions (a duplicate insert is refused), traced query on {plan['totals']['Nodes']} node(s)")
+        stream(c, xid, "DROP TABLE smoke_notes", database="shop", confirm=True)
+    # Migrations: MySQL rows into Cassandra, and Cassandra's collections and user types out into PostgreSQL.
+    stream(c, conns["cassandra"], "DROP KEYSPACE IF EXISTS smoke_mig;\nCREATE KEYSPACE smoke_mig WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 1}", database="shop", confirm=True)
+    stream(c, conns["postgres"], "DROP SCHEMA IF EXISTS smoke_wide CASCADE;\nCREATE SCHEMA smoke_wide", database="city", confirm=True)
+    for src, dst, pick, label in (
+        ({"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": conns["cassandra"], "database": "smoke_mig"}, ("stores", "categories"), "MySQL -> Cassandra"),
+        ({"connectionId": conns["cassandra"], "database": "shop"}, {"connectionId": conns["postgres"], "database": "city", "schema": "smoke_wide"}, ("customers", "orders_by_customer"), "Cassandra -> PostgreSQL"),
+    ):
+        _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+            "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+        plan = pr["plan"]
+        for tp in plan["tables"]:
+            tp["include"] = tp["source"]["name"] in pick
+        _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+        for _ in range(180):
+            _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+            if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+                break
+            time.sleep(1)
+        done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+        assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
+        ok(f"migration {label}: {done}")
+    stream(c, conns["cassandra"], "DROP KEYSPACE smoke_mig", database="shop", confirm=True)
+    stream(c, conns["postgres"], "DROP SCHEMA smoke_wide CASCADE", database="city", confirm=True)
+
     # Trino over the lake: Iceberg tables, plain Parquet and CSV files, and a migration into Iceberg.
     _, cv = c.req("POST", "/api/connections", {"name": f"Lake (Trino) {time.time_ns()}", "driver": "trino", "environment": "development",
         "params": {"host": "trino", "user": "rowsmith", "catalog": "iceberg", "schema": "shop", "tls": "disable"}, "secrets": {}}, 201)

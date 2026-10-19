@@ -159,6 +159,16 @@ func (sp *splitter) run() []Statement {
 					}
 				}
 			}
+			if mode == modeBlock && sp.d == CQL {
+				// Only BEGIN … APPLY BATCH nests in CQL.
+				switch {
+				case w == "BEGIN":
+					blockDepth++
+				case w == "BATCH" && len(words) >= 2 && words[len(words)-2] == "APPLY" && blockDepth > 0:
+					blockDepth--
+				}
+				continue
+			}
 			if mode == modeBlock && !skipOpener {
 				switch w {
 				case "BEGIN":
@@ -242,6 +252,11 @@ func (sp *splitter) detectMode(words []string) splitMode {
 			return modeBlock
 		}
 		if first == "BEGIN" && len(words) >= 2 && words[1] != "TRANSACTION" && words[1] != "WORK" && words[1] != "NAME" {
+			return modeBlock
+		}
+	case CQL:
+		// BEGIN [UNLOGGED | COUNTER] BATCH … APPLY BATCH
+		if first == "BEGIN" && len(words) >= 2 {
 			return modeBlock
 		}
 	case BigQuery:

@@ -7,7 +7,8 @@ The changes in each release of Rowsmith™. Versions follow [Semantic Versioning
 ### Engines
 
 - Redis Cluster: connecting to any node opens the whole cluster. Keys are listed from every primary, browsing and edits go to the node that owns each key, and processes show every node's clients. The console follows the cluster's redirects, runs `KEYS`, `DBSIZE` and `FLUSHDB` on every primary, and explains why `SELECT`, `SCAN` and transactions aren't available. A command on keys in different slots explains how hash tags keep keys together.
-- The dev stack adds a three-node Redis Cluster.
+- Apache Cassandra (4.0 and later) and ScyllaDB (6 and later): keyspaces with their tables, materialized views, user types, functions and aggregates; the Structure tab with the partition key, clustering order, static columns, indexes and table options; values in their own types (user types, collections, tuples, vectors, exact decimals). The grid filters as Cassandra allows and sorts within a partition, and each edit is a lightweight transaction on the primary key, so an insert never overwrites a row. A CQL console with batches and cqlsh's USE, CONSISTENCY and TRACING; traced queries as plans; clients, settings and nodes; the structure editor; imports, exports, and migrations into and out of both.
+- The dev stack adds a three-node Redis Cluster, Cassandra and ScyllaDB.
 
 ## 0.4.0 - 2026-10-19
 

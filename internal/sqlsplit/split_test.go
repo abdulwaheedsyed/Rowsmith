@@ -186,3 +186,18 @@ func TestSplitSnowflake(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitCQL(t *testing.T) {
+	batch := "BEGIN UNLOGGED BATCH\n  INSERT INTO t (k, v) VALUES (1, 'a;b');\n  UPDATE t SET v = 'c' WHERE k = 2;\nAPPLY BATCH;\nSELECT * FROM t; // done;\nUSE shop"
+	got := Split(batch, CQL)
+	expect(t, "batch", got, "BEGIN UNLOGGED BATCH\n  INSERT INTO t (k, v) VALUES (1, 'a;b');\n  UPDATE t SET v = 'c' WHERE k = 2;\nAPPLY BATCH",
+		"SELECT * FROM t", "// done;\nUSE shop")
+	if got[0].Kind != driver.StmtWrite || got[1].Kind != driver.StmtRead || got[2].Kind != driver.StmtSession {
+		t.Errorf("kinds = %v %v %v", got[0].Kind, got[1].Kind, got[2].Kind)
+	}
+	expect(t, "dollar body", Split("CREATE FUNCTION f(x int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS $$ return x; $$; SELECT 1", CQL),
+		"CREATE FUNCTION f(x int) RETURNS NULL ON NULL INPUT RETURNS int LANGUAGE java AS $$ return x; $$", "SELECT 1")
+	if k, _ := Classify("CONSISTENCY LOCAL_QUORUM", CQL); k != driver.StmtSession {
+		t.Errorf("consistency = %v", k)
+	}
+}
