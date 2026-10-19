@@ -63,6 +63,9 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 	if dst == MongoDB {
 		return nil, ""
 	}
+	if dst == Trino {
+		return nil, "Trino tables have no column defaults; the default " + def + " was not carried over"
+	}
 	if dst == ClickHouse {
 		return clickhouseDefault(low, d, def, k, dstType)
 	}

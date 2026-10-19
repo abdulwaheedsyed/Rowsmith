@@ -48,7 +48,7 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
   const what = isDb ? "database" : isSchema ? (conn.driver === "bigquery" ? "dataset" : "schema") : (target.kind ?? "object").replace("_", " ");
   const startsHere = isDb && String((conn.params as Record<string, unknown>).database ?? "") === name;
   const pgFamily = ["postgres", "cockroachdb", "yugabytedb"].includes(conn.driver);
-  const canCascade = (action === "drop" && pgFamily) || (isSchema && (pgFamily || conn.driver === "bigquery" || conn.driver === "snowflake"));
+  const canCascade = (action === "drop" && pgFamily) || (isSchema && (pgFamily || conn.driver === "bigquery" || conn.driver === "snowflake" || conn.driver === "trino"));
   const canForce = isDb && ["postgres", "yugabytedb", "mssql"].includes(conn.driver);
 
   useEffect(() => {

@@ -28,6 +28,7 @@ const (
 	MongoDB    = "mongodb"
 	ClickHouse = "clickhouse"
 	Snowflake  = "snowflake"
+	Trino      = "trino"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -568,6 +569,8 @@ func canonOf(engine string, c driver.Column) canon {
 		return clickhouseCanon(k, c)
 	case Snowflake:
 		return snowflakeCanon(k, c, base)
+	case Trino:
+		return trinoCanon(k, c, base)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -754,6 +757,8 @@ func typeFor(t target, k canon, u use) mapped {
 		clickhouseType(k, &m)
 	case Snowflake:
 		snowflakeType(k, &m)
+	case Trino:
+		trinoType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1581,5 +1586,140 @@ func snowflakeType(k canon, m *mapped) {
 		}
 	default:
 		m.Type = "VARCHAR"
+	}
+}
+
+// trinoCanon reads the types Trino describes (bigint, varchar(25),
+// decimal(12,2), timestamp(6) with time zone, array(varchar), row(…)).
+func trinoCanon(k canon, c driver.Column, base string) canon {
+	switch base {
+	case "tinyint":
+		k.T, k.Bits = "int", 8
+	case "smallint":
+		k.T, k.Bits = "int", 16
+	case "integer", "int":
+		k.T, k.Bits = "int", 32
+	case "bigint":
+		k.T, k.Bits = "int", 64
+	case "real":
+		k.T, k.Bits = "float", 32
+	case "double":
+		k.T, k.Bits = "float", 64
+	case "decimal":
+		k.T, k.P, k.S = "decimal", iptr(c.Precision), iptr(c.Scale)
+	case "boolean":
+		k.T = "bool"
+	case "varchar":
+		if n := iptr(c.Length); n > 0 {
+			k.T, k.N = "varchar", n
+		} else {
+			k.T = "text"
+		}
+	case "char":
+		k.T, k.N = "char", max(iptr(c.Length), 1)
+	case "varbinary":
+		k.T = "blob"
+	case "date":
+		k.T = "date"
+	case "time":
+		k.T, k.Frac = "time", iptr(c.Scale)
+		if c.Kind != driver.KindTime {
+			k.T, k.Note = "text", "times with a time zone are copied as text"
+		}
+	case "timestamp":
+		k.T, k.Frac = "datetime", iptr(c.Scale)
+		if c.Kind == driver.KindTimestamp {
+			k.T = "timestamptz"
+		}
+	case "json":
+		k.T = "json"
+	case "uuid":
+		k.T = "uuid"
+	case "array", "map", "row":
+		k.T = "object"
+	case "interval":
+		k.T = "interval"
+	case "geometry", "sphericalgeography":
+		k.T, k.Note = "text", "shapes are copied as WKT text"
+	default:
+		k.T, k.Note = "text", c.Type+" is copied as text"
+	}
+	return k
+}
+
+// trinoType writes Iceberg's types, which the Hive and Delta Lake
+// connectors also take: no tinyint, smallint, char or JSON columns.
+func trinoType(k canon, m *mapped) {
+	frac := func() int {
+		if k.Frac > 6 {
+			m.note(true, "Iceberg keeps microseconds; finer fractions are rounded")
+		}
+		return 6
+	}
+	asText := func(note string) {
+		m.Type = "varchar"
+		if note != "" {
+			m.note(false, "%s", note)
+		}
+	}
+	switch k.T {
+	case "bool":
+		m.Type = "boolean"
+	case "int":
+		switch {
+		case k.Bits == 64 && k.Unsigned:
+			m.Type = "decimal(20,0)"
+		case k.Bits > 0 && k.Bits < 32 || k.Bits == 32 && !k.Unsigned:
+			m.Type = "integer"
+		default:
+			m.Type = "bigint"
+		}
+	case "decimal":
+		switch {
+		case k.P <= 0:
+			m.Type = "decimal(38,9)"
+			m.note(true, "a decimal without a set precision becomes decimal(38,9)")
+		case k.P > 38:
+			m.Type = fmt.Sprintf("decimal(38,%d)", min(max(k.S, 0), 37))
+			m.note(true, "Trino decimals hold 38 digits")
+		default:
+			m.Type = fmt.Sprintf("decimal(%d,%d)", k.P, max(k.S, 0))
+		}
+	case "float":
+		m.Type = "double"
+		if k.Bits == 32 {
+			m.Type = "real"
+		}
+	case "char", "varchar", "text", "xml", "objectid":
+		m.Type = "varchar"
+		if k.T == "char" {
+			m.note(false, "fixed-length text becomes varchar")
+		}
+	case "set":
+		asText("the set's values are copied as text")
+	case "enum":
+		asText("Trino tables have no enums or checks, so any text is accepted")
+	case "interval":
+		asText("intervals are copied as text")
+	case "binary", "varbinary", "blob":
+		m.Type = "varbinary"
+	case "date":
+		m.Type = "date"
+	case "time":
+		m.Type = fmt.Sprintf("time(%d)", frac())
+	case "datetime":
+		m.Type = fmt.Sprintf("timestamp(%d)", frac())
+	case "timestamptz":
+		m.Type = fmt.Sprintf("timestamp(%d) with time zone", frac())
+	case "uuid":
+		m.Type = "uuid"
+	case "json", "object", "array":
+		m.Type, m.Canon = "varchar", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "Iceberg has no JSON columns; stored as JSON text")
+	case "geometry":
+		m.Type, m.Canon = "varchar", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "shapes are copied as GeoJSON text")
+	default:
+		m.Type = "varchar"
 	}
 }

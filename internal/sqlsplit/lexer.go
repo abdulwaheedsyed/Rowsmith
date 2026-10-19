@@ -23,7 +23,9 @@ const (
 	ClickHouse Dialect = "clickhouse"
 	// Snowflake: '//' comments, backslash escapes in strings, $$ strings.
 	Snowflake Dialect = "snowflake"
-	Generic   Dialect = "generic"
+	// Trino: standard SQL quoting; no backslash escapes or dollar quotes.
+	Trino   Dialect = "trino"
+	Generic Dialect = "generic"
 )
 
 type tokType uint8

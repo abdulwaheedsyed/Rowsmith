@@ -327,6 +327,64 @@ def main():
     ok(f"migration MySQL -> TiDB: {done}, shapes as GeoJSON")
     stream(c, tid, "DROP DATABASE smoke_mig", confirm=True)
 
+    # Trino over the lake: Iceberg tables, plain Parquet and CSV files, and a migration into Iceberg.
+    _, cv = c.req("POST", "/api/connections", {"name": f"Lake (Trino) {time.time_ns()}", "driver": "trino", "environment": "development",
+        "params": {"host": "trino", "user": "rowsmith", "catalog": "iceberg", "schema": "shop", "tls": "disable"}, "secrets": {}}, 201)
+    trid = cv["id"]
+    _, srv = c.req("GET", f"/api/c/{trid}/server", expect=200)
+    _, dbs = c.req("GET", f"/api/c/{trid}/databases", expect=200)
+    cats = {d["name"] for d in dbs}
+    assert srv["server"]["product"] == "Trino" and {"iceberg", "hive", "tpch"} <= cats, (srv, cats)
+    ok(f"trino: Trino {srv['server']['version']}, catalogs {sorted(cats)}")
+    _, objs = c.req("GET", f"/api/c/{trid}/objects?db=iceberg&schema=shop", expect=200)
+    kinds = {o["name"]: o["kind"] for o in objs}
+    assert kinds.get("orders") == "table" and kinds.get("revenue_by_segment") == "view", kinds
+    _, t = c.req("GET", f"/api/c/{trid}/describe?db=iceberg&schema=shop&name=orders", expect=200)
+    assert t["options"]["partitioning"] == "month(placed_at)" and int(t["options"]["snapshots"]) >= 4 and t["editable"], t["options"]
+    ok(f"trino iceberg orders: partitioned by {t['options']['partitioning']}, {t['options']['snapshots']} snapshots, {t['options']['data_files']} data files")
+    _, res = c.req("POST", f"/api/c/{trid}/browse", {"ref": {"database": "iceberg", "schema": "shop", "name": "orders"}, "limit": 3,
+        "filters": [{"column": "status", "op": "=", "value": "F"}, {"column": "total", "op": ">", "value": "100000"}], "sort": [{"column": "placed_at", "desc": True}]}, 200)
+    assert len(res["rows"]) == 3, res
+    _, res = c.req("POST", f"/api/c/{trid}/browse", {"ref": {"database": "hive", "schema": "raw", "name": "nations"}, "limit": 50}, 200)
+    assert len(res["rows"]) == 25, res["rows"]
+    _, t = c.req("GET", f"/api/c/{trid}/describe?db=hive&schema=raw&name=events", expect=200)
+    ok(f"trino browse: typed filters on Iceberg, {len(res['rows'])} nations from CSV, events as {t['options']['format']} at {t['options']['location']}")
+    code, ev = stream(c, trid, 'SET SESSION query_max_run_time = \'5m\';\nSELECT count(*) FROM orders FOR VERSION AS OF (SELECT 1)', database="iceberg", schema="shop")
+    ends = [e for e in ev if e["t"] == "stmtEnd"]
+    assert len(ends) == 2 and ends[1]["error"]["line"] == 2, ends
+    code, ev = stream(c, trid, "SHOW SESSION LIKE 'query_max_run_time'", database="iceberg", schema="shop")
+    assert "5m" in json.dumps([e for e in ev if e["t"] == "rows"]), ev
+    ok(f"trino console: session setting kept between runs, error on line 2: {ends[1]['error']['message'][:50]}")
+    code, ev = stream(c, trid, "DROP TABLE IF EXISTS smoke_notes;\nCREATE TABLE smoke_notes (id bigint, body varchar);\nINSERT INTO smoke_notes VALUES (1, 'one'), (2, 'two')",
+        database="iceberg", schema="shop", confirm=True)
+    assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev
+    nref = {"database": "iceberg", "schema": "shop", "name": "smoke_notes"}
+    c.req("POST", f"/api/c/{trid}/edit", {"ref": nref, "edits": [{"op": "update", "key": {"id": 1, "body": "one"}, "values": {"body": "uno"}},
+        {"op": "delete", "key": {"id": 2, "body": "two"}}]}, 200)
+    _, res = c.req("POST", f"/api/c/{trid}/browse", {"ref": nref, "limit": 10}, 200)
+    assert res["rows"] == [[1, "uno"]], res["rows"]
+    ok("trino grid edits on Iceberg, matched on whole rows")
+    _, plan = c.req("POST", f"/api/c/{trid}/explain", {"database": "iceberg", "schema": "shop", "sql": "SELECT status, count(*) FROM orders GROUP BY status", "analyze": True}, 200)
+    _, pl = c.req("GET", f"/api/c/{trid}/processes", expect=200)
+    ok(f"trino explain analyze: {plan['root']['operation']} → {[ch['operation'] for ch in plan['root'].get('children', [])]}, {len(pl['rows'])} running queries")
+    stream(c, trid, "DROP TABLE smoke_notes;\nDROP SCHEMA IF EXISTS iceberg.smoke_mig CASCADE;\nCREATE SCHEMA iceberg.smoke_mig", database="iceberg", schema="shop", confirm=True)
+    src, dst = {"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": trid, "database": "iceberg", "schema": "smoke_mig"}
+    _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+        "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+    plan = pr["plan"]
+    for tp in plan["tables"]:
+        tp["include"] = tp["source"]["name"] in ("stores", "categories")
+    _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+    for _ in range(180):
+        _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+        if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+            break
+        time.sleep(1)
+    done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+    assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
+    ok(f"migration MySQL -> Iceberg via Trino: {done}")
+    stream(c, trid, "DROP SCHEMA iceberg.smoke_mig CASCADE", database="iceberg", schema="shop", confirm=True)
+
     # Redis and Valkey (Valkey signs in as an ACL user)
     for engine, params in (("redis", {"host": "redis"}), ("valkey", {"host": "valkey", "user": "rowsmith"})):
         _, cv = c.req("POST", "/api/connections", {"name": f"Cache ({engine}) {time.time_ns()}", "driver": engine, "environment": "development",

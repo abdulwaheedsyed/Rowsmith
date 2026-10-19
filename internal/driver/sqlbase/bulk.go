@@ -35,9 +35,13 @@ func (e *Engine) BeginImport(ctx context.Context, t *driver.Table, cols []string
 	if len(im.cols) == 0 {
 		return nil, fmt.Errorf("map at least one column")
 	}
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
+	var tx execTx = noTx{e.DB}
+	if !autocommits(e.D) {
+		t, err := e.DB.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		tx = t
 	}
 	im.tx = tx
 	target := e.D.Qualify(t.Ref)
@@ -87,7 +91,7 @@ func (e *Engine) BeginImport(ctx context.Context, t *driver.Table, cols []string
 type importer struct {
 	e         *Engine
 	t         *driver.Table
-	tx        *sql.Tx
+	tx        execTx
 	cols      []*driver.Column
 	prefix    string
 	into      string // INSERT ALL form (Oracle)
@@ -162,3 +166,17 @@ func (im *importer) Commit() error {
 }
 
 func (im *importer) Rollback() error { return im.tx.Rollback() }
+
+type execTx interface {
+	ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error)
+	Exec(q string, args ...any) (sql.Result, error)
+	Commit() error
+	Rollback() error
+}
+
+// noTx imports without a transaction (see Autocommitter): each batch is
+// saved as it is inserted.
+type noTx struct{ *sql.DB }
+
+func (noTx) Commit() error   { return nil }
+func (noTx) Rollback() error { return nil }

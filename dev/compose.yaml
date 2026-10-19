@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -258,6 +258,81 @@ services:
       interval: 3s
       timeout: 5s
       retries: 200
+
+  # A small lake: SeaweedFS as S3, an Iceberg REST catalog, and Trino with
+  # iceberg, hive (plain Parquet/ORC/CSV files) and tpch catalogs.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        printf '{"identities":[{"name":"rowsmith","credentials":[{"accessKey":"rowsmith","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' "$$PW" > /tmp/s3.json
+        weed server -dir=/data -master.volumeSizeLimitMB=256 -s3 -s3.port=8333 -s3.config=/tmp/s3.json & pid=$$!
+        trap 'kill $$pid; wait $$pid' TERM INT
+        until echo "s3.bucket.list" | weed shell >/dev/null 2>&1; do sleep 1; done
+        echo "s3.bucket.list" | weed shell 2>/dev/null | grep -q lake || echo "s3.bucket.create -name lake" | weed shell >/dev/null
+        touch /tmp/ready
+        wait $$pid
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.1
+    depends_on:
+      seaweedfs: { condition: service_healthy }
+    environment:
+      CATALOG_WAREHOUSE: s3://lake/warehouse
+      CATALOG_URI: jdbc:sqlite:file:/tmp/iceberg_catalog.db
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://seaweedfs:8333
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      AWS_ACCESS_KEY_ID: rowsmith
+      AWS_SECRET_ACCESS_KEY: ${DEV_DB_PASSWORD}
+      AWS_REGION: us-east-1
+    networks: [dev]
+
+  trino:
+    image: trinodb/trino:483
+    depends_on:
+      iceberg-rest: { condition: service_started }
+    environment:
+      LAKE_SECRET: ${DEV_DB_PASSWORD}
+    volumes: ["./trino/catalog:/etc/trino/catalog:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "trino --execute 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 60
+
+  # Seeds the lake once (dev/seed/trino.sql) and reports healthy when done.
+  trino-seed:
+    image: trinodb/trino:483
+    depends_on:
+      trino: { condition: service_healthy }
+    entrypoint:
+      - sh
+      - -c
+      - |
+        t() { trino --server http://trino:8080 --user rowsmith "$$@"; }
+        if [ -z "$$(t --execute "SHOW SCHEMAS FROM iceberg LIKE 'shop'" 2>/dev/null)" ]; then
+          t -f /seed/trino.sql
+        fi
+        exec sleep infinity
+    volumes: ["./seed/trino.sql:/seed/trino.sql:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "trino --server http://trino:8080 --execute 'SELECT 1 FROM hive.raw.nations LIMIT 1' 2>/dev/null | grep -q 1"]
+      interval: 5s
+      timeout: 20s
+      retries: 120
 
   bigquery:
     profiles: [full]

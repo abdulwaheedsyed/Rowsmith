@@ -12,4 +12,5 @@ import (
 	_ "rowsmith/internal/driver/redis"
 	_ "rowsmith/internal/driver/snowflake"
 	_ "rowsmith/internal/driver/sqlite"
+	_ "rowsmith/internal/driver/trino"
 )

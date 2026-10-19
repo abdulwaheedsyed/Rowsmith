@@ -2,6 +2,17 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.4.0 - Unreleased
+
+### Engines
+
+- Trino (and Starburst), with the lake tables behind it: catalogs shown with their connectors, Iceberg tables with their partitioning, sort order, snapshots and data files read from metadata (so counts and structure never scan data), and Hive tables over Parquet, ORC and CSV files. Iceberg rows are edited by matching all of their values, checked before any change is written, since Iceberg takes one statement per transaction. Arrays, maps and rows show as JSON with their field names. The structure editor creates and changes tables with their format, partitioning and location. The console keeps `USE` and `SET SESSION`, and reads time travel and metadata tables. Distributed plans show as one tree, and Explain analyze adds rows and CPU time per operator. Running queries can be stopped, and session properties show as variables. Imports, exports, and migrations into Iceberg or out of any Trino catalog are supported.
+- The dev stack adds Trino with an Iceberg REST catalog, SeaweedFS as S3 storage, and seeded Iceberg, Parquet and CSV tables.
+
+### Fixes
+
+- A connection's configured schema (Snowflake, Trino) is now the one the navigator opens on.
+
 ## 0.3.0 - 2026-10-19
 
 ### Engines

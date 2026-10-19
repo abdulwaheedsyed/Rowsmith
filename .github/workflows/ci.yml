@@ -83,7 +83,7 @@ jobs:
       - name: Start Rowsmith and the test databases
         run: >-
           docker compose -f dev/compose.yaml --env-file dev/.env up -d --wait --wait-timeout 300
-          rowsmith mysql mariadb postgis bastion private-pg mongo clickhouse redis valkey cockroach yugabyte tidb tidb-seed
+          rowsmith mysql mariadb postgis bastion private-pg mongo clickhouse redis valkey cockroach yugabyte tidb tidb-seed seaweedfs iceberg-rest trino trino-seed
       - name: Wait for Rowsmith
         run: |
           for i in $(seq 60); do

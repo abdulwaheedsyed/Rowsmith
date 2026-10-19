@@ -20,7 +20,7 @@ import { useStatus } from "../shell/status";
 import { HeatBar } from "./HeatBar";
 import "./query.css";
 
-const FORMAT_LANG: Record<string, string> = { mysql: "mysql", postgresql: "postgresql", mssql: "transactsql", plsql: "plsql", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", snowflake: "snowflake" };
+const FORMAT_LANG: Record<string, string> = { mysql: "mysql", postgresql: "postgresql", mssql: "transactsql", plsql: "plsql", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", snowflake: "snowflake", trino: "trino" };
 const ROW_LIMITS = [100, 1000, 10000, 100000];
 
 export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; active: boolean }) {

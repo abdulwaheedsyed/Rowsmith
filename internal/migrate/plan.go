@@ -461,6 +461,15 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 			Columns: tp.PrimaryKey, Include: opts.Indexes && dEng != MongoDB, Note: "ClickHouse's sorting key, as a plain index: it doesn't make rows unique"})
 		tp.PrimaryKey = []string{}
 	}
+	if dEng == Trino {
+		if len(tp.PrimaryKey) > 0 && !same {
+			tp.Notes = append(tp.Notes, "Trino tables have no keys or indexes: the primary key was left out")
+		}
+		tp.PrimaryKey = []string{}
+		if len(st.ForeignKeys) > 0 && !same {
+			tp.Notes = append(tp.Notes, "foreign keys have no Trino equivalent and were left out")
+		}
+	}
 	if dEng == ClickHouse && !same {
 		if len(st.Indexes) > 0 {
 			tp.Notes = append(tp.Notes, "indexes were left out: in ClickHouse the primary key (ORDER BY) orders the rows, and it doesn't keep them unique")
@@ -470,7 +479,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 	}
 	for _, ix := range st.Indexes {
-		if ix.Primary || (dEng == ClickHouse && !same) {
+		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino {
 			continue
 		}
 		ip := &IndexPlan{Name: ix.Name, Columns: slices.Clone(ix.Columns), Unique: ix.Unique, Where: ix.Where, Include: opts.Indexes}
@@ -521,7 +530,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 		tp.Indexes = append(tp.Indexes, ip)
 	}
-	if dEng != MongoDB && design.ForeignKeys {
+	if dEng != MongoDB && dEng != Trino && design.ForeignKeys {
 		for _, fk := range st.ForeignKeys {
 			tp.ForeignKeys = append(tp.ForeignKeys, &FKPlan{
 				Name: uniqueNames(names, tp.Target, clipIdent(dEng, applyCase(fk.Name, opts.NameCase)), dEng), Columns: slices.Clone(fk.Columns),

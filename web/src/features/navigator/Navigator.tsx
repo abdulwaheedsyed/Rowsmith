@@ -81,7 +81,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   // Choose sensible defaults for database and schema.
   useEffect(() => {
     if (!hasDbs || scope.database || !dbs.data) return;
-    const configured = (conn.params as Record<string, unknown>).database as string | undefined;
+    const params = conn.params as Record<string, unknown>;
+    const configured = (params.database ?? params.catalog) as string | undefined; // Trino calls its databases catalogs
     const current = server.data?.server.database;
     // Prefer the configured database, then the session's, then the biggest user database.
     const user = dbs.data.filter((d) => !d.system).sort((a, b) => (b.size ?? 0) - (a.size ?? 0) || (b.tables ?? 0) - (a.tables ?? 0));
@@ -90,9 +91,11 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   }, [hasDbs, dbs.data, scope.database, conn, server.data, setScope]);
   useEffect(() => {
     if (!hasSchemas || scope.schema || !schemas.data) return;
-    const pick = schemas.data.find((s) => s.name === "public") ?? schemas.data.find((s) => s.name === "dbo") ?? schemas.data.find((s) => !s.system) ?? schemas.data[0];
+    const configured = (conn.params as Record<string, unknown>).schema as string | undefined;
+    const pick = schemas.data.find((s) => !!configured && s.name.toLowerCase() === configured.toLowerCase()) ??
+      schemas.data.find((s) => s.name === "public") ?? schemas.data.find((s) => s.name === "dbo") ?? schemas.data.find((s) => !s.system) ?? schemas.data[0];
     if (pick) setScope(conn.id, { schema: pick.name });
-  }, [hasSchemas, schemas.data, scope.schema, conn.id, setScope]);
+  }, [hasSchemas, schemas.data, scope.schema, conn.id, conn.params, setScope]);
 
   const groups = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -150,7 +153,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   // After dropping the database or schema in view, move to another one.
   const afterDrop = (action: DDLAction, ref: ObjectRef) => {
     if (action === "drop_database") {
-      const configured = (conn.params as Record<string, unknown>).database as string | undefined;
+      const params = conn.params as Record<string, unknown>;
+    const configured = (params.database ?? params.catalog) as string | undefined; // Trino calls its databases catalogs
       const rest = (dbs.data ?? []).filter((d) => d.name !== ref.database);
       const pick = rest.find((d) => d.name === configured) ?? rest.find((d) => !d.system) ?? rest[0];
       setScope(conn.id, { database: pick?.name, schema: undefined });

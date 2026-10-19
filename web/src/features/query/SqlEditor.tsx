@@ -72,11 +72,35 @@ const SnowflakeSQL = SQLDialect.define({
   backslashEscapes: true,
 });
 
+// Trino SQL: standard quoting, with its lake syntax (FOR VERSION AS OF,
+// table properties, metadata tables) and nested types.
+const TrinoSQL = SQLDialect.define({
+  keywords:
+    "select from where group by order limit offset fetch first next rows only with recursive having join inner left right full outer " +
+    "cross natural lateral unnest on using as and or not in between like escape is null distinct all union intersect except case when " +
+    "then else end cast try_cast insert into values update set delete merge matched create replace table view materialized schema " +
+    "if exists comment properties alter add drop rename to column truncate show describe explain analyze use call grant revoke role " +
+    "session reset start transaction commit rollback prepare execute deallocate refresh for version timestamp system_time of at " +
+    "tablesample bernoulli system window over partition range unbounded preceding following current asc desc nulls last grouping sets " +
+    "cube rollup filter within array map row zone interval",
+  types:
+    "boolean tinyint smallint integer int bigint real double decimal varchar char varbinary json date time timestamp interval " +
+    "array map row ipaddress uuid hyperloglog qdigest tdigest geometry sphericalgeography",
+  builtin:
+    "count sum avg min max count_if approx_distinct approx_percentile array_agg map_agg arbitrary max_by min_by bool_and bool_or " +
+    "coalesce nullif if try greatest least date_trunc date_add date_diff date_format from_iso8601_timestamp to_iso8601 now " +
+    "current_date current_timestamp from_unixtime to_unixtime json_extract json_extract_scalar json_format json_parse json_query " +
+    "json_value cardinality element_at contains array_join filter transform reduce zip sequence split split_part regexp_like " +
+    "regexp_extract regexp_replace lower upper trim length substr concat lpad rpad replace format md5 sha256 to_hex from_base64 " +
+    "to_base64 st_point st_astext st_geometryfromtext st_distance st_contains row_number rank dense_rank lag lead",
+});
+
 export function dialectFor(d?: string, driverId?: string): SQLDialect {
   if (driverId === "mariadb") return MariaSQL;
   switch (d) {
     case "clickhouse": return ClickHouseSQL;
     case "snowflake": return SnowflakeSQL;
+    case "trino": return TrinoSQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

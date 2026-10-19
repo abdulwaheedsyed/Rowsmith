@@ -1,0 +1,264 @@
+{
+  "0" : {
+    "id" : "16",
+    "name" : "Output",
+    "descriptor" : {
+      "columnNames" : "[status, _col1]"
+    },
+    "outputs" : [ {
+      "type" : "varchar",
+      "name" : "status"
+    }, {
+      "type" : "double",
+      "name" : "sum"
+    } ],
+    "details" : [ "_col1 := sum" ],
+    "estimates" : [ {
+      "outputRowCount" : 3.0,
+      "outputSizeInBytes" : 44.8836,
+      "cpuCost" : 0.0,
+      "memoryCost" : 0.0,
+      "networkCost" : 0.0
+    } ],
+    "children" : [ {
+      "id" : "11",
+      "name" : "Aggregate",
+      "descriptor" : {
+        "type" : "FINAL",
+        "keys" : "[status]"
+      },
+      "outputs" : [ {
+        "type" : "varchar",
+        "name" : "status"
+      }, {
+        "type" : "double",
+        "name" : "sum"
+      } ],
+      "details" : [ "sum := sum(sum_3)" ],
+      "estimates" : [ {
+        "outputRowCount" : 3.0,
+        "outputSizeInBytes" : 44.8836,
+        "cpuCost" : 29774.27728523445,
+        "memoryCost" : 44.8836,
+        "networkCost" : 0.0
+      } ],
+      "children" : [ {
+        "id" : "420",
+        "name" : "LocalExchange",
+        "descriptor" : {
+          "partitioning" : "HASH",
+          "isReplicateNullsAndAny" : "",
+          "arguments" : "[status::varchar]"
+        },
+        "outputs" : [ {
+          "type" : "varchar",
+          "name" : "status"
+        }, {
+          "type" : "double",
+          "name" : "sum_3"
+        } ],
+        "details" : [ ],
+        "estimates" : [ {
+          "outputRowCount" : 1990.0995431672893,
+          "outputSizeInBytes" : 29774.27728523445,
+          "cpuCost" : 29774.27728523445,
+          "memoryCost" : 0.0,
+          "networkCost" : 0.0
+        } ],
+        "children" : [ {
+          "id" : "426",
+          "name" : "RemoteSource",
+          "descriptor" : {
+            "sourceFragmentIds" : "[1]"
+          },
+          "outputs" : [ {
+            "type" : "varchar",
+            "name" : "status"
+          }, {
+            "type" : "double",
+            "name" : "sum_3"
+          } ],
+          "details" : [ ],
+          "estimates" : [ ],
+          "children" : [ ]
+        } ]
+      } ]
+    } ]
+  },
+  "1" : {
+    "id" : "431",
+    "name" : "Aggregate",
+    "descriptor" : {
+      "type" : "INTERMEDIATE",
+      "keys" : "[status]"
+    },
+    "outputs" : [ {
+      "type" : "varchar",
+      "name" : "status"
+    }, {
+      "type" : "double",
+      "name" : "sum_3"
+    } ],
+    "details" : [ "sum_3 := sum(sum_3)" ],
+    "estimates" : [ {
+      "outputRowCount" : 1990.0995431672893,
+      "outputSizeInBytes" : 29774.27728523445,
+      "cpuCost" : "NaN",
+      "memoryCost" : "NaN",
+      "networkCost" : "NaN"
+    } ],
+    "children" : [ {
+      "id" : "267",
+      "name" : "InnerJoin",
+      "descriptor" : {
+        "criteria" : "(order_id = id)",
+        "distribution" : "REPLICATED"
+      },
+      "outputs" : [ {
+        "type" : "double",
+        "name" : "sum_3"
+      }, {
+        "type" : "varchar",
+        "name" : "status"
+      } ],
+      "details" : [ "Distribution: REPLICATED", "dynamicFilterAssignments = {id -> #df_345}" ],
+      "estimates" : [ {
+        "outputRowCount" : 1990.0995431672893,
+        "outputSizeInBytes" : 29774.27728523445,
+        "cpuCost" : 1120265.052986169,
+        "memoryCost" : 7340.775700934579,
+        "networkCost" : 0.0
+      } ],
+      "children" : [ {
+        "id" : "424",
+        "name" : "Aggregate",
+        "descriptor" : {
+          "type" : "PARTIAL",
+          "keys" : "[order_id]"
+        },
+        "outputs" : [ {
+          "type" : "bigint",
+          "name" : "order_id"
+        }, {
+          "type" : "double",
+          "name" : "sum_3"
+        } ],
+        "details" : [ "sum_3 := sum(quantity)" ],
+        "estimates" : [ {
+          "outputRowCount" : 60175.0,
+          "outputSizeInBytes" : 1083150.0,
+          "cpuCost" : "NaN",
+          "memoryCost" : "NaN",
+          "networkCost" : "NaN"
+        } ],
+        "children" : [ {
+          "id" : "346",
+          "name" : "ScanFilter",
+          "descriptor" : {
+            "table" : "iceberg:shop.order_lines$data@4451699389714171582",
+            "filterPredicate" : "",
+            "dynamicFilters" : "{order_id = #df_345}"
+          },
+          "outputs" : [ {
+            "type" : "bigint",
+            "name" : "order_id"
+          }, {
+            "type" : "double",
+            "name" : "quantity"
+          } ],
+          "details" : [ "order_id := 1:order_id:bigint", "quantity := 4:quantity:double" ],
+          "estimates" : [ {
+            "outputRowCount" : 60175.0,
+            "outputSizeInBytes" : 1083150.0,
+            "cpuCost" : 1083150.0,
+            "memoryCost" : 0.0,
+            "networkCost" : 0.0
+          }, {
+            "outputRowCount" : 60175.0,
+            "outputSizeInBytes" : 1083150.0,
+            "cpuCost" : 1083150.0,
+            "memoryCost" : 0.0,
+            "networkCost" : 0.0
+          } ],
+          "children" : [ ]
+        } ]
+      }, {
+        "id" : "388",
+        "name" : "LocalExchange",
+        "descriptor" : {
+          "partitioning" : "SINGLE",
+          "isReplicateNullsAndAny" : "",
+          "arguments" : "[]"
+        },
+        "outputs" : [ {
+          "type" : "bigint",
+          "name" : "id"
+        }, {
+          "type" : "varchar",
+          "name" : "status"
+        } ],
+        "details" : [ ],
+        "estimates" : [ {
+          "outputRowCount" : 490.65420560747657,
+          "outputSizeInBytes" : 7340.775700934579,
+          "cpuCost" : 0.0,
+          "memoryCost" : 0.0,
+          "networkCost" : 0.0
+        } ],
+        "children" : [ {
+          "id" : "310",
+          "name" : "RemoteSource",
+          "descriptor" : {
+            "sourceFragmentIds" : "[2]"
+          },
+          "outputs" : [ {
+            "type" : "bigint",
+            "name" : "id"
+          }, {
+            "type" : "varchar",
+            "name" : "status"
+          } ],
+          "details" : [ ],
+          "estimates" : [ ],
+          "children" : [ ]
+        } ]
+      } ]
+    } ]
+  },
+  "2" : {
+    "id" : "168",
+    "name" : "ScanFilterProject",
+    "descriptor" : {
+      "table" : "iceberg:shop.orders$data@2419997646423162496",
+      "filterPredicate" : "(customer_id < bigint '50')"
+    },
+    "outputs" : [ {
+      "type" : "bigint",
+      "name" : "id"
+    }, {
+      "type" : "varchar",
+      "name" : "status"
+    } ],
+    "details" : [ "customer_id := 2:customer_id:bigint", "id := 1:id:bigint", "status := 3:status:varchar" ],
+    "estimates" : [ {
+      "outputRowCount" : 15000.0,
+      "outputSizeInBytes" : 224418.0,
+      "cpuCost" : 359418.0,
+      "memoryCost" : 0.0,
+      "networkCost" : 0.0
+    }, {
+      "outputRowCount" : 490.65420560747657,
+      "outputSizeInBytes" : 7340.775700934579,
+      "cpuCost" : 359418.0,
+      "memoryCost" : 0.0,
+      "networkCost" : 0.0
+    }, {
+      "outputRowCount" : 490.65420560747657,
+      "outputSizeInBytes" : 7340.775700934579,
+      "cpuCost" : 7340.775700934579,
+      "memoryCost" : 0.0,
+      "networkCost" : 0.0
+    } ],
+    "children" : [ ]
+  }
+}

@@ -55,6 +55,26 @@ func insertsFromSelect(d Dialect) bool {
 	return ok && si.InsertsFromSelect()
 }
 
+// TypedArger is implemented by dialects that compare a column only with a
+// value of its own type (Trino rejects bigint = varchar): filters wrap their
+// placeholders with TypedArg, such as CAST(? AS bigint).
+type TypedArger interface {
+	TypedArg(c *driver.Column, ph string) string
+}
+
+// Autocommitter is implemented by dialects whose tables take writes only
+// one statement at a time (Trino's Iceberg and Delta Lake connectors): edits
+// and imports run without a transaction, and edits check every row they
+// match before writing.
+type Autocommitter interface {
+	Autocommit() bool
+}
+
+func autocommits(d Dialect) bool {
+	a, ok := d.(Autocommitter)
+	return ok && a.Autocommit()
+}
+
 // ExactSelecter is implemented by dialects whose SelectExpr shortens values
 // for display (large geometries); exports and migrations use the exact form.
 type ExactSelecter interface {

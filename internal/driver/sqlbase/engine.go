@@ -225,13 +225,20 @@ func (e *Engine) filter(b *queryBuilder, c *driver.Column, f driver.Filter) (str
 		}
 		return v
 	}
+	arg := func(v any) string {
+		ph := b.arg(val(v))
+		if t, ok := d.(TypedArger); ok {
+			return t.TypedArg(c, ph)
+		}
+		return ph
+	}
 	switch f.Op {
 	case "=", "!=", "<", "<=", ">", ">=":
 		op := f.Op
 		if op == "!=" {
 			op = "<>"
 		}
-		return col + " " + op + " " + b.arg(val(f.Value)), nil
+		return col + " " + op + " " + arg(f.Value), nil
 	case "like", "notlike":
 		return d.Like(d.TextExpr(*c), b.arg(fmt.Sprint(f.Value)), f.Op == "notlike"), nil
 	case "contains":
@@ -249,7 +256,7 @@ func (e *Engine) filter(b *queryBuilder, c *driver.Column, f driver.Filter) (str
 		}
 		ph := make([]string, len(f.Values))
 		for i, v := range f.Values {
-			ph[i] = b.arg(val(v))
+			ph[i] = arg(v)
 		}
 		op := " IN ("
 		if f.Op == "notin" {
@@ -272,7 +279,7 @@ func (e *Engine) filter(b *queryBuilder, c *driver.Column, f driver.Filter) (str
 		if len(f.Values) != 2 {
 			return "", errors.New("between needs two values")
 		}
-		return col + " BETWEEN " + b.arg(val(f.Values[0])) + " AND " + b.arg(val(f.Values[1])), nil
+		return col + " BETWEEN " + arg(f.Values[0]) + " AND " + arg(f.Values[1]), nil
 	}
 	return "", fmt.Errorf("unknown filter operator %q", f.Op)
 }
@@ -342,14 +349,41 @@ func (e *Engine) ApplyEdits(ctx context.Context, t *driver.Table, edits []driver
 	for i := range t.Columns {
 		byName[t.Columns[i].Name] = &t.Columns[i]
 	}
-	tx, err := e.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
+	target := e.D.Qualify(t.Ref)
+	var ex execer = e.DB
+	if autocommits(e.D) {
+		// No transaction to roll back: check that every change still
+		// matches exactly one row before writing any of them.
+		for i, ed := range edits {
+			if ed.Op != "delete" && (ed.Op != "update" || len(ed.Values) == 0) {
+				continue
+			}
+			b := &queryBuilder{d: e.D}
+			cond, err := e.keyCondition(b, t, byName, ed.Key)
+			if err != nil {
+				return nil, err
+			}
+			var n int64
+			if err := e.DB.QueryRowContext(ctx, "SELECT count(*) FROM "+target+" WHERE "+cond, b.args...).Scan(&n); err != nil {
+				return nil, fmt.Errorf("change %d: %w", i+1, err)
+			}
+			if n == 0 {
+				return nil, fmt.Errorf("change %d: the row no longer exists or was modified by someone else", i+1)
+			}
+			if n > 1 {
+				return nil, fmt.Errorf("change %d would affect %d rows; nothing was saved", i+1, n)
+			}
+		}
+	} else {
+		tx, err := e.DB.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback()
+		ex = tx
 	}
-	defer tx.Rollback()
 
 	res := &driver.EditResult{}
-	target := e.D.Qualify(t.Ref)
 	for i, ed := range edits {
 		b := &queryBuilder{d: e.D}
 		var q string
@@ -413,25 +447,40 @@ func (e *Engine) ApplyEdits(ctx context.Context, t *driver.Table, edits []driver
 		default:
 			return nil, fmt.Errorf("unknown edit operation %q", ed.Op)
 		}
-		r, err := tx.ExecContext(ctx, q, b.args...)
+		r, err := ex.ExecContext(ctx, q, b.args...)
 		if err != nil {
-			return nil, fmt.Errorf("change %d: %w", i+1, err)
+			return nil, partial(fmt.Errorf("change %d: %w", i+1, err), ex, res.Applied)
 		}
 		if ed.Op != "insert" {
 			if n, err := r.RowsAffected(); err == nil && n != 1 {
 				if n == 0 {
-					return nil, fmt.Errorf("change %d: the row no longer exists or was modified by someone else", i+1)
+					return nil, partial(fmt.Errorf("change %d: the row no longer exists or was modified by someone else", i+1), ex, res.Applied)
 				}
-				return nil, fmt.Errorf("change %d would affect %d rows; nothing was saved", i+1, n)
+				return nil, partial(fmt.Errorf("change %d would affect %d rows; nothing was saved", i+1, n), ex, res.Applied)
 			}
 		}
 		res.Statements = append(res.Statements, q)
 		res.Applied++
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
+	if tx, ok := ex.(*sql.Tx); ok {
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
 	}
 	return res, nil
+}
+
+type execer interface {
+	ExecContext(ctx context.Context, q string, args ...any) (sql.Result, error)
+}
+
+// partial notes which changes were already saved when edits run without a
+// transaction.
+func partial(err error, ex execer, applied int) error {
+	if _, ok := ex.(*sql.Tx); ok || applied == 0 {
+		return err
+	}
+	return fmt.Errorf("%w (the %d changes before it were saved)", err, applied)
 }
 
 const placeholderToken = "\x00ph\x00"
