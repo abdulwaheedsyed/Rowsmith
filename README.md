@@ -93,7 +93,7 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | Valkey 7.2+ | ✅ Working |
 | Google BigQuery | ✅ Working |
 | Snowflake (AWS, Azure, Google Cloud) | ✅ Working |
-| Trino 4xx and Starburst, with Iceberg and Delta Lake tables and Hive tables over Parquet, ORC or CSV files | ✅ Working |
+| Trino 4xx, with Iceberg and Delta Lake tables and Hive tables over Parquet, ORC or CSV files | ✅ Working |
 
 Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install is needed.
 

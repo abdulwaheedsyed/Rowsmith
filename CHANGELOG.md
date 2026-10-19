@@ -2,11 +2,11 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
-## 0.4.0 - Unreleased
+## 0.4.0 - 2026-10-19
 
 ### Engines
 
-- Trino (and Starburst), with the lake tables behind it: catalogs shown with their connectors, Iceberg tables with their partitioning, sort order, snapshots and data files read from metadata (so counts and structure never scan data), Delta Lake tables with their partitions, properties, versions, files and size read from the transaction log, and Hive tables over Parquet, ORC and CSV files. Iceberg and Delta Lake rows are edited by matching all of their values, checked before any change is written, since both take one statement per transaction. Arrays, maps and rows show as JSON with their field names. The structure editor creates and changes tables with their format, partitioning and location. The console keeps `USE` and `SET SESSION`, and reads time travel and metadata tables. Distributed plans show as one tree, and Explain analyze adds rows and CPU time per operator. Running queries can be stopped, and session properties show as variables. Imports, exports, and migrations into Iceberg or Delta Lake or out of any Trino catalog are supported.
+- Trino, with the lake tables behind it: catalogs shown with their connectors, Iceberg tables with their partitioning, sort order, snapshots and data files read from metadata (so counts and structure never scan data), Delta Lake tables with their partitions, properties, versions, files and size read from the transaction log, and Hive tables over Parquet, ORC and CSV files. Iceberg and Delta Lake rows are edited by matching all of their values, checked before any change is written, since both take one statement per transaction. Arrays, maps and rows show as JSON with their field names. The structure editor creates and changes tables with their format, partitioning and location. The console keeps `USE` and `SET SESSION`, and reads time travel and metadata tables. Distributed plans show as one tree, and Explain analyze adds rows and CPU time per operator. Running queries can be stopped, and session properties show as variables. Imports, exports, and migrations into Iceberg or Delta Lake or out of any Trino catalog are supported.
 - The dev stack adds Trino with an Iceberg REST catalog, a Delta Lake catalog, SeaweedFS as S3 storage, and seeded Iceberg, Delta Lake, Parquet and CSV tables.
 
 ### Fixes
