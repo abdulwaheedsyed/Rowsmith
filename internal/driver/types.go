@@ -59,6 +59,7 @@ type Caps struct {
 	Documents      bool `json:"documents"`      // rows are JSON documents
 	Dump           bool `json:"dump"`           //
 	CostEstimate   bool `json:"costEstimate"`   // dry-run reports bytes processed (BigQuery)
+	Keys           bool `json:"keys"`           // objects are the keys of a key-value store, listed by pattern (Redis)
 }
 
 type KindInfo struct {

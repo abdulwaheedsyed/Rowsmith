@@ -2,7 +2,14 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
-## 0.1.1 - Unreleased
+## 0.2.0 - Unreleased
+
+### Engines
+
+- Redis and Valkey. The navigator lists keys by type and finds them on the server by name or pattern (`user:*`), and each numbered database shows its key count. Opening a key shows a grid for its type: string, hash, list, set, sorted set, stream or JSON document. You can filter, search, sort and edit it, and a save is checked first, then applied in one transaction that fails if the key changed meanwhile.
+- New keys of any type, and expiry times, from dialogs that show their commands. A key's view shows when it expires.
+- A console in redis-cli syntax with replies laid out as tables. `SELECT` and `MULTI` carry between runs, a blocking command can be cancelled, and `FLUSHDB`, `FLUSHALL` and `SHUTDOWN` always ask first.
+- Password or ACL user sign-in, TLS, SSH tunnels, `redis://` and `valkey://` URLs, the client list and `INFO`/`CONFIG`.
 
 ### Fixes
 

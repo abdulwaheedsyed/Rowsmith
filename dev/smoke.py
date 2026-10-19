@@ -265,6 +265,60 @@ def main():
     _, an = c.req("POST", f"/api/c/{mid}/analyze", {"sql": "db.a.find({})\ndb.a.drop()"}, 200)
     ok("mongo analyze markers: " + str([(s["line"], s["kind"], s["danger"]["level"]) for s in an["statements"]]))
 
+    # Redis and Valkey (Valkey signs in as an ACL user)
+    for engine, params in (("redis", {"host": "redis"}), ("valkey", {"host": "valkey", "user": "rowsmith"})):
+        _, cv = c.req("POST", "/api/connections", {"name": f"Cache ({engine}) {time.time_ns()}", "driver": engine, "environment": "development",
+            "params": {**params, "database": 0, "tls": "disable"}, "secrets": {"password": PW}}, 201)
+        rid = cv["id"]
+        _, srv = c.req("GET", f"/api/c/{rid}/server", expect=200)
+        _, dbs = c.req("GET", f"/api/c/{rid}/databases", expect=200)
+        assert dbs[0]["name"] == "db0" and dbs[0]["tables"] >= 16 and dbs[1]["tables"] == 2, dbs[:2]
+        ok(f"{engine}: {srv['server']['product']} {srv['server']['version']}, {len(dbs)} databases, db0 has {dbs[0]['tables']} keys")
+        _, objs = c.req("GET", f"/api/c/{rid}/objects?db=db0", expect=200)
+        kinds = {o["name"]: o["kind"] for o in objs}
+        assert kinds["user:1"] == "hash" and kinds["leaderboard"] == "zset" and kinds["orders"] == "stream" and kinds["queue:email"] == "list", kinds
+        _, users = c.req("GET", f"/api/c/{rid}/objects?db=db0&match=user:*", expect=200)
+        assert [o["name"] for o in users] == ["user:1", "user:2", "user:3"], users
+        ok(f"{engine} keys: {len(objs)} by type ({', '.join(sorted(set(kinds.values())))}), user:* finds {len(users)}")
+        _, t = c.req("GET", f"/api/c/{rid}/describe?db=db0&name=session:abc123", expect=200)
+        assert t["kind"] == "string" and t["options"]["Expires"].startswith("in "), t["options"]
+        _, res = c.req("POST", f"/api/c/{rid}/browse", {"ref": {"database": "db0", "name": "big:hash"}, "offset": 100, "limit": 5}, 200)
+        assert res["rows"][0] == ["field:0101", "303"] and res["truncated"], res["rows"][:1]
+        _, n = c.req("POST", f"/api/c/{rid}/count", {"ref": {"database": "db0", "name": "big:hash"}, "filters": [{"column": "value", "op": ">", "value": "1700"}]}, 200)
+        assert n["rows"] == 34 and n["exact"], n
+        ok(f"{engine} browse: hash fields paged and filtered ({n['rows']} match), session key {t['options']['Expires']}")
+        code, ev = stream(c, rid, "DEL smoke:h\nHSET smoke:h a 1 b 2 c 3\nHGETALL smoke:h\nSET smoke:s \"hello there\" EX 60\nTTL smoke:s", database="db2")
+        ends = [e for e in ev if e["t"] == "stmtEnd"]
+        assert len(ends) == 5 and not [e for e in ends if e.get("error")], ends
+        rows = [r for e in ev if e["t"] == "rows" for r in e["rows"]]
+        assert ["a", "1"] in rows, rows
+        ok(f"{engine} console: {len(ends)} commands, HGETALL as field/value rows")
+        _, er = c.req("POST", f"/api/c/{rid}/edit", {"ref": {"database": "db2", "name": "smoke:h"}, "edits": [
+            {"op": "update", "key": {"field": "a"}, "values": {"value": "one"}}, {"op": "delete", "key": {"field": "b"}},
+            {"op": "insert", "values": {"field": "d", "value": "4"}}]}, 200)
+        _, res = c.req("POST", f"/api/c/{rid}/browse", {"ref": {"database": "db2", "name": "smoke:h"}, "limit": 10}, 200)
+        assert res["rows"] == [["a", "one"], ["c", "3"], ["d", "4"]], res["rows"]
+        ok(f"{engine} grid edits checked and applied in one transaction: {er['statements']}")
+        code, body = stream(c, rid, "FLUSHDB", database="db2")
+        assert code == 409, body; ok(f"{engine} FLUSHDB requires confirmation")
+        code, ev = stream(c, rid, "GET smoke:s\nHLEN smoke:h", database="db2", mode="statement", cursor=14)
+        stmts = [e for e in ev if e["t"] == "stmt"]
+        assert len(stmts) == 1 and stmts[0]["sql"] == "HLEN smoke:h", stmts; ok(f"{engine} runs the command at the cursor")
+        _, an = c.req("POST", f"/api/c/{rid}/analyze", {"sql": "GET a\nSET a b\nFLUSHALL"}, 200)
+        assert [s["kind"] for s in an["statements"]] == ["read", "write", "ddl"] and an["statements"][2]["danger"]["level"] == "destructive", an
+        _, ddl = c.req("POST", f"/api/c/{rid}/ddl", {"action": "rename", "ref": {"database": "db2", "name": "smoke:h"}, "newName": "smoke:h2"}, 200)
+        code, ev = stream(c, rid, ddl["script"], database="db2", confirm=True)
+        c.req("GET", f"/api/c/{rid}/describe?db=db2&name=smoke:h2", expect=200)
+        _, ddl = c.req("POST", f"/api/c/{rid}/ddl", {"action": "drop", "ref": {"database": "db2", "name": "smoke:h2"}}, 200)
+        code, ev = stream(c, rid, ddl["script"] + "\nDEL smoke:s", database="db2", confirm=True)
+        assert [r for e in ev if e["t"] == "rows" for r in e["rows"]] == [[1], [1]], ev
+        code, _ = c.req("GET", f"/api/c/{rid}/describe?db=db2&name=smoke:h2")
+        assert code >= 400, code
+        ok(f"{engine} rename and delete through the console: {ddl['script'].strip()}")
+        _, pl = c.req("GET", f"/api/c/{rid}/processes", expect=200)
+        _, vs = c.req("GET", f"/api/c/{rid}/variables?kind=status", expect=200)
+        ok(f"{engine} clients: {len(pl['rows'])}, INFO fields: {len(vs['rows'])}")
+
     # viewer with read-only share
     _, u = c.req("POST", "/api/users", {"name": "Vic Viewer", "email": VIEWER, "role": "viewer", "password": "Quiet-Lantern-Harbor-31"}, 201)
     c.req("PUT", f"/api/connections/{conns['mysql']}/shares", {"shares": [{"userId": u["id"], "access": "write"}]}, 200)

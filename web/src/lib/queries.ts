@@ -74,10 +74,12 @@ export function useSchemas(connId?: string, db?: string, enabled = true) {
   });
 }
 
-export function useObjects(connId?: string, db?: string, schema?: string, enabled = true) {
+/** Objects in a database or schema. match is a key pattern (user:*) for
+ *  key-value stores, whose keys are found on the server. */
+export function useObjects(connId?: string, db?: string, schema?: string, enabled = true, match?: string) {
   return useQuery({
-    queryKey: ["objects", connId, db ?? "", schema ?? ""],
-    queryFn: () => get<DbObject[]>(`c/${connId}/objects${qs({ db, schema })}`),
+    queryKey: match === undefined ? ["objects", connId, db ?? "", schema ?? ""] : ["objects", connId, db ?? "", schema ?? "", match],
+    queryFn: () => get<DbObject[]>(`c/${connId}/objects${qs({ db, schema, match })}`),
     enabled: !!connId && enabled,
     staleTime: 60_000,
     retry: false,

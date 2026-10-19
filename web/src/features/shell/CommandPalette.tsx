@@ -157,7 +157,7 @@ export function CommandPalette({ me, conn, onNewConnection }: { me: Me; conn?: C
                       <PencilRuler /> New {drv.caps.documents ? "collection" : "table"}
                     </Command.Item>
                   )}
-                  {drv?.caps.editRows && conn.access !== "read" && !conn.readOnly && (
+                  {drv?.caps.editRows && !drv.caps.keys && conn.access !== "read" && !conn.readOnly && (
                     <Command.Item value="import data csv excel json upload load" onSelect={run(() => openImport(conn, { kind: "table", database: scope?.database, schema: scope?.schema }))}>
                       <FileUp /> Import data
                     </Command.Item>

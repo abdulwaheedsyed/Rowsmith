@@ -243,7 +243,9 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
     }
   };
 
-  const txAction = (stmt: "COMMIT" | "ROLLBACK") => execute("all", false, stmt);
+  // Redis queues commands after MULTI: EXEC runs them, DISCARD drops them.
+  const redis = drv?.dialect === "redis";
+  const txAction = (stmt: "COMMIT" | "ROLLBACK") => execute("all", false, redis ? (stmt === "COMMIT" ? "EXEC" : "DISCARD") : stmt);
 
   // ---- assistant ------------------------------------------------------------------
   const aiOpen = useAssistant((s) => !!s.open[tab.id]);
@@ -256,7 +258,9 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
     const doc = view.state.doc.toString();
     const sel = view.state.selection.main;
     if (!sel.empty) return { selection: view.state.sliceDoc(sel.from, sel.to) };
-    const st = statementAround(doc, sel.head, drv?.dialect === "mongodb");
+    // The Redis console runs one command per line.
+    const line = view.state.doc.lineAt(sel.head);
+    const st = drv?.dialect === "redis" ? (line.text.trim() ? { text: line.text.trim(), line: line.number } : null) : statementAround(doc, sel.head, drv?.dialect === "mongodb");
     if (!st) return {};
     const failed = run.stmts.find((x) => x.error);
     const err = failed && failed.sql.trim() === st.text.replace(/;$/, "").trim() ? errorText(failed.error!) : undefined;
@@ -386,9 +390,9 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
         {run.inTx && !running && (
           <div className="txbar">
             <GitBranch />
-            <span>Transaction open</span>
-            <Button size="sm" onClick={() => txAction("ROLLBACK")}><Undo2 /> Roll back</Button>
-            <Button size="sm" variant="primary" onClick={() => txAction("COMMIT")}><Check /> Commit</Button>
+            <span>{redis ? "MULTI: commands are queued" : "Transaction open"}</span>
+            <Button size="sm" onClick={() => txAction("ROLLBACK")}><Undo2 /> {redis ? "Discard" : "Roll back"}</Button>
+            <Button size="sm" variant="primary" onClick={() => txAction("COMMIT")}><Check /> {redis ? "Exec" : "Commit"}</Button>
           </div>
         )}
         <label className="query__limit">
@@ -415,7 +419,8 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
           marks={marks}
           errorLine={errorLine}
           handleRef={editor}
-          placeholder={drv?.dialect === "mongodb" ? "db.orders.find({ status: \"paid\" }).sort({ placedAt: -1 }).limit(20)   ⌘↵ runs the statement at the cursor" : undefined}
+          placeholder={drv?.dialect === "mongodb" ? "db.orders.find({ status: \"paid\" }).sort({ placedAt: -1 }).limit(20)   ⌘↵ runs the statement at the cursor"
+            : redis ? "HGETALL user:1   one command per line; ⌘↵ runs the line at the cursor" : undefined}
         />
       </div>
       <div className="query__split" role="separator" aria-orientation="horizontal" onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} />

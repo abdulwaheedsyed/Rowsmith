@@ -5,7 +5,7 @@ import {
   ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleX, Code2, Database, History as HistoryIcon, Loader2, Square, TriangleAlert,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
-import { useConnections, useDatabases, useDriver, useSchemas } from "../../lib/queries";
+import { useConnections, useDatabases, useDriver, useDrivers, useSchemas } from "../../lib/queries";
 import type { Connection, Me } from "../../lib/types";
 import { ago, duration, int } from "../../lib/format";
 import { toast } from "../../lib/store";
@@ -95,7 +95,9 @@ function EndpointPicker({ label, value, onChange, role }: { label: string; value
   const dbs = useDatabases(conn?.id, !!drv?.caps.databases);
   const schemas = useSchemas(conn?.id, value.database || undefined, !!drv?.caps.schemas && (!drv?.caps.databases || !!value.database));
   const usable = (c: Connection) => role === "source" || (c.access !== "read" && !c.readOnly && c.driver !== "bigquery");
-  const list = (conns.data ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  const drivers = useDrivers();
+  // Key-value stores hold keys, not tables, so they cannot be migrated.
+  const list = (conns.data ?? []).filter((c) => !drivers.data?.find((d) => d.id === c.driver)?.caps.keys).sort((a, b) => a.name.localeCompare(b.name));
   useEffect(() => {
     // Pick the connection's default database once its list arrives.
     if (drv?.caps.databases && !value.database && dbs.data?.length && conn) {

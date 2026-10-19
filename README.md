@@ -11,11 +11,11 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0"></a>
 </p>
 
-**A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, ClickHouse, MongoDB, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
+**A fast, self-hosted web workspace for your databases.** Browse, query, edit and administer MySQL, MariaDB, PostgreSQL + PostGIS, SQL Server, Oracle, ClickHouse, MongoDB, Redis, Valkey, BigQuery and SQLite from one place, with built-in SSH tunnels, a team vault for connection secrets, and a UI designed for both desktop and phone.
 
 Rowsmith is a single Go binary with the web app embedded. It is designed to run in its own container behind your existing reverse proxy.
 
-> **Status: early development.** All nine engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, shared query links with comments, and database migration are working. MySQL, MariaDB, PostgreSQL/PostGIS, ClickHouse and MongoDB are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. See [Roadmap](#roadmap).
+> **Status: early development.** All eleven engines, the web UI, SSH tunnels, the team vault, the structure editor, import and export, the AI assistant, scheduled queries, shared query links with comments, and database migration are working. MySQL, MariaDB, PostgreSQL/PostGIS, ClickHouse, MongoDB, Redis and Valkey are covered by an end-to-end test; SQL Server, Oracle, SQLite and BigQuery have unit tests and integration tests you can run against real servers. See [Roadmap](#roadmap).
 
 ---
 
@@ -86,6 +86,8 @@ Rowsmith is a single Go binary with the web app embedded. It is designed to run 
 | ClickHouse 24.8+ and ClickHouse Cloud, over the native protocol or HTTP | ✅ Working |
 | SQLite 3 | ✅ Working |
 | MongoDB 5+ | ✅ Working |
+| Redis 6+ (incl. Redis Stack and ElastiCache) | ✅ Working |
+| Valkey 7.2+ | ✅ Working |
 | Google BigQuery | ✅ Working |
 
 Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install is needed.
@@ -97,12 +99,13 @@ Every driver is pure Go, so no Oracle Instant Client or Microsoft ODBC install i
 - **ClickHouse**: the native protocol (port 9000, 9440 with TLS) or HTTP (8123, 8443); the form moves the port as you switch. The navigator shows tables, views, materialized views (with the table they feed) and dictionaries; the Structure tab shows the engine, ORDER BY, partitions, TTL, codecs, skip indexes and MATERIALIZED / ALIAS columns, and the structure editor creates and changes them. Arrays, maps (keys in order), tuples, JSON, big integers, IPs and geo types render as such, and `Point` and `Polygon` go on the map. The console keeps `SET` and `USE` between runs (over HTTP through a server session), stops a huge result at the row limit on the server instead of reading it to the end, and shows how many rows and bytes each statement read. EXPLAIN shows the plan with the granules each index skips, and Explain analyze runs a read-only query to measure it. There are no transactions, so grid edits are checked first and then run as mutations (`ALTER TABLE … UPDATE`, lightweight `DELETE`) matched on the row's values; imports load into a staging table and move in one `INSERT … SELECT`, so a bad row leaves the table untouched. Read-only connections also run with `readonly = 2` on the server.
 - **SQLite**: databases are files on the Rowsmith server, so the driver only opens files inside `ROWSMITH_SQLITE_DIR`. `ATTACH` is disabled and Rowsmith's own metadata database is refused. Use `:memory:` for a scratch database.
 - **MongoDB**: a console that understands mongosh syntax (`db.orders.find({...}).sort(...)`, `aggregate`, CRUD, index and collection commands) without running JavaScript on the server. Field lists are inferred from a sample of documents, and edits keep BSON types.
+- **Redis and Valkey**: keys are listed by type in the navigator (strings, hashes, lists, sets, sorted sets, streams and JSON documents), up to 2,000 at a time; type a name or a pattern such as `user:*` and the server finds the matching keys with `SCAN`, so large databases stay responsive. Each numbered database (`db0`, `db1`…) shows its key count. Opening a key shows a grid for its type: a hash's fields, a list's items by position, a sorted set's members by score, a stream's entries with their fields. Every grid can be filtered, searched, sorted and edited; a save checks that each field, member, item or entry is still there, then applies the changes in one `MULTI … EXEC` that fails if the key changed meanwhile. New keys of any type and expiry times are set from dialogs that show the commands they run. The console reads redis-cli syntax, one command per line, and lays replies out as tables (`HGETALL` as fields and values, `ZRANGE … WITHSCORES` as members and scores, `INFO` by section); `SELECT` and `MULTI` carry between runs, and cancelling stops a blocking command. `FLUSHDB`, `FLUSHALL` and `SHUTDOWN` always ask for confirmation. Sign in with a password or an ACL user, over TLS and SSH tunnels; `redis://`, `rediss://` and `valkey://` URLs fill the form. Clients and `INFO`/`CONFIG` appear under processes and variables. Redis Cluster nodes show only their own keys.
 - **BigQuery**: sign in with a service-account key or Application Default Credentials. Every query is dry-run first; queries estimated to process more than the connection's limit (10 GB by default) are refused, and each job carries the limit. Table previews use the free `tabledata.list` API. The service account needs `roles/bigquery.jobUser` on the project and `roles/bigquery.dataViewer` (or `dataEditor`) on the datasets.
 
 ## Roadmap
 
 - [x] Backend core: vault, auth, store, driver interface, SSH tunnels, API
-- [x] MySQL, MariaDB, PostgreSQL/PostGIS, SQL Server, Oracle, ClickHouse, SQLite, MongoDB and BigQuery drivers
+- [x] MySQL, MariaDB, PostgreSQL/PostGIS, SQL Server, Oracle, ClickHouse, SQLite, MongoDB, Redis, Valkey and BigQuery drivers
 - [x] Web UI: connection manager, navigator, virtualized data grid, SQL editor with schema-aware autocomplete, plan viewer, map view, command palette, mobile layout
 - [x] Relationship (ER) diagrams
 - [x] Production container image and reverse-proxy examples
@@ -189,7 +192,7 @@ An admin sets up email under **Administration → Email & schedules**: an SMTP s
 
 ## Migration
 
-**Migrate** (in the rail, the command palette, or a connection's menu) copies tables from one connection to another: a MySQL server to a new one, MySQL to PostgreSQL, SQL Server or Oracle to MySQL, SQLite to PostgreSQL, MySQL or PostgreSQL into ClickHouse for analytics, BigQuery to anything, MongoDB to SQL and back. Choose the source and target (a connection plus database or schema), then review the plan before anything runs.
+**Migrate** (in the rail, the command palette, or a connection's menu) copies tables from one connection to another: a MySQL server to a new one, MySQL to PostgreSQL, SQL Server or Oracle to MySQL, SQLite to PostgreSQL, MySQL or PostgreSQL into ClickHouse for analytics, BigQuery to anything, MongoDB to SQL and back. Redis and Valkey hold keys rather than tables, so they aren't offered. Choose the source and target (a connection plus database or schema), then review the plan before anything runs.
 
 - **The plan** lists every table and column with its source type and the type proposed on the target: `tinyint(1)` becomes `boolean`, `timestamptz` becomes `datetime(6)` in UTC, PostGIS geometry becomes MySQL `POINT SRID 4326` or Oracle `SDO_GEOMETRY` (registered with its SRID, so spatial indexes carry over; Oracle's SRID 8307 becomes EPSG 4326 elsewhere), a MongoDB `objectId` becomes `varchar(24)`, and so on. Anything that may lose information is flagged with the reason (a decimal without fixed precision, text shortened so it can be indexed, MongoDB dates keeping milliseconds). You can rename tables and columns, change types, leave out tables, columns, indexes and foreign keys, and preview the exact SQL for each table.
 - **Same engine** copies types, defaults, computed columns, collations and comments as they are, and can also copy views, routines, triggers, custom types and sequences.
@@ -367,7 +370,7 @@ cd web && npm install && npm run dev
 ```
 
 - **Build**: the first command compiles the server into `.bin/rowsmith`.
-- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB, PostGIS, ClickHouse and MongoDB servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion: everything the smoke test uses. Add `--profile full` to also start SQL Server, Oracle and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
+- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis and Valkey servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion: everything the smoke test uses. Add `--profile full` to also start SQL Server, Oracle and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
 - **Smoke test**: `dev/smoke.py` runs the end-to-end test against the dev stack.
 - **Frontend**: `npm run dev` serves the UI at `http://127.0.0.1:5199` and proxies `/api` to the dev server.
 - **Third-party notices**: after adding or upgrading dependencies, run `python3 dev/notices.py` to regenerate `THIRD_PARTY_NOTICES.txt`.
@@ -387,7 +390,7 @@ Create a package under `internal/driver/<engine>` that implements `driver.Driver
 - `Info()` describes the connection form, capabilities and object kinds.
 - `Open()` returns a `driver.Conn`.
 
-Optional capabilities such as `Explainer`, `ProcessManager`, `DDLGenerator` and `Catalog` are separate interfaces; implement the ones the engine supports. Engines reachable through `database/sql` can reuse `sqlbase` for browsing, editing and streaming, and only supply a `Dialect`. Register the driver in `init()` and import the package from `internal/driver/all`.
+Optional capabilities such as `Explainer`, `ProcessManager`, `DDLGenerator` and `Catalog` are separate interfaces; implement the ones the engine supports. Engines reachable through `database/sql` can reuse `sqlbase` for browsing, editing and streaming, and only supply a `Dialect`. Key-value stores set `Caps.Keys` and implement `KeyLister`, so the navigator finds keys on the server by pattern. Register the driver in `init()` and import the package from `internal/driver/all`.
 
 ## License
 

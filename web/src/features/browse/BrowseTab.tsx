@@ -3,7 +3,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@t
 import * as RPopover from "@radix-ui/react-popover";
 import {
   Plus, RefreshCw, Search, X, Filter as FilterIcon, Columns3, Download, PanelRight, Save, Undo2, Code2, Map as MapIcon, TableProperties, ChevronRight, ChevronLeft, FileUp, Info,
-  MoreHorizontal, Scissors, Trash2,
+  MoreHorizontal, Scissors, Trash2, Timer,
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useDescribe, useDriver, qualified } from "../../lib/queries";
@@ -16,6 +16,7 @@ import { DataGrid, type GridColumn } from "../grid/DataGrid";
 import { Inspector } from "../grid/Inspector";
 import { openObject } from "../workspace/actions";
 import { DDLDialog, type DDLAction } from "../structure/DDLDialog";
+import { ExpiryDialog } from "../keys/keys";
 import { useStatus } from "../shell/status";
 import { MapView, hasGeometry } from "../map/MapView";
 import { useMediaQuery } from "../../lib/hooks";
@@ -120,6 +121,7 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   const [showWhere, setShowWhere] = useState(!!st.where);
   const [activeCell, setActiveCell] = useState<{ r: number; c: number } | null>(null);
   const [ddl, setDdl] = useState<DDLAction | null>(null);
+  const [expiry, setExpiry] = useState(false);
   const [edits, setEdits] = useState<{ updates: Map<number, Record<string, unknown>>; inserts: Record<string, unknown>[]; deletes: Set<number> }>(() => ({ updates: new Map(), inserts: [], deletes: new Set() }));
   const [confirm, setConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -228,6 +230,10 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
   const canImport = conn.access !== "read" && !conn.readOnly && (table?.kind === "table" || table?.kind === "partitioned_table" || table?.kind === "collection") && !!drv?.caps.editRows;
   const canDDL = !!drv?.caps.ddl && conn.access !== "read" && !conn.readOnly;
   const kind = table?.kind ?? ref.kind ?? "table";
+  // Keys of a key-value store: strings and JSON documents hold one value, so they take no new rows.
+  const keys = !!drv?.caps.keys;
+  const oneValue = keys && (kind === "string" || kind === "ReJSON-RL");
+  const expires = keys ? table?.options?.Expires : undefined;
   const pendingCount = edits.updates.size + edits.inserts.length + edits.deletes.size;
 
   useEffect(() => {
@@ -399,6 +405,13 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
     <div className="browse">
       <div className="browse__bar">
         <FilterBar cols={cols} filters={st.filters} onChange={(filters) => patchState({ filters })} />
+        {expires && (
+          <Tip label={canDDL ? "Change the expiry" : "The key's expiry"}>
+            <Button size="sm" variant="ghost" className="keyttl" onClick={() => canDDL && setExpiry(true)} aria-label="Expiry">
+              <Timer /> {expires === "never" ? "No expiry" : `Expires ${expires}`}
+            </Button>
+          </Tip>
+        )}
         <span className="spacer" />
         <label className="browse__search">
           <Search />
@@ -445,18 +458,20 @@ export function BrowseTab({ tab, conn, active }: { tab: Tab; conn: Connection; a
               <>
                 <MenuSep />
                 {kind === "table" && <MenuItem icon={<Scissors />} danger onSelect={() => setDdl("truncate")}>Empty table…</MenuItem>}
-                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>Drop {kind.replace("_", " ")}…</MenuItem>
+                {keys && <MenuItem icon={<Timer />} onSelect={() => setExpiry(true)}>Set expiry…</MenuItem>}
+                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>{keys ? "Delete key…" : `Drop ${kind.replace("_", " ")}…`}</MenuItem>
               </>
             )}
           </MenuContent>
         </Menu>
         {ddl && <DDLDialog conn={conn} action={ddl} target={{ ...ref, kind }} onClose={() => setDdl(null)} />}
+        {expiry && <ExpiryDialog conn={conn} target={ref} current={expires} onClose={() => setExpiry(false)} />}
         {!narrow && (
           <Tip label="Value inspector">
             <Button size="sm" variant={st.inspector ? "default" : "ghost"} icon onClick={() => patchState({ inspector: !st.inspector })} aria-label="Toggle inspector"><PanelRight /></Button>
           </Tip>
         )}
-        {editable && (
+        {editable && !oneValue && (
           <Button size="sm" onClick={addRow}><Plus /> Row</Button>
         )}
       </div>

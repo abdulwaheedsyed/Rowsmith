@@ -18,7 +18,7 @@ import { DataGrid } from "../grid/DataGrid";
 import { DiagramTab } from "../structure/DiagramTab";
 import { DesignTab } from "../design/DesignTab";
 import { UsersPage } from "../access/UsersPage";
-import { kindIcon } from "../navigator/Navigator";
+import { KEY_KINDS, kindIcon } from "../navigator/Navigator";
 import { newQueryTab, openPanel, openObject } from "./actions";
 import { useRuns } from "../query/runs";
 import "./workspace.css";
@@ -162,7 +162,10 @@ function ConnectionHome({ conn }: { conn: Connection }) {
   const current = useWorkspace((s) => s.scope[conn.id]?.database);
   const history = useQuery({ queryKey: ["history", conn.id], queryFn: () => get<HistoryEntry[]>(`history${qs({ connection: conn.id, limit: 8 })}`) });
   const extras = Object.entries(server.data?.server.extras ?? {}).filter(([k]) => k !== "Build");
-  const maxSize = Math.max(1, ...(dbs.data ?? []).map((d) => d.size ?? 0));
+  // Key-value stores measure their databases in keys rather than bytes.
+  const keys = !!drv?.caps.keys;
+  const measure = (d: { size?: number | null; tables?: number | null }) => (keys ? d.tables : d.size) ?? 0;
+  const maxSize = Math.max(1, ...(dbs.data ?? []).map(measure));
 
   return (
     <div className="connhome">
@@ -191,11 +194,11 @@ function ConnectionHome({ conn }: { conn: Connection }) {
             <div className="dblist">
               {(dbs.data ?? []).filter((d) => !d.system).concat((dbs.data ?? []).filter((d) => d.system)).map((d) => (
                 <button key={d.name} className={`dblist__row ${d.system ? "is-system" : ""} ${d.name === current ? "is-current" : ""}`} aria-current={d.name === current || undefined}
-                  title={d.tables !== undefined ? `${d.name} · ${pluralize(d.tables, "table")}` : d.name} onClick={() => setScope(conn.id, { database: d.name, schema: undefined })}>
+                  title={d.tables !== undefined && d.tables !== null ? `${d.name} · ${pluralize(d.tables, keys ? "key" : "table")}` : d.name} onClick={() => setScope(conn.id, { database: d.name, schema: undefined })}>
                   <Database />
                   <span className="dblist__name truncate">{d.name}</span>
-                  <span className="dblist__bar"><span style={{ width: `${((d.size ?? 0) / maxSize) * 100}%` }} /></span>
-                  <span className="dblist__size mono">{d.size !== undefined ? bytes(d.size) : ""}</span>
+                  <span className="dblist__bar"><span style={{ width: `${(measure(d) / maxSize) * 100}%` }} /></span>
+                  <span className="dblist__size mono">{keys ? (d.tables ? `${int(d.tables)} keys` : "") : d.size !== undefined ? bytes(d.size) : ""}</span>
                 </button>
               ))}
             </div>
@@ -249,21 +252,22 @@ function TablesCard({ conn }: { conn: Connection }) {
   const objs = useObjects(conn.id, scope?.database, scope?.schema, ready);
   const [all, setAll] = useState(false);
   // Partitions are counted in their parent table.
-  const list = useMemo(() => (objs.data ?? []).filter((o) => STORED.has(o.kind) && !o.extra?.startsWith("partition of")), [objs.data]);
+  const keys = !!drv?.caps.keys;
+  const list = useMemo(() => (objs.data ?? []).filter((o) => (keys ? KEY_KINDS.has(o.kind) : STORED.has(o.kind)) && !o.extra?.startsWith("partition of")), [objs.data, keys]);
   if (!ready) return null;
   const sized = list.some((o) => o.size !== undefined && o.size !== null);
   const measure = (o: DbObject) => (sized ? o.size : o.rows) ?? 0;
   const sorted = [...list].sort((a, b) => measure(b) - measure(a) || a.name.localeCompare(b.name));
   const max = Math.max(1, ...sorted.map(measure));
   const total = list.reduce((n, o) => n + (o.size ?? 0), 0);
-  const noun = drv.caps.documents ? "collection" : "table";
+  const noun = keys ? "key" : drv.caps.documents ? "collection" : "table";
   const where = [scope?.database, scope?.schema].filter(Boolean).join(" · ");
   const shown = all ? sorted : sorted.slice(0, SHOWN);
   const has = (v?: number | null): v is number => v !== undefined && v !== null;
   return (
     <section className="card connhome__card connhome__card--wide">
       <div className="connhome__cardhead">
-        <h2 className="eyebrow truncate">{noun === "table" ? "Tables" : "Collections"}{where ? ` in ${where}` : ""}</h2>
+        <h2 className="eyebrow truncate">{noun === "table" ? "Tables" : noun === "key" ? "Keys" : "Collections"}{where ? ` in ${where}` : ""}</h2>
         {list.length > 0 && <span className="faint tnum">{pluralize(list.length, noun)}{sized ? ` · ${bytes(total)}` : ""}</span>}
       </div>
       {objs.isLoading && <Spinner />}
@@ -272,7 +276,7 @@ function TablesCard({ conn }: { conn: Connection }) {
       {list.length > 0 && (
         <div className="dblist">
           <div className="dblist__row dblist__row--table dblist__row--head" aria-hidden="true">
-            <span /><span /><span /><span>{sized ? "Size" : "Rows"}</span><span>{sized ? "Rows" : ""}</span>
+            <span /><span /><span /><span>{sized ? "Size" : keys ? "Items" : "Rows"}</span><span>{sized ? "Rows" : ""}</span>
           </div>
           {shown.map((o) => {
             const Icon = kindIcon(o.kind);

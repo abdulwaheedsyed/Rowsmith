@@ -62,6 +62,7 @@ body:
         - Oracle
         - ClickHouse
         - MongoDB
+        - Redis / Valkey
         - BigQuery
         - SQLite
         - None in particular

@@ -47,7 +47,8 @@ export function ExportDialog({ conn, source, onClose }: { conn: Connection; sour
   const [p, setP] = useState<Prefs>(() => remember("export", defaults));
   const set = (patch: Partial<Prefs>) => setP((x) => ({ ...x, ...patch }));
   const dump = source.kind === "dump";
-  const formats = FORMATS.filter((f) => !(docs && f.id === "sql"));
+  // Documents and keys have no INSERT statements to write.
+  const formats = FORMATS.filter((f) => !((docs || drv?.caps.keys) && f.id === "sql"));
   const format: Format = dump ? "sql" : formats.some((f) => f.id === p.format) ? p.format : "csv";
   const baseName = source.kind === "table" ? source.ref.name : source.kind === "dump" ? [conn.name, source.database, source.schema].filter(Boolean).join("-") : "query";
   const [fileName, setFileName] = useState(() => baseName.replace(/[^\p{L}\p{N}._-]+/gu, "_"));

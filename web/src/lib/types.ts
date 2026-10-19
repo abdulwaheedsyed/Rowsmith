@@ -35,6 +35,7 @@ export interface Caps {
   documents: boolean;
   dump: boolean;
   costEstimate: boolean;
+  keys: boolean;
 }
 
 export interface KindInfo {

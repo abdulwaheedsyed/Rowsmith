@@ -62,12 +62,12 @@ function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<st
   return next;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, sqlite: and bigquery:// URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
-    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse" } as Record<string, string>)[scheme];
+    const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", redis: "redis", rediss: "redis", valkey: "valkey", valkeys: "valkey" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
     if (driver === "sqlite") {
@@ -89,6 +89,12 @@ function parseURL(raw: string): { driver?: string; params: Record<string, unknow
     if (u.username) params.user = decodeURIComponent(u.username);
     if (u.password) secrets.password = decodeURIComponent(u.password);
     const db = decodeURIComponent(u.pathname.replace(/^\//, ""));
+    if (driver === "redis" || driver === "valkey") {
+      // redis://user:password@host:6379/2, with rediss:// for TLS.
+      if (/^\d+$/.test(db)) params.database = Number(db);
+      if (scheme.endsWith("s")) params.tls = "require";
+      return { driver, params, secrets };
+    }
     if (db) params[driver === "oracle" ? "service" : "database"] = db;
     const ssl = u.searchParams.get("sslmode") || u.searchParams.get("ssl-mode") || u.searchParams.get("ssl") || u.searchParams.get("secure");
     if (ssl) {
@@ -308,6 +314,7 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
                   <Button onClick={() => {
                     const r = parseURL(url);
                     if (!r) return toast.error("That does not look like a connection URL");
+                    if (r.driver === "redis" && driverId === "valkey") r.driver = "valkey"; // Valkey reads redis:// URLs too
                     if (r.driver && r.driver !== driverId && drivers.data?.some((d) => d.id === r.driver) && !editing) {
                       chooseDriver(r.driver, r);
                     } else {

@@ -26,6 +26,7 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
   const t = d.data!;
   const fkByCol = new Map<string, ForeignKey>();
   for (const fk of t.foreignKeys ?? []) for (const c of fk.columns) fkByCol.set(c, fk);
+  const keys = !!drv?.caps.keys;
   const opts = Object.entries(t.options ?? {});
 
   const openRef = (fk: ForeignKey, incoming: boolean) => {
@@ -40,9 +41,9 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
           <div className="eyebrow">{t.kind.replace("_", " ")}{ref.schema ? ` · ${ref.schema}` : ref.database ? ` · ${ref.database}` : ""}</div>
           <h1 className="structure__title display truncate">{ref.name}</h1>
           <div className="structure__facts">
-            {t.rowEstimate !== undefined && <span><b className="tnum">{int(t.rowEstimate)}</b> {drv?.caps.documents ? "documents" : "rows"} (est.)</span>}
-            {t.size !== undefined && <span><b>{bytes(t.size)}</b> on disk</span>}
-            <span><b className="tnum">{t.columns.length}</b> {drv?.caps.documents ? "fields seen in a sample" : "columns"}</span>
+            {t.rowEstimate !== undefined && <span><b className="tnum">{int(t.rowEstimate)}</b> {keys ? "items" : drv?.caps.documents ? "documents" : "rows"}{keys ? "" : " (est.)"}</span>}
+            {t.size !== undefined && <span><b>{bytes(t.size)}</b> {keys ? "in memory" : "on disk"}</span>}
+            {!keys && <span><b className="tnum">{t.columns.length}</b> {drv?.caps.documents ? "fields seen in a sample" : "columns"}</span>}
             {opts.map(([k, v]) => <span key={k} className="mono">{k.replace("_", " ")}: {v}</span>)}
           </div>
           {t.comment && <p className="structure__comment">{t.comment}</p>}
@@ -62,7 +63,7 @@ export function StructureTab({ tab, conn }: { tab: Tab; conn: Connection }) {
               </MenuTrigger>
               <MenuContent align="end">
                 {t.kind === "table" && <MenuItem icon={<Scissors />} danger onSelect={() => setDdl("truncate")}>Empty table…</MenuItem>}
-                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>Drop {t.kind.replace("_", " ")}…</MenuItem>
+                <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl("drop")}>{keys ? "Delete key…" : `Drop ${t.kind.replace("_", " ")}…`}</MenuItem>
               </MenuContent>
             </Menu>
           )}

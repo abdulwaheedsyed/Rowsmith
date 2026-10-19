@@ -173,6 +173,9 @@ func BuildPlan(ctx context.Context, src, dst Endpoint, opts Options) (*Plan, err
 	if err := CanTarget(dst); err != nil {
 		return nil, err
 	}
+	if src.Info.Caps.Keys {
+		return nil, fmt.Errorf("%s holds keys rather than tables, so it cannot be migrated", src.Info.Name)
+	}
 	if _, ok := src.Conn.(driver.BrowseQuerier); !ok {
 		return nil, fmt.Errorf("Rowsmith cannot read whole tables from %s", src.Info.Name)
 	}

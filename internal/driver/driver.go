@@ -220,6 +220,13 @@ type ScriptSplitter interface {
 	SplitScript(script string) ([]ScriptStatement, error)
 }
 
+// KeyLister is implemented by key-value engines, whose objects are keys:
+// often too many to list, so the navigator asks for those matching a glob
+// pattern (*, ?, [abc]), at most limit of them.
+type KeyLister interface {
+	ObjectsMatching(ctx context.Context, scope Scope, pattern string, limit int) ([]Object, error)
+}
+
 // ---- registry --------------------------------------------------------------
 
 var (

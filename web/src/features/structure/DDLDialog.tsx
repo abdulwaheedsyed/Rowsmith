@@ -5,6 +5,7 @@ import { ApiError, post, stream } from "../../lib/api";
 import { toast, useWorkspace } from "../../lib/store";
 import type { Connection, ObjectRef } from "../../lib/types";
 import { Alert, Button, Dialog, Field, Spinner } from "../../components/ui";
+import { useDriver } from "../../lib/queries";
 
 export type DDLAction = "drop" | "truncate" | "drop_database" | "drop_schema";
 
@@ -35,6 +36,7 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
   const [force, setForce] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const keys = !!useDriver(conn.driver)?.caps.keys;
   const isDb = action === "drop_database";
   const isSchema = action === "drop_schema";
   const name = isDb ? target.database! : isSchema ? target.schema! : target.name;
@@ -81,7 +83,7 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
         }
         throw new Error(failed);
       }
-      toast.success(action === "truncate" ? `Emptied ${name}` : `Dropped ${what} ${name}`);
+      toast.success(action === "truncate" ? `Emptied ${name}` : keys ? `Deleted ${name}` : `Dropped ${what} ${name}`);
       closeTabs();
       for (const key of ["browse", "count", "objects", "dbs", "schemas", "describe", "catalog"]) qc.invalidateQueries({ queryKey: [key, conn.id] });
       onDone?.();
@@ -93,8 +95,9 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
     }
   };
 
-  const verb = action === "truncate" ? "Empty" : "Drop";
+  const verb = action === "truncate" ? "Empty" : keys && action === "drop" ? "Delete" : "Drop";
   const description = action === "truncate" ? "Every row is permanently deleted. The structure stays."
+    : keys && action === "drop" ? "The key and its value are permanently deleted."
     : isDb ? "The database and everything in it, including all its tables and data, is permanently removed."
     : isSchema ? `The ${what} and everything in it is permanently removed.`
     : "The object and everything in it is permanently removed.";

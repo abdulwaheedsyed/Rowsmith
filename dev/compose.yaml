@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -131,6 +131,54 @@ services:
     networks: [dev]
     healthcheck:   # over TCP, which only answers once first-run seeding is done
       test: ["CMD-SHELL", "mongosh --quiet --host \"$$(hostname -i)\" -u root -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --eval 'db.adminCommand({ping: 1}).ok' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  redis:
+    image: redis:8.4
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    # Loads the bundled JSON module, seeds once (dev/seed/redis.txt plus a
+    # JSON document), then keeps the server in the foreground.
+    command:
+      - sh
+      - -c
+      - |
+        redis-server --requirepass "$$PW" --loadmodule /usr/local/lib/redis/modules/rejson.so & pid=$$!
+        trap 'kill $$pid; wait $$pid' TERM INT
+        cli() { redis-cli -a "$$PW" --no-auth-warning "$$@"; }
+        until cli ping >/dev/null 2>&1; do sleep 0.2; done
+        [ "$$(cli EXISTS shop:name)" = 1 ] || cli < /seed/redis.txt >/dev/null
+        [ "$$(cli EXISTS shop:settings)" = 1 ] || cli JSON.SET shop:settings '$$' '{"currency":"EUR","hours":{"open":"08:00","close":"18:00"},"tags":["coffee","bakery"]}' >/dev/null
+        wait $$pid
+    volumes: ["./seed/redis.txt:/seed/redis.txt:ro"]
+    networks: [dev]
+    healthcheck:   # answers once first-run seeding is done
+      test: ["CMD-SHELL", "redis-cli -a \"$$PW\" --no-auth-warning EXISTS cache:stats | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  valkey:
+    image: valkey/valkey:9.0
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    # Signs in as an ACL user (rowsmith), unlike the Redis service's default user.
+    command:
+      - sh
+      - -c
+      - |
+        valkey-server --user default off --user rowsmith on ">$$PW" "~*" "&*" "+@all" & pid=$$!
+        trap 'kill $$pid; wait $$pid' TERM INT
+        cli() { valkey-cli --user rowsmith --pass "$$PW" --no-auth-warning "$$@"; }
+        until cli ping >/dev/null 2>&1; do sleep 0.2; done
+        [ "$$(cli EXISTS shop:name)" = 1 ] || cli < /seed/redis.txt >/dev/null
+        wait $$pid
+    volumes: ["./seed/redis.txt:/seed/redis.txt:ro"]
+    networks: [dev]
+    healthcheck:   # answers once first-run seeding is done
+      test: ["CMD-SHELL", "valkey-cli --user rowsmith --pass \"$$PW\" --no-auth-warning EXISTS cache:stats | grep -q 1"]
       interval: 3s
       timeout: 5s
       retries: 100

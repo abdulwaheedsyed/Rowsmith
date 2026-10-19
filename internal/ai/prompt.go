@@ -36,12 +36,18 @@ func systemPrompt(ctx context.Context, t Target, environment string, data bool, 
 	if t.Info.Dialect == "mongodb" {
 		lang = "javascript"
 	}
+	if t.Info.Dialect == "redis" {
+		lang = "redis"
+	}
 
 	var b strings.Builder
 	b.WriteString("You are the SQL assistant inside Rowsmith, a web workspace for databases. You help the person write, understand, fix and speed up queries for the database they are connected to.\n\n")
 	fmt.Fprintf(&b, "Connection: %s%s. Environment: %s.\n", engine, loc, strOr(environment, "unspecified"))
 	if t.Info.Dialect == "mongodb" {
 		b.WriteString("This is MongoDB. The console reads mongosh-style commands (it does not run JavaScript): db.collection.find(filter, projection).sort({...}).limit(n), aggregate([...]), countDocuments, distinct, insertOne/insertMany, updateOne/updateMany, deleteOne/deleteMany, createIndex, and db.getSiblingDB(\"name\") to reach another database. Write filters as plain documents with shell literals such as ObjectId(\"…\") and ISODate(\"…\").\n")
+	}
+	if t.Info.Dialect == "redis" {
+		fmt.Fprintf(&b, "This is %s, a key-value store. The console reads redis-cli syntax: one command per line, such as HGETALL user:1 or ZRANGE leaderboard 0 9 REV WITHSCORES, with arguments in double quotes when they contain spaces. The listed objects are keys, each with its type (string, hash, list, set, zset, stream); the database is a numbered database such as db0. Prefer SCAN with MATCH over KEYS, which blocks the server on large databases, and give TTLs with EXPIRE or SET … EX. There is no SQL: answer with commands.\n", t.Info.Name)
 	}
 	if t.Info.Dialect == "clickhouse" {
 		b.WriteString("This is ClickHouse. There are no transactions; rows are changed with mutations (ALTER TABLE … UPDATE / DELETE) or a lightweight DELETE FROM, which rewrite data and suit occasional fixes, not routine updates. Queries are fastest when they filter on the first columns of the table's ORDER BY key and its partition key. Use ClickHouse's own functions where they fit: countIf, sumIf, uniq/uniqExact, quantile, argMax, arrayJoin, toStartOfInterval. Tables with ReplacingMergeTree or similar engines keep older row versions until a merge, so add FINAL (or deduplicate with argMax) when only the latest version counts.\n")

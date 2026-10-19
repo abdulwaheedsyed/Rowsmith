@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -131,7 +132,14 @@ func (s *Server) wsObjects(w http.ResponseWriter, r *http.Request, rc *reqCtx) {
 	defer done()
 	ctx, cancel := catalogCtx(r)
 	defer cancel()
-	list, err := x.lease.Conn.Objects(ctx, scopeOf(r))
+	var list []driver.Object
+	var err error
+	if kl, ok := x.lease.Conn.(driver.KeyLister); ok && r.URL.Query().Has("match") {
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		list, err = kl.ObjectsMatching(ctx, scopeOf(r), r.URL.Query().Get("match"), limit)
+	} else {
+		list, err = x.lease.Conn.Objects(ctx, scopeOf(r))
+	}
 	if err != nil {
 		writeDBErr(w, err)
 		return

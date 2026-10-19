@@ -1,0 +1,22 @@
+SELECT 0
+SET shop:name "Rowsmith Coffee"
+SET shop:visits 1024
+SET shop:banner "{\"text\":\"Autumn sale\",\"until\":\"2026-11-30\"}"
+SET shop:motd "Back at 9" EX 2592000
+HSET user:1 name "Ada Lovelace" email ada@example.com plan pro visits 42
+HSET user:2 name "Grace Hopper" email grace@example.com plan free visits 7
+HSET user:3 name "Alan Turing" email alan@example.com plan pro visits 19
+RPUSH queue:email "welcome:1" "receipt:2" "reminder:3" "welcome:4"
+SADD tags:espresso dark strong italian
+SADD tags:filter light fruity
+ZADD leaderboard 1520 ada 1410 grace 990 alan 870 edsger 640 barbara
+XADD orders * customer 1 total 12.50 status paid
+XADD orders * customer 2 total 4.20 status pending
+XADD orders * customer 3 total 30.00 status paid
+SET session:abc123 "user:1" EX 2592000
+SET session:def456 "user:2" EX 2592000
+EVAL "for i = 1, 600 do redis.call('HSET', KEYS[1], 'field:' .. string.format('%04d', i), i * 3) end" 1 big:hash
+EVAL "for i = 1, 300 do redis.call('RPUSH', KEYS[1], 'item ' .. i) end" 1 big:list
+SELECT 1
+SET cache:home "<html>…</html>" EX 2592000
+HSET cache:stats hits 5021 misses 87

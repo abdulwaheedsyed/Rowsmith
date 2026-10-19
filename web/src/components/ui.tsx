@@ -281,6 +281,8 @@ const engines: Record<string, { mono: string; hue: string }> = {
   mongodb: { mono: "Mg", hue: "#4ea96b" },
   bigquery: { mono: "Bq", hue: "#5f8fe6" },
   clickhouse: { mono: "Ch", hue: "#9b7be0" },
+  redis: { mono: "Re", hue: "#d9586f" },
+  valkey: { mono: "Vk", hue: "#3f9fa8" },
 };
 
 export function EngineBadge({ driver, size = 26 }: { driver: string; size?: number }) {

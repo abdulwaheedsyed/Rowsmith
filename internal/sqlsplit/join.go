@@ -11,7 +11,7 @@ var plsqlBlock = regexp.MustCompile(`(?is)^\s*(BEGIN|DECLARE|CREATE\s+(OR\s+REPL
 
 // Join renders statements (without terminators) as one console script that
 // Split turns back into the same statements. dialect is a driver dialect
-// name; "mongodb" puts one command per line.
+// name; "mongodb" and "redis" put one command per line.
 func Join(dialect string, stmts []string) string {
 	var b strings.Builder
 	for _, st := range stmts {
@@ -29,7 +29,7 @@ func Join(dialect string, stmts []string) string {
 				b.WriteString(st + ";\n")
 			}
 		default:
-			if dialect == "mongodb" {
+			if dialect == "mongodb" || dialect == "redis" {
 				b.WriteString(st + "\n")
 			} else {
 				b.WriteString(st + ";\n")

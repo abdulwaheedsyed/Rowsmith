@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown, ChevronRight, Table2, Eye, FunctionSquare, Zap, CalendarClock, Hash, Shapes, Puzzle, Search, RefreshCw,
-  MoreHorizontal, Pencil, Server, Activity, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, BookOpen, Unplug, PencilRuler, Download, FileUp, Plus, ArrowRightLeft,
+  MoreHorizontal, Pencil, Server, Activity, Type, List, ListOrdered, Boxes, Braces, Timer, SlidersHorizontal, UserRound, Columns3, TerminalSquare, Copy, Scissors, Trash2, Database, Layers, Network, FileCode2, ListTree, Package, Link2, TableCellsSplit, LineChart, BookOpen, Unplug, PencilRuler, Download, FileUp, Plus, ArrowRightLeft,
 } from "lucide-react";
 import { go } from "../../lib/nav";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
@@ -18,6 +18,8 @@ import { DDLDialog, type DDLAction } from "../structure/DDLDialog";
 import { NameDDLDialog } from "../structure/NameDDLDialog";
 import { openExport, openImport } from "../transfer/store";
 import { requestDisconnect } from "../workspace/disconnect";
+import { ExpiryDialog, NewKeyDialog, keyPattern, redisQuote } from "../keys/keys";
+import { useDebounced } from "../../lib/hooks";
 import "./navigator.css";
 
 const ICONS: Record<string, typeof Table2> = {
@@ -25,6 +27,8 @@ const ICONS: Record<string, typeof Table2> = {
   procedure: FunctionSquare, trigger: Zap, event: CalendarClock, sequence: Hash, type: Shapes, extension: Puzzle, collection: Table2,
   routine: FunctionSquare, index: ListTree, package: Package, synonym: Link2, external_table: TableCellsSplit, timeseries: LineChart,
   dictionary: BookOpen,
+  // Key types (Redis, Valkey).
+  string: Type, hash: Hash, list: List, set: Boxes, zset: ListOrdered, stream: Activity, "ReJSON-RL": Braces,
 };
 
 export function kindIcon(kind: string) {
@@ -32,7 +36,10 @@ export function kindIcon(kind: string) {
 }
 
 const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
-const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary"]);
+export const KEY_KINDS = new Set(["string", "hash", "list", "set", "zset", "stream", "ReJSON-RL"]);
+const BROWSABLE = new Set(["table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary", ...KEY_KINDS]);
+// Most keys the navigator lists (the server's limit).
+const KEY_LIMIT = 2000;
 
 /** A table's rows and size, for its tooltip. */
 function facts(o: DbObject) {
@@ -57,14 +64,19 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
   const [filter, setFilter] = useState("");
   const [ddl, setDdl] = useState<{ action: DDLAction; ref: ObjectRef } | null>(null);
   const [nameDlg, setNameDlg] = useState<{ action: "create_database" | "create_schema" | "rename"; target?: ObjectRef } | null>(null);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const [expiry, setExpiry] = useState<ObjectRef | null>(null);
   const canWrite = conn.access !== "read" && !conn.readOnly;
+  // Key-value stores list keys found on the server by pattern, not by filtering a full list.
+  const keys = !!drv?.caps.keys;
+  const pattern = keyPattern(useDebounced(filter, 300));
 
   const hasDbs = !!drv?.caps.databases;
   const hasSchemas = !!drv?.caps.schemas;
   const dbs = useDatabases(conn.id, hasDbs && !server.isError);
   const schemas = useSchemas(conn.id, scope.database, hasSchemas && (!hasDbs || !!scope.database) && !server.isError);
   const ready = (!hasDbs || !!scope.database) && (!hasSchemas || !!scope.schema);
-  const objects = useObjects(conn.id, scope.database, scope.schema, ready && !server.isError);
+  const objects = useObjects(conn.id, scope.database, scope.schema, ready && !server.isError, keys ? pattern : undefined);
 
   // Choose sensible defaults for database and schema.
   useEffect(() => {
@@ -86,13 +98,13 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
     const needle = filter.trim().toLowerCase();
     const byKind = new Map<string, DbObject[]>();
     for (const o of objects.data ?? []) {
-      if (needle && !o.name.toLowerCase().includes(needle)) continue;
+      if (needle && !keys && !o.name.toLowerCase().includes(needle)) continue;
       if (!byKind.has(o.kind)) byKind.set(o.kind, []);
       byKind.get(o.kind)!.push(o);
     }
     const order = drv?.kinds.map((k) => k.kind) ?? [];
     return [...byKind.entries()].sort(([a], [b]) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
-  }, [objects.data, filter, drv]);
+  }, [objects.data, filter, drv, keys]);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["objects", conn.id] });
@@ -118,6 +130,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
       a.push({ icon: <FileCode2 />, label: "Show definition", onSelect: () => openObject(conn, ref, "definition") });
     }
     if (canWrite && drv?.design && DESIGNABLE.has(o.kind)) a.push({ icon: <PencilRuler />, label: "Edit structure", onSelect: () => openDesign(conn, { ref }) });
+    if (canWrite && keys) a.push({ icon: <Timer />, label: "Set expiry…", onSelect: () => setExpiry(ref) });
     if (browsable) {
       a.push("sep", { icon: <Download />, label: "Export…", onSelect: () => openExport(conn, { kind: "table", ref, rows: o.rows ?? undefined }) });
       if (canWrite && drv?.caps.editRows && DESIGNABLE.has(o.kind)) a.push({ icon: <FileUp />, label: "Import data…", onSelect: () => openImport(conn, { kind: "table", ref }) });
@@ -129,7 +142,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
     if (canWrite && drv?.caps.ddl) {
       a.push("sep");
       if (o.kind === "table") a.push({ icon: <Scissors />, label: "Empty table…", danger: true, onSelect: () => setDdl({ action: "truncate", ref }) });
-      a.push({ icon: <Trash2 />, label: `Drop ${o.kind.replace("_", " ")}…`, danger: true, onSelect: () => setDdl({ action: "drop", ref }) });
+      a.push({ icon: <Trash2 />, label: keys ? "Delete key…" : `Drop ${o.kind.replace("_", " ")}…`, danger: true, onSelect: () => setDdl({ action: "drop", ref }) });
     }
     return a;
   };
@@ -170,6 +183,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             {drv?.caps.variables && <MenuItem icon={<SlidersHorizontal />} onSelect={() => openPanel(conn, "variables")}>Variables & status</MenuItem>}
             {drv?.caps.users && <MenuItem icon={<UserRound />} onSelect={() => openPanel(conn, "users")}>Database users</MenuItem>}
             {canWrite && (drv?.design || drv?.caps.createDatabase || drv?.caps.editRows) && <MenuSep />}
+            {canWrite && keys && ready && <MenuItem icon={<Plus />} onSelect={() => setNewKey("string")}>New key…</MenuItem>}
             {canWrite && drv?.design && ready && <MenuItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { database: scope.database, schema: scope.schema })}>New {drv.caps.documents ? "collection" : "table"}…</MenuItem>}
             {canWrite && drv?.caps.createDatabase && <MenuItem icon={<Database />} onSelect={() => setNameDlg({ action: "create_database" })}>New database…</MenuItem>}
             {canWrite && drv?.caps.schemas && drv?.caps.ddl && (!hasDbs || !!scope.database) && <MenuItem icon={<Layers />} onSelect={() => setNameDlg({ action: "create_schema", target: { database: scope.database, name: "" } })}>New schema…</MenuItem>}
@@ -182,10 +196,10 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
               </MenuItem>
             )}
             <MenuSep />
-            {canWrite && drv?.caps.editRows && ready && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", database: scope.database, schema: scope.schema })}>Import data…</MenuItem>}
+            {canWrite && drv?.caps.editRows && !keys && ready && <MenuItem icon={<FileUp />} onSelect={() => openImport(conn, { kind: "table", database: scope.database, schema: scope.schema })}>Import data…</MenuItem>}
             {canWrite && drv?.caps.sql && <MenuItem icon={<FileCode2 />} onSelect={() => openImport(conn, { kind: "sql", database: scope.database, schema: scope.schema })}>Run a SQL file…</MenuItem>}
             {drv?.caps.sql && drv?.caps.ddl && !drv.caps.documents && ready && <MenuItem icon={<Download />} onSelect={() => openExport(conn, { kind: "dump", database: scope.database, schema: scope.schema })}>Export as SQL dump…</MenuItem>}
-            {ready && <MenuItem icon={<ArrowRightLeft />} onSelect={() => go(`/migrate?from=${conn.id}${scope.database ? `&db=${encodeURIComponent(scope.database)}` : ""}${scope.schema ? `&schema=${encodeURIComponent(scope.schema)}` : ""}`)}>Migrate to another database…</MenuItem>}
+            {ready && !keys && <MenuItem icon={<ArrowRightLeft />} onSelect={() => go(`/migrate?from=${conn.id}${scope.database ? `&db=${encodeURIComponent(scope.database)}` : ""}${scope.schema ? `&schema=${encodeURIComponent(scope.schema)}` : ""}`)}>Migrate to another database…</MenuItem>}
             <MenuSep />
             <MenuItem icon={<RefreshCw />} onSelect={refresh}>Refresh</MenuItem>
             {conn.access === "manage" && <MenuItem icon={<Pencil />} onSelect={onEdit}>Edit connection</MenuItem>}
@@ -213,7 +227,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
               label="Database"
               value={scope.database}
               loading={dbs.isLoading}
-              items={(dbs.data ?? []).map((d) => ({ value: d.name, meta: d.size ? bytes(d.size) : d.tables !== undefined ? `${d.tables} tables` : "", dim: d.system }))}
+              items={(dbs.data ?? []).map((d) => ({ value: d.name, meta: d.size ? bytes(d.size) : d.tables !== undefined && d.tables !== null ? `${d.tables} ${keys ? "keys" : "tables"}` : "", dim: d.system || (keys && !d.tables) }))}
               onChange={(v) => setScope(conn.id, { database: v, schema: undefined })}
             />
           )}
@@ -233,7 +247,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
       {!server.isError && (
         <div className="navigator__filter">
           <Search />
-          <input className="input" placeholder="Filter objects" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter objects" />
+          <input className={`input ${keys ? "input--mono" : ""}`} placeholder={keys ? "Find keys: user:*" : "Filter objects"} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={keys ? "Find keys" : "Filter objects"} />
           <Tip label="Refresh">
             <Button variant="ghost" size="sm" icon onClick={refresh} aria-label="Refresh"><RefreshCw className={objects.isFetching ? "spin" : ""} /></Button>
           </Tip>
@@ -244,7 +258,10 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
         {objects.isLoading && ready && <div className="navigator__loading"><Spinner /> Loading objects…</div>}
         {objects.error && <div className="navigator__error"><Alert kind="danger">{(objects.error as Error).message}</Alert></div>}
         {objects.data && groups.length === 0 && (
-          <p className="navigator__empty muted">{filter ? `Nothing matches “${filter}”.` : "This schema is empty."}</p>
+          <p className="navigator__empty muted">{filter ? `Nothing matches “${filter}”.` : keys ? "This database has no keys." : "This schema is empty."}</p>
+        )}
+        {keys && (objects.data?.length ?? 0) >= KEY_LIMIT && (
+          <p className="navigator__empty faint">Showing the first {int(KEY_LIMIT)} keys{pattern ? " that match" : ""}. Narrow them with a pattern, such as user:*.</p>
         )}
         {groups.map(([kind, list]) => {
           const key = `nav:${conn.id}:${kind}`;
@@ -270,6 +287,11 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
                 {(kind === "table" || kind === "collection") && canWrite && drv?.design && (
                   <Tip label={`New ${kind}`}>
                     <button className="navgroup__add" aria-label={`New ${kind}`} onClick={() => openDesign(conn, { database: scope.database, schema: scope.schema })}><Plus /></button>
+                  </Tip>
+                )}
+                {keys && canWrite && KEY_KINDS.has(kind) && kind !== "ReJSON-RL" && (
+                  <Tip label={`New ${info?.label.replace(/e?s$/, "").toLowerCase() ?? kind} key`}>
+                    <button className="navgroup__add" aria-label={`New ${kind} key`} onClick={() => setNewKey(kind)}><Plus /></button>
                   </Tip>
                 )}
               </div>
@@ -327,6 +349,8 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
         })}
       </div>
       {ddl && <DDLDialog conn={conn} action={ddl.action} target={ddl.ref} onClose={() => setDdl(null)} onDone={() => afterDrop(ddl.action, ddl.ref)} />}
+      {newKey && <NewKeyDialog conn={conn} database={scope.database} initialType={newKey} onClose={() => setNewKey(null)} />}
+      {expiry && <ExpiryDialog conn={conn} target={expiry} onClose={() => setExpiry(null)} />}
       {nameDlg && (
         <NameDDLDialog conn={conn} action={nameDlg.action} target={nameDlg.target} onClose={() => setNameDlg(null)}
           onDone={(name) => {
@@ -339,6 +363,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
 }
 
 export function sampleQuery(dialect: string | undefined, ref: ObjectRef, q: string) {
+  if (dialect === "redis") return redisRead(ref);
   if (dialect === "mongodb") return `db.getCollection(${JSON.stringify(ref.name)}).find({}).limit(100)`;
   if (dialect === "mssql") return `SELECT TOP (100) *\nFROM ${qualified(ref, q)}`;
   if (dialect === "plsql") return `SELECT *\nFROM ${qualified(ref, q)}\nFETCH FIRST 100 ROWS ONLY`;
@@ -388,4 +413,18 @@ function ScopePicker({ icon, label, value, items, onChange, loading }: {
       </RPopover.Portal>
     </RPopover.Root>
   );
+}
+
+/** The command that reads a key of each type. */
+function redisRead(ref: ObjectRef) {
+  const k = redisQuote(ref.name);
+  switch (ref.kind) {
+    case "hash": return `HGETALL ${k}`;
+    case "list": return `LRANGE ${k} 0 99`;
+    case "set": return `SSCAN ${k} 0 COUNT 100`;
+    case "zset": return `ZRANGE ${k} 0 99 WITHSCORES`;
+    case "stream": return `XRANGE ${k} - + COUNT 100`;
+    case "ReJSON-RL": return `JSON.GET ${k}`;
+  }
+  return `GET ${k}\nTTL ${k}`;
 }
