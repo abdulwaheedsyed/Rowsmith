@@ -367,7 +367,7 @@ cd web && npm install && npm run dev
 ```
 
 - **Build**: the first command compiles the server into `.bin/rowsmith`.
-- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB, PostGIS and ClickHouse servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion. Add `--profile full` to also start SQL Server, Oracle, MongoDB and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
+- **Test databases**: `dev/compose.yaml` starts throwaway MySQL, MariaDB, PostGIS, ClickHouse and MongoDB servers, an SSH bastion, and a PostgreSQL server that is only reachable through the bastion: everything the smoke test uses. Add `--profile full` to also start SQL Server, Oracle and a BigQuery emulator. Only Rowsmith is published, on `127.0.0.1:18080`.
 - **Smoke test**: `dev/smoke.py` runs the end-to-end test against the dev stack.
 - **Frontend**: `npm run dev` serves the UI at `http://127.0.0.1:5199` and proxies `/api` to the dev server.
 - **Third-party notices**: after adding or upgrading dependencies, run `python3 dev/notices.py` to regenerate `THIRD_PARTY_NOTICES.txt`.

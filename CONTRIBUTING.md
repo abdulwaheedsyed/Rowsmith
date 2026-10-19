@@ -31,13 +31,13 @@ You need Docker, Node 22.12 or later, and Python 3 for the dev scripts. Go runs 
    ./dev/build.sh
    ```
 
-3. Start Rowsmith with throwaway MySQL, MariaDB and PostGIS servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
+3. Start Rowsmith with throwaway MySQL, MariaDB, PostGIS, ClickHouse and MongoDB servers, an SSH bastion, and a PostgreSQL server reachable only through the bastion:
 
    ```bash
    docker compose -f dev/compose.yaml --env-file dev/.env up -d
    ```
 
-   Add `--profile full` to also start SQL Server, Oracle, MongoDB and a BigQuery emulator. Oracle takes a few minutes the first time.
+   Add `--profile full` to also start SQL Server, Oracle and a BigQuery emulator. Oracle takes a few minutes the first time.
 
 4. Open `http://127.0.0.1:18080`. The first-run setup code is in the container's log (`docker logs rowsmith-dev-rowsmith-1`), or let the smoke test create the owner account for you.
 
@@ -73,7 +73,7 @@ The smoke test runs end to end against the dev stack on MySQL, MariaDB, PostGIS,
 
 ### Integration tests
 
-Driver changes need their integration tests, which run against the dev stack's servers (SQL Server, Oracle, MongoDB and BigQuery need `--profile full`). They skip unless their variables are set. For example, for Oracle:
+Driver changes need their integration tests, which run against the dev stack's servers (SQL Server, Oracle and BigQuery need `--profile full`). They skip unless their variables are set. For example, for Oracle:
 
 ```bash
 source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=oracle -e ROWSMITH_TEST_ORACLE_USER=shop -e ROWSMITH_TEST_ORACLE_PASSWORD=$DEV_DB_PASSWORD" dev/go.sh test ./internal/driver/oracle/

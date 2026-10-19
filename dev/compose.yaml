@@ -1,6 +1,6 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, SSH bastion)
-#   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, MongoDB, BigQuery emulator
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
 
@@ -123,7 +123,6 @@ services:
     networks: [dev]
 
   mongo:
-    profiles: [full]
     image: mongo:8.3
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
