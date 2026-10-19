@@ -327,6 +327,22 @@ def main():
     ok(f"migration MySQL -> TiDB: {done}, shapes as GeoJSON")
     stream(c, tid, "DROP DATABASE smoke_mig", confirm=True)
 
+    # Redis Cluster: keys from every primary, edits and commands routed by key.
+    _, cv = c.req("POST", "/api/connections", {"name": f"Cache (Redis Cluster) {time.time_ns()}", "driver": "redis", "environment": "development",
+        "params": {"host": "redis-cluster", "port": 7001, "database": 0, "tls": "disable"}, "secrets": {"password": PW}}, 201)
+    rcid = cv["id"]
+    _, srv = c.req("GET", f"/api/c/{rcid}/server", expect=200)
+    assert srv["server"]["extras"]["Mode"].startswith("cluster of 3 primaries"), srv
+    _, objs = c.req("GET", f"/api/c/{rcid}/objects?db=db0&match=product:*", expect=200)
+    assert len(objs) == 12, objs
+    c.req("POST", f"/api/c/{rcid}/edit", {"ref": {"database": "db0", "name": "user:2"}, "edits": [{"op": "update", "key": {"field": "plan"}, "values": {"value": "pro"}}]}, 200)
+    code, ev = stream(c, rcid, "HGET user:2 plan\nHSET user:2 plan free\nKEYS user:*\nMULTI", database="db0")
+    ends = [e for e in ev if e["t"] == "stmtEnd"]
+    rows = [e["rows"] for e in ev if e["t"] == "rows"]
+    assert rows[0] == [["pro"]] and len(rows[2]) == 3 and ends[3].get("error"), (rows, ends)
+    _, pl = c.req("GET", f"/api/c/{rcid}/processes", expect=200)
+    ok(f"redis cluster: {srv['server']['extras']['Mode']}, 12 product keys across nodes, edit and console routed by key, {len(pl['rows'])} clients on all nodes")
+
     # Trino over the lake: Iceberg tables, plain Parquet and CSV files, and a migration into Iceberg.
     _, cv = c.req("POST", "/api/connections", {"name": f"Lake (Trino) {time.time_ns()}", "driver": "trino", "environment": "development",
         "params": {"host": "trino", "user": "rowsmith", "catalog": "iceberg", "schema": "shop", "tls": "disable"}, "secrets": {}}, 201)

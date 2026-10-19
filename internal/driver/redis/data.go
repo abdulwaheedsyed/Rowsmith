@@ -125,7 +125,7 @@ func (c *conn) browseRows(ctx context.Context, req driver.BrowseRequest) (t stri
 	return t, cols, kept[lo:hi], total, complete, nil
 }
 
-func listPage(ctx context.Context, cl *goredis.Client, key string, n, offset, limit int64, desc bool) ([][]any, error) {
+func listPage(ctx context.Context, cl goredis.UniversalClient, key string, n, offset, limit int64, desc bool) ([][]any, error) {
 	var rows [][]any
 	if offset >= n {
 		return rows, nil
@@ -150,7 +150,7 @@ func listPage(ctx context.Context, cl *goredis.Client, key string, n, offset, li
 }
 
 // streamPage skips offset entries in chunks, then reads one page.
-func streamPage(ctx context.Context, cl *goredis.Client, key string, offset, limit int64, desc bool) ([][]any, error) {
+func streamPage(ctx context.Context, cl goredis.UniversalClient, key string, offset, limit int64, desc bool) ([][]any, error) {
 	from, to := "-", "+"
 	read := func(n int64) ([][]any, error) {
 		if desc {
@@ -221,7 +221,7 @@ func streamEntry(e any) ([]any, bool) {
 
 // readAll reads every element of a key, up to elementCap; complete is false
 // when the cap cut it short.
-func readAll(ctx context.Context, cl *goredis.Client, t, key string) (rows [][]any, complete bool, err error) {
+func readAll(ctx context.Context, cl goredis.UniversalClient, t, key string) (rows [][]any, complete bool, err error) {
 	complete = true
 	switch t {
 	case kindString:

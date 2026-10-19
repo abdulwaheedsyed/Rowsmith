@@ -1,0 +1,24 @@
+SET shop:name "Corner Coffee (cluster)"
+HSET user:1 name Ada email ada@example.com plan pro
+HSET user:2 name Grace email grace@example.com plan free
+HSET user:3 name Linus email linus@example.com plan team
+HSET {cart:7}:items espresso 2 croissant 1
+SET {cart:7}:owner user:1
+RPUSH queue:email welcome:1 receipt:2 receipt:3
+SADD tags coffee bakery breakfast
+ZADD leaderboard 120 ada 95 grace 140 linus
+XADD orders * item espresso qty 2
+XADD orders * item latte qty 1
+SET product:1 Espresso
+SET product:2 Latte
+SET product:3 Cappuccino
+SET product:4 Mocha
+SET product:5 Americano
+SET product:6 Flat-white
+SET product:7 Cortado
+SET product:8 Macchiato
+SET product:9 Ristretto
+SET product:10 Lungo
+SET product:11 Affogato
+SET product:12 Doppio
+SET counter:visits 1024

@@ -2,6 +2,13 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.5.0 - Unreleased
+
+### Engines
+
+- Redis Cluster: connecting to any node opens the whole cluster. Keys are listed from every primary, browsing and edits go to the node that owns each key, and processes show every node's clients. The console follows the cluster's redirects, runs `KEYS`, `DBSIZE` and `FLUSHDB` on every primary, and explains why `SELECT`, `SCAN` and transactions aren't available. A command on keys in different slots explains how hash tags keep keys together.
+- The dev stack adds a three-node Redis Cluster.
+
 ## 0.4.0 - 2026-10-19
 
 ### Engines

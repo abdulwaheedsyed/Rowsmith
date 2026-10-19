@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -158,6 +158,37 @@ services:
     networks: [dev]
     healthcheck:   # answers once first-run seeding is done
       test: ["CMD-SHELL", "redis-cli -a \"$$PW\" --no-auth-warning -n 1 EXISTS cache:stats | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
+
+  # A Redis Cluster of three primaries (ports 7001-7003) in one container,
+  # announcing the host name redis-cluster so clients follow its redirects.
+  redis-cluster:
+    image: redis:8.4
+    environment:
+      PW: ${DEV_DB_PASSWORD}
+    command:
+      - sh
+      - -c
+      - |
+        cli() { redis-cli -a "$$PW" --no-auth-warning "$$@"; }
+        for p in 7001 7002 7003; do
+          mkdir -p /data/$$p
+          redis-server --port $$p --dir /data/$$p --cluster-enabled yes --cluster-config-file nodes.conf --requirepass "$$PW" --masterauth "$$PW" \
+            --cluster-announce-hostname redis-cluster --cluster-preferred-endpoint-type hostname --save "" --appendonly no --daemonize yes
+        done
+        for p in 7001 7002 7003; do until cli -p $$p ping >/dev/null 2>&1; do sleep 0.2; done; done
+        cli -p 7001 cluster info | grep -q cluster_state:ok || cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-replicas 0 --cluster-yes >/dev/null
+        until cli -p 7001 cluster info | grep -q cluster_state:ok; do sleep 0.5; done
+        [ "$$(cli -c -p 7001 EXISTS shop:name)" = 1 ] || cli -c -p 7001 < /seed/redis-cluster.txt >/dev/null
+        touch /tmp/ready
+        trap 'for p in 7001 7002 7003; do cli -p $$p shutdown nosave; done; exit 0' TERM INT
+        sleep infinity & wait
+    volumes: ["./seed/redis-cluster.txt:/seed/redis-cluster.txt:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
       interval: 3s
       timeout: 5s
       retries: 100

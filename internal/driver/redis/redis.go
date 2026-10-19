@@ -1,7 +1,9 @@
 // Package redis implements the Redis and Valkey driver: keys listed by
 // pattern and grouped by type, a grid for each value type (strings, hashes,
 // lists, sets, sorted sets, streams and JSON documents) with edits checked
-// before they run, expiry, and a redis-cli style console.
+// before they run, expiry, and a redis-cli style console. A Redis Cluster
+// node is recognised when connecting: keys are then listed from every
+// primary and commands follow the cluster's redirects.
 package redis
 
 import (
@@ -72,7 +74,7 @@ func (d redisDriver) Info() driver.Info {
 	}
 	fields = append(fields, driver.TLSFields("disable")...)
 	fields = append(fields, driver.Field{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3})
-	desc := "Redis 6 and later, Redis Stack, Amazon ElastiCache and other Redis-compatible servers"
+	desc := "Redis 6 and later, Redis Stack, Redis Cluster, Amazon ElastiCache and other Redis-compatible servers"
 	schemes := []string{"redis", "rediss"}
 	if d.id == "valkey" {
 		desc = "Valkey 7.2 and later, Amazon ElastiCache and MemoryDB for Valkey"
@@ -95,6 +97,9 @@ type conn struct {
 	defDB   int
 	mu      sync.Mutex
 	clients map[int]*goredis.Client
+	// cluster is set when the server is a Redis Cluster node; it then
+	// serves every request, as a cluster has only database 0.
+	cluster *goredis.ClusterClient
 	// From INFO server at connect.
 	product string // Redis or Valkey
 	version string
@@ -135,12 +140,18 @@ func (d redisDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn
 	}
 	pctx, cancel := context.WithTimeout(ctx, timeout+5*time.Second)
 	defer cancel()
-	info, err := c.client(c.defDB).Info(pctx, "server").Result()
+	info, err := c.client(0).Info(pctx, "server").Result() // a cluster node refuses SELECT
 	if err != nil {
 		c.Close()
 		return nil, mapError(err)
 	}
 	f := infoFields(info)
+	if f["redis_mode"] == "cluster" {
+		if err := c.openCluster(pctx); err != nil {
+			c.Close()
+			return nil, err
+		}
+	}
 	c.product, c.version = "Redis", f["redis_version"]
 	if v := f["valkey_version"]; v != "" || f["server_name"] == "valkey" {
 		c.product = "Valkey"
@@ -161,8 +172,32 @@ func clientName(app string) string {
 	return app
 }
 
-// client returns the pooled client for a database number.
-func (c *conn) client(db int) *goredis.Client {
+// clusterOptions turns single-server options into cluster ones, with the
+// configured server as the node the cluster's layout is first read from.
+func clusterOptions(o goredis.Options) *goredis.ClusterOptions {
+	return &goredis.ClusterOptions{
+		Addrs: []string{o.Addr}, Username: o.Username, Password: o.Password, Protocol: o.Protocol,
+		ClientName: o.ClientName, DisableIdentity: o.DisableIdentity, Dialer: o.Dialer, TLSConfig: o.TLSConfig,
+		DialTimeout: o.DialTimeout, ReadTimeout: o.ReadTimeout, WriteTimeout: o.WriteTimeout, PoolSize: o.PoolSize,
+	}
+}
+
+func (c *conn) openCluster(ctx context.Context) error {
+	c.Close()
+	c.defDB = 0
+	c.cluster = goredis.NewClusterClient(clusterOptions(c.opt))
+	if err := c.cluster.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("this server is a Redis Cluster node, but the cluster could not be reached through it: %w", mapError(err))
+	}
+	return nil
+}
+
+// client returns the pooled client for a database number (the cluster's
+// client on a cluster, which has only database 0).
+func (c *conn) client(db int) goredis.UniversalClient {
+	if c.cluster != nil {
+		return c.cluster
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if cl, ok := c.clients[db]; ok {
@@ -185,12 +220,15 @@ func (c *conn) dbOf(name string) (int, error) {
 	if err != nil || n < 0 {
 		return 0, fmt.Errorf("unknown database %q", name)
 	}
+	if n != 0 && c.cluster != nil {
+		return 0, fmt.Errorf("a Redis Cluster has only database 0")
+	}
 	return n, nil
 }
 
 func dbName(n int) string { return "db" + strconv.Itoa(n) }
 
-func (c *conn) clientFor(name string) (*goredis.Client, error) {
+func (c *conn) clientFor(name string) (goredis.UniversalClient, error) {
 	n, err := c.dbOf(name)
 	if err != nil {
 		return nil, err
@@ -205,6 +243,9 @@ func (c *conn) Close() error {
 		cl.Close()
 	}
 	c.clients = map[int]*goredis.Client{}
+	if c.cluster != nil {
+		c.cluster.Close()
+	}
 	return nil
 }
 
@@ -221,7 +262,11 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	if s, err := cl.Info(ctx, "server", "replication", "memory").Result(); err == nil {
 		f := infoFields(s)
 		if m := f["redis_mode"]; m == "cluster" {
-			info.Extras["Mode"] = "cluster node: only its own keys are listed"
+			info.Extras["Mode"] = "cluster"
+			if ci, err := cl.ClusterInfo(ctx).Result(); err == nil {
+				cf := infoFields(ci)
+				info.Extras["Mode"] = "cluster of " + cf["cluster_size"] + " primaries, " + cf["cluster_state"]
+			}
 		} else if m == "sentinel" {
 			info.Extras["Mode"] = "sentinel"
 		}
@@ -257,6 +302,14 @@ func infoFields(s string) map[string]string {
 // that hide CONFIG (managed services) show the ones that hold keys, plus
 // the default 16.
 func (c *conn) Databases(ctx context.Context) ([]driver.Database, error) {
+	if c.cluster != nil {
+		// DBSIZE on a cluster client adds up every primary's keys.
+		n, err := c.cluster.DBSize(ctx).Result()
+		if err != nil {
+			return nil, mapError(err)
+		}
+		return []driver.Database{{Name: dbName(0), Tables: &n}}, nil
+	}
 	cl := c.client(c.defDB)
 	count := 0
 	if v, err := cl.ConfigGet(ctx, "databases").Result(); err == nil {
@@ -371,9 +424,34 @@ func (c *conn) ObjectsMatching(ctx context.Context, s driver.Scope, pattern stri
 }
 
 // scanKeys walks SCAN until it has limit keys, the keyspace ends or the
-// time budget runs out.
-func scanKeys(ctx context.Context, cl *goredis.Client, pattern string, limit int) ([]string, error) {
+// time budget runs out. On a cluster every primary is scanned, as each
+// holds only its own slots' keys.
+func scanKeys(ctx context.Context, cl goredis.UniversalClient, pattern string, limit int) ([]string, error) {
+	cc, ok := cl.(*goredis.ClusterClient)
+	if !ok {
+		return scanNode(ctx, cl, pattern, limit, time.Now().Add(scanBudget))
+	}
 	deadline := time.Now().Add(scanBudget)
+	var mu sync.Mutex
+	var keys []string
+	err := cc.ForEachMaster(ctx, func(ctx context.Context, node *goredis.Client) error {
+		found, err := scanNode(ctx, node, pattern, limit, deadline)
+		mu.Lock()
+		keys = append(keys, found...)
+		mu.Unlock()
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(keys)
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	return keys, nil
+}
+
+func scanNode(ctx context.Context, cl goredis.Cmdable, pattern string, limit int, deadline time.Time) ([]string, error) {
 	seen := map[string]bool{}
 	var keys []string
 	var cursor uint64
@@ -401,7 +479,7 @@ func scanKeys(ctx context.Context, cl *goredis.Client, pattern string, limit int
 	return keys, nil
 }
 
-func keyTypes(ctx context.Context, cl *goredis.Client, keys []string) ([]string, error) {
+func keyTypes(ctx context.Context, cl goredis.UniversalClient, keys []string) ([]string, error) {
 	out := make([]string, len(keys))
 	for start := 0; start < len(keys); start += 1000 {
 		end := min(start+1000, len(keys))
@@ -421,7 +499,7 @@ func keyTypes(ctx context.Context, cl *goredis.Client, keys []string) ([]string,
 }
 
 // keyType reads one key's type, failing when the key is gone.
-func keyType(ctx context.Context, cl *goredis.Client, key string) (string, error) {
+func keyType(ctx context.Context, cl goredis.UniversalClient, key string) (string, error) {
 	t, err := cl.Type(ctx, key).Result()
 	if err != nil {
 		return "", mapError(err)
@@ -557,6 +635,10 @@ func mapError(err error) error {
 	var re goredis.Error
 	if errors.As(err, &re) {
 		msg := re.Error()
+		if strings.HasPrefix(msg, "CROSSSLOT") {
+			return &driver.QueryError{Code: "CROSSSLOT", Message: "In a Redis Cluster, the keys of one command must hash to the same slot. " +
+				"Give them a shared hash tag, such as {cart:7}:items and {cart:7}:owner."}
+		}
 		code, _, _ := strings.Cut(msg, " ")
 		if code == strings.ToUpper(code) && len(code) > 2 {
 			return &driver.QueryError{Message: msg, Code: code}

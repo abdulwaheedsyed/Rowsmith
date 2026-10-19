@@ -5,15 +5,23 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
+
+	goredis "github.com/redis/go-redis/v9"
 
 	"rowsmith/internal/driver"
 )
 
 // ---- administration -----------------------------------------------------------
 
-// Processes lists client connections (CLIENT LIST).
+// Processes lists client connections (CLIENT LIST); on a cluster, every
+// node's, with the node in the first column and in each id.
 func (c *conn) Processes(ctx context.Context) (*driver.Result, error) {
+	if c.cluster != nil {
+		return c.clusterProcesses(ctx)
+	}
 	s, err := c.client(c.defDB).ClientList(ctx).Result()
 	if err != nil {
 		return nil, mapError(err)
@@ -28,7 +36,81 @@ func (c *conn) Processes(ctx context.Context) (*driver.Result, error) {
 	return &driver.Result{Columns: rs.cols, Rows: rs.rows}, nil
 }
 
+func (c *conn) clusterProcesses(ctx context.Context) (*driver.Result, error) {
+	var mu sync.Mutex
+	var res *driver.Result
+	err := c.cluster.ForEachShard(ctx, func(ctx context.Context, node *goredis.Client) error {
+		s, err := node.ClientList(ctx).Result()
+		if err != nil {
+			return err
+		}
+		rs := clientTable(s)
+		addr := node.Options().Addr
+		mu.Lock()
+		defer mu.Unlock()
+		if res == nil {
+			res = &driver.Result{Columns: append([]driver.ResultColumn{rc("id", driver.KindText), rc("node", driver.KindText)}, rs.cols...), Rows: [][]any{}}
+		}
+		for _, r := range rs.rows {
+			row := make([]any, len(res.Columns))
+			row[0], row[1] = fmt.Sprintf("%s/%v", addr, r[0]), addr
+			// Columns can differ between versions: place each by name.
+			for i, col := range rs.cols {
+				for j := 2; j < len(res.Columns); j++ {
+					if res.Columns[j].Name == col.Name && i < len(r) {
+						row[j] = r[i]
+					}
+				}
+			}
+			res.Rows = append(res.Rows, row)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	if res == nil {
+		res = &driver.Result{Columns: []driver.ResultColumn{rc("id", driver.KindText)}, Rows: [][]any{}}
+	}
+	sort.SliceStable(res.Rows, func(i, j int) bool { return fmt.Sprint(res.Rows[i][1]) < fmt.Sprint(res.Rows[j][1]) })
+	return res, nil
+}
+
 func (c *conn) KillProcess(ctx context.Context, id string) error {
+	if c.cluster != nil {
+		// node/id, as clusterProcesses writes it.
+		i := strings.LastIndex(id, "/")
+		if i < 0 {
+			return fmt.Errorf("invalid client id %q", id)
+		}
+		addr, cid := id[:i], id[i+1:]
+		if _, err := strconv.ParseInt(cid, 10, 64); err != nil {
+			return fmt.Errorf("invalid client id %q", id)
+		}
+		var n int64
+		found := false
+		var mu sync.Mutex
+		err := c.cluster.ForEachShard(ctx, func(ctx context.Context, node *goredis.Client) error {
+			if node.Options().Addr != addr {
+				return nil
+			}
+			k, err := node.Do(ctx, "CLIENT", "KILL", "ID", cid).Int64()
+			mu.Lock()
+			n, found = k, true
+			mu.Unlock()
+			return err
+		})
+		if err != nil {
+			return mapError(err)
+		}
+		if !found {
+			return fmt.Errorf("node %s is no longer part of the cluster", addr)
+		}
+		if n == 0 {
+			return fmt.Errorf("client %s is no longer connected", id)
+		}
+		return nil
+	}
 	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
 		return fmt.Errorf("invalid client id %q", id)
 	}

@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,7 +21,7 @@ type session struct {
 	c      *conn
 	mu     sync.Mutex
 	db     atomic.Int64 // the database SELECT last chose
-	cl     *goredis.Client
+	cl     goredis.UniversalClient
 	inTx   bool
 	queued []string // commands queued since MULTI, to label EXEC's replies
 }
@@ -37,8 +38,16 @@ func (c *conn) NewSession(_ context.Context, s driver.Scope) (driver.Session, er
 
 // client opens the session's connection on first use, and again after a
 // cancelled command closed it.
-func (s *session) client() *goredis.Client {
+func (s *session) client() goredis.UniversalClient {
 	if s.cl != nil {
+		return s.cl
+	}
+	if s.c.cluster != nil {
+		// Commands go to the node that owns their key; nothing carries
+		// between them, so the console refuses SELECT and transactions.
+		opt := clusterOptions(s.c.opt)
+		opt.PoolSize, opt.MaxRetries, opt.ReadTimeout, opt.ConnMaxIdleTime = 2, -1, -1, -1
+		s.cl = goredis.NewClusterClient(opt)
 		return s.cl
 	}
 	opt := s.c.opt
@@ -125,6 +134,12 @@ func (s *session) Execute(ctx context.Context, script string, opts driver.ExecOp
 func (s *session) run(ctx context.Context, cmd command, opts driver.ExecOptions, sink driver.Sink) error {
 	start := time.Now()
 	cl := s.client()
+	cc, _ := cl.(*goredis.ClusterClient)
+	if cc != nil {
+		if msg := clusterRefusal(cmd); msg != "" {
+			return &driver.QueryError{Message: msg}
+		}
+	}
 	args := make([]any, len(cmd.args))
 	for i, a := range cmd.args {
 		args[i] = a
@@ -135,7 +150,14 @@ func (s *session) run(ctx context.Context, cmd command, opts driver.ExecOptions,
 	}
 	done := make(chan answer, 1)
 	go func() {
-		v, err := cl.Do(context.WithoutCancel(ctx), args...).Result()
+		bg := context.WithoutCancel(ctx)
+		if cc != nil {
+			if v, err, ok := clusterWide(bg, cc, cmd); ok {
+				done <- answer{v, err}
+				return
+			}
+		}
+		v, err := cl.Do(bg, args...).Result()
 		done <- answer{v, err}
 	}()
 	var a answer
@@ -174,7 +196,84 @@ func (s *session) run(ctx context.Context, cmd command, opts driver.ExecOptions,
 			s.queued = append(s.queued, cmd.text)
 		}
 	}
-	return emit(sink, render(cmd, a.v), opts, start)
+	rs := render(cmd, a.v)
+	if cc != nil && nodeLocal(name) && rs.notice == "" {
+		rs.notice = "On a cluster this ran on one node, which answers for itself only."
+	}
+	return emit(sink, rs, opts, start)
+}
+
+// clusterRefusal explains the console commands a cluster cannot run from
+// here: the console has no connection of its own to carry state between
+// commands, and each node holds only its own keys.
+func clusterRefusal(cmd command) string {
+	switch cmd.name() {
+	case "SELECT":
+		if len(cmd.args) > 1 && cmd.args[1] == "0" {
+			return ""
+		}
+		return "A Redis Cluster has only database 0."
+	case "MULTI", "EXEC", "DISCARD", "WATCH", "UNWATCH":
+		return "The console runs each command on the node that owns its key, so it cannot hold a transaction on a cluster. " +
+			"Grid edits are still checked and applied atomically, key by key."
+	case "SCAN":
+		return "On a cluster SCAN walks one node; use KEYS, which runs on every primary, or the navigator's key search, which scans them all."
+	}
+	return ""
+}
+
+// clusterWide runs the commands that concern every key on every primary,
+// combining their replies.
+func clusterWide(ctx context.Context, cc *goredis.ClusterClient, cmd command) (any, error, bool) {
+	switch cmd.name() {
+	case "DBSIZE":
+		n, err := cc.DBSize(ctx).Result()
+		return n, err, true
+	case "KEYS":
+		if len(cmd.args) != 2 {
+			return nil, nil, false
+		}
+		var mu sync.Mutex
+		var keys []string
+		err := cc.ForEachMaster(ctx, func(ctx context.Context, node *goredis.Client) error {
+			found, err := node.Keys(ctx, cmd.args[1]).Result()
+			mu.Lock()
+			keys = append(keys, found...)
+			mu.Unlock()
+			return err
+		})
+		sort.Strings(keys)
+		out := make([]any, len(keys))
+		for i, k := range keys {
+			out[i] = k
+		}
+		return out, err, true
+	case "FLUSHDB", "FLUSHALL":
+		args := make([]any, len(cmd.args))
+		for i, a := range cmd.args {
+			args[i] = a
+		}
+		err := cc.ForEachMaster(ctx, func(ctx context.Context, node *goredis.Client) error {
+			return node.Do(ctx, args...).Err()
+		})
+		return "OK", err, true
+	}
+	return nil, nil, false
+}
+
+// nodeLocal says whether a command reports on the node it runs on rather
+// than on keys.
+func nodeLocal(name string) bool {
+	switch name {
+	case "INFO", "RANDOMKEY", "LASTSAVE", "TIME", "ROLE":
+		return true
+	}
+	for _, p := range []string{"CONFIG ", "CLIENT ", "SLOWLOG ", "MEMORY STATS", "LATENCY ", "ACL ", "COMMAND"} {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // resultSet is one table the console shows.
