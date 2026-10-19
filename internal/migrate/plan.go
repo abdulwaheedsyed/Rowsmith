@@ -246,6 +246,11 @@ func BuildPlan(ctx context.Context, src, dst Endpoint, opts Options) (*Plan, err
 	}
 
 	t := targetOf(dst)
+	if cn, ok := dst.Conn.(interface {
+		ConnectorName(ctx context.Context, catalog string) string
+	}); ok {
+		t.Connector = cn.ConnectorName(ctx, dst.Scope.Database)
+	}
 	names := map[string]int{}
 	anyGeo := false
 	for i, o := range tables {

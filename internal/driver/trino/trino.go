@@ -195,6 +195,12 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	return info, nil
 }
 
+// ConnectorName names a catalog's connector for migrations, which write the
+// types its table format takes.
+func (c *conn) ConnectorName(ctx context.Context, catalog string) string {
+	return c.connector(ctx, catalog)
+}
+
 // connector names a catalog's connector (iceberg, delta_lake, hive, …).
 func (c *conn) connector(ctx context.Context, catalog string) string {
 	c.mu.Lock()

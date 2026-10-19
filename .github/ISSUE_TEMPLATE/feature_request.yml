@@ -42,7 +42,7 @@ body:
         - Redis / Valkey
         - BigQuery
         - Snowflake
-        - Trino / Iceberg
+        - Trino / Iceberg / Delta Lake
         - SQLite
         - All of them
         - A database Rowsmith doesn't support yet

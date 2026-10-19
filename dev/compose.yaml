@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Valkey, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -260,7 +260,7 @@ services:
       retries: 200
 
   # A small lake: SeaweedFS as S3, an Iceberg REST catalog, and Trino with
-  # iceberg, hive (plain Parquet/ORC/CSV files) and tpch catalogs.
+  # iceberg, delta, hive (plain Parquet/ORC/CSV files) and tpch catalogs.
   seaweedfs:
     image: chrislusf/seaweedfs:4.47
     environment:
@@ -325,11 +325,14 @@ services:
         if [ -z "$$(t --execute "SHOW SCHEMAS FROM iceberg LIKE 'shop'" 2>/dev/null)" ]; then
           t -f /seed/trino.sql
         fi
+        if [ -z "$$(t --execute "SHOW SCHEMAS FROM delta LIKE 'sales'" 2>/dev/null)" ]; then
+          t -f /seed/trino-delta.sql
+        fi
         exec sleep infinity
-    volumes: ["./seed/trino.sql:/seed/trino.sql:ro"]
+    volumes: ["./seed/trino.sql:/seed/trino.sql:ro", "./seed/trino-delta.sql:/seed/trino-delta.sql:ro"]
     networks: [dev]
     healthcheck:
-      test: ["CMD-SHELL", "trino --server http://trino:8080 --execute 'SELECT 1 FROM hive.raw.nations LIMIT 1' 2>/dev/null | grep -q 1"]
+      test: ["CMD-SHELL", "trino --server http://trino:8080 --execute 'SELECT 1 FROM hive.raw.nations CROSS JOIN delta.sales.payments LIMIT 1' 2>/dev/null | grep -q 1"]
       interval: 5s
       timeout: 20s
       retries: 120

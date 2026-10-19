@@ -698,6 +698,9 @@ type target struct {
 	Version int  // major version, where types depend on it (Oracle)
 	PostGIS bool // PostgreSQL target has PostGIS
 	Spatial bool // Oracle target has Oracle Spatial (SDO_GEOMETRY)
+	// Connector is the connector of a Trino target's catalog (iceberg,
+	// delta_lake, hive), whose table formats take different types.
+	Connector string
 }
 
 // use says how a column is used, which limits some type choices.
@@ -758,7 +761,7 @@ func typeFor(t target, k canon, u use) mapped {
 	case Snowflake:
 		snowflakeType(k, &m)
 	case Trino:
-		trinoType(k, &m)
+		trinoType(t.Connector, k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1647,14 +1650,23 @@ func trinoCanon(k canon, c driver.Column, base string) canon {
 	return k
 }
 
-// trinoType writes Iceberg's types, which the Hive and Delta Lake
-// connectors also take: no tinyint, smallint, char or JSON columns.
-func trinoType(k canon, m *mapped) {
-	frac := func() int {
-		if k.Frac > 6 {
-			m.note(true, "Iceberg keeps microseconds; finer fractions are rounded")
+// trinoType writes types the target catalog's table format takes. Iceberg
+// (and any unknown connector) has no tinyint, smallint, char or JSON
+// columns; Delta Lake has no time or uuid columns and keeps milliseconds in
+// timestamps with a time zone; Hive has no time zones at all.
+func trinoType(connector string, k canon, m *mapped) {
+	format := map[string]string{"delta_lake": "Delta Lake", "hive": "Hive"}[connector]
+	if format == "" {
+		format = "Iceberg"
+	}
+	// Each format stores one precision (Iceberg microseconds; Delta Lake
+	// milliseconds with a time zone; Hive milliseconds).
+	frac := func(prec int) int {
+		if k.Frac > prec {
+			unit := map[int]string{3: "milliseconds", 6: "microseconds"}[prec]
+			m.note(true, "%s keeps %s; finer fractions are rounded", format, unit)
 		}
-		return 6
+		return prec
 	}
 	asText := func(note string) {
 		m.Type = "varchar"
@@ -1669,6 +1681,8 @@ func trinoType(k canon, m *mapped) {
 		switch {
 		case k.Bits == 64 && k.Unsigned:
 			m.Type = "decimal(20,0)"
+		case format != "Iceberg" && (k.Bits == 8 && !k.Unsigned || k.Bits == 16 && !k.Unsigned):
+			m.Type = map[int]string{8: "tinyint", 16: "smallint"}[k.Bits]
 		case k.Bits > 0 && k.Bits < 32 || k.Bits == 32 && !k.Unsigned:
 			m.Type = "integer"
 		default:
@@ -1706,16 +1720,35 @@ func trinoType(k canon, m *mapped) {
 	case "date":
 		m.Type = "date"
 	case "time":
-		m.Type = fmt.Sprintf("time(%d)", frac())
+		if format != "Iceberg" {
+			asText(format + " has no time-of-day columns; stored as text")
+			return
+		}
+		m.Type = fmt.Sprintf("time(%d)", frac(6))
 	case "datetime":
-		m.Type = fmt.Sprintf("timestamp(%d)", frac())
+		prec := 6
+		if format == "Hive" {
+			prec = 3
+		}
+		m.Type = fmt.Sprintf("timestamp(%d)", frac(prec))
 	case "timestamptz":
-		m.Type = fmt.Sprintf("timestamp(%d) with time zone", frac())
+		switch format {
+		case "Hive":
+			m.Type = fmt.Sprintf("timestamp(%d)", frac(3))
+			m.note(false, "Hive has no time zones; stored as UTC")
+		case "Delta Lake":
+			m.Type = fmt.Sprintf("timestamp(%d) with time zone", frac(3))
+		default:
+			m.Type = fmt.Sprintf("timestamp(%d) with time zone", frac(6))
+		}
 	case "uuid":
 		m.Type = "uuid"
+		if format != "Iceberg" {
+			asText(format + " has no uuid columns; stored as text")
+		}
 	case "json", "object", "array":
 		m.Type, m.Canon = "varchar", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
-		m.note(false, "Iceberg has no JSON columns; stored as JSON text")
+		m.note(false, "%s has no JSON columns; stored as JSON text", format)
 	case "geometry":
 		m.Type, m.Canon = "varchar", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
 		m.note(false, "shapes are copied as GeoJSON text")

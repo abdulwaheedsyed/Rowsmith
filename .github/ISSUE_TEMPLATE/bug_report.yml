@@ -68,7 +68,7 @@ body:
         - Redis / Valkey
         - BigQuery
         - Snowflake
-        - Trino / Iceberg
+        - Trino / Iceberg / Delta Lake
         - SQLite
         - None in particular
   - type: input

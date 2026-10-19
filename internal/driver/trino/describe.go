@@ -196,8 +196,11 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 		t.Comment = comment.String
 	}
 
-	if t.Kind == "table" && conn == "iceberg" {
+	switch {
+	case t.Kind == "table" && conn == "iceberg":
 		c.icebergFacts(ctx, ref, t)
+	case t.Kind == "table" && conn == "delta_lake":
+		c.deltaFacts(ctx, ref, t)
 	}
 	if t.Kind == "table" && (conn == "iceberg" || conn == "delta_lake") {
 		// No keys: an edit matches a row on all of its values and must find exactly one.
@@ -234,6 +237,53 @@ func (c *conn) icebergFacts(ctx context.Context, ref driver.ObjectRef, t *driver
 		if bytes.Valid {
 			n := bytes.Int64
 			t.Size = &n
+		}
+	}
+}
+
+// deltaFacts reads a Delta Lake table's versions ($history), files and size
+// ($partitions) and row count (table statistics), all from its log.
+func (c *conn) deltaFacts(ctx context.Context, ref driver.ObjectRef, t *driver.Table) {
+	meta := func(suffix string) string {
+		return qualify(driver.ObjectRef{Database: ref.Database, Schema: ref.Schema, Name: ref.Name + "$" + suffix})
+	}
+	var versions int64
+	var last sql.NullTime
+	if c.db.QueryRowContext(ctx, "SELECT count(*), max(timestamp) FROM "+meta("history")).Scan(&versions, &last) == nil {
+		t.Options["versions"] = strconv.FormatInt(versions, 10)
+		if last.Valid {
+			t.Options["last_commit"] = last.Time.UTC().Format("2006-01-02 15:04:05 UTC")
+		}
+	}
+	var files, bytes sql.NullInt64
+	if c.db.QueryRowContext(ctx, "SELECT sum(file_count), sum(total_size) FROM "+meta("partitions")).Scan(&files, &bytes) == nil && files.Valid {
+		t.Options["data_files"] = strconv.FormatInt(files.Int64, 10)
+		if bytes.Valid {
+			n := bytes.Int64
+			t.Size = &n
+		}
+	}
+	// SHOW STATS ends with a summary row (no column name) holding the row count.
+	rows, err := c.db.QueryContext(ctx, "SHOW STATS FOR "+qualify(ref))
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	cols, _ := rows.Columns()
+	for rows.Next() {
+		vals := make([]any, len(cols))
+		ptrs := make([]any, len(cols))
+		for i := range vals {
+			ptrs[i] = &vals[i]
+		}
+		if rows.Scan(ptrs...) != nil || vals[0] != nil {
+			continue
+		}
+		for i, name := range cols {
+			if f, ok := vals[i].(float64); ok && name == "row_count" {
+				n := int64(f)
+				t.RowEstimate = &n
+			}
 		}
 	}
 }

@@ -277,6 +277,82 @@ func TestIntegrationTrino(t *testing.T) {
 		run(t, sess, strings.Join(st, ";\n"))
 	}
 
+	// Delta Lake: facts from the transaction log, edits, structure, time travel.
+	delta := func(name string) driver.ObjectRef {
+		return driver.ObjectRef{Database: "delta", Schema: "sales", Name: name}
+	}
+	pay, err := c.Describe(ctx, delta("payments"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pay.Options["connector"] != "delta_lake" || pay.Options["partitioned_by"] != "region" || pay.Options["versions"] != "5" ||
+		pay.Options["data_files"] == "" || pay.RowEstimate == nil || pay.Size == nil || !pay.Editable || pay.Comment == "" {
+		t.Errorf("payments = %+v", pay)
+	}
+	res, err = c.Browse(ctx, driver.BrowseRequest{Ref: delta("payments"), Limit: 3,
+		Filters: []driver.Filter{{Column: "region", Op: "=", Value: "asia"}, {Column: "amount", Op: ">", Value: "1000.50"}, {Column: "paid_at", Op: "<", Value: "1993-01-01 00:00:00+00:00"}}})
+	if err != nil || len(res.Rows) != 3 {
+		t.Fatalf("payments: %+v, %v", res, err)
+	}
+	if _, ok := res.Rows[0][5].(driver.Doc); !ok {
+		t.Errorf("map value = %#v", res.Rows[0][5])
+	}
+	if n, err := c.Count(ctx, driver.BrowseRequest{Ref: delta("payments")}); err != nil || n.Rows != *pay.RowEstimate {
+		t.Errorf("payments count = %+v (stats %d), %v", n, *pay.RowEstimate, err)
+	}
+	dsess, err := c.NewSession(ctx, driver.Scope{Database: "delta", Schema: "sales"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dsess.Close()
+	run(t, dsess, "DROP TABLE IF EXISTS it_notes")
+	stmts, err = c.CreateTableSQL(driver.TableDef{Ref: delta("it_notes"), Comment: "notes for tests", Options: map[string]string{"partitioned_by": "day"},
+		Columns: []driver.ColumnDef{
+			{Column: driver.Column{Name: "id", Type: "bigint"}},
+			{Column: driver.Column{Name: "body", Type: "varchar", Nullable: true}},
+			{Column: driver.Column{Name: "day", Type: "date", Nullable: true}},
+		}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run(t, dsess, strings.Join(stmts, ";\n"))
+	if _, err := c.ApplyEdits(ctx, delta("it_notes"), []driver.RowEdit{
+		{Op: "insert", Values: map[string]any{"id": float64(1), "body": "one", "day": "2025-01-01"}},
+		{Op: "insert", Values: map[string]any{"id": float64(2), "body": "two", "day": "2025-01-02"}},
+	}); err != nil {
+		t.Fatalf("delta insert: %v", err)
+	}
+	if _, err := c.ApplyEdits(ctx, delta("it_notes"), []driver.RowEdit{
+		// Each change is its own commit: versions 3 and 4 after the create (0) and the two inserts.
+		{Op: "update", Key: map[string]any{"id": float64(1), "body": "one", "day": "2025-01-01"}, Values: map[string]any{"body": "uno"}},
+		{Op: "delete", Key: map[string]any{"id": float64(2), "body": "two", "day": "2025-01-02"}},
+	}); err != nil {
+		t.Errorf("delta edits: %v", err)
+	}
+	notes, err := c.Describe(ctx, delta("it_notes"))
+	if err != nil || notes.Options["versions"] != "5" || notes.Columns[0].Nullable || notes.Comment != "notes for tests" {
+		t.Errorf("it_notes = %+v, %v", notes, err)
+	}
+	to = driver.TableDef{Ref: notes.Ref, Comment: notes.Comment, Options: maps.Clone(notes.Options)}
+	for _, col := range notes.Columns {
+		to.Columns = append(to.Columns, driver.ColumnDef{Column: col, OriginalName: col.Name})
+	}
+	if again, err := c.AlterTableSQL(notes, to); err != nil || len(again) != 0 {
+		t.Errorf("unchanged delta table altered: %q, %v", again, err)
+	}
+	to.Columns = append(to.Columns, driver.ColumnDef{Column: driver.Column{Name: "author", Type: "varchar", Nullable: true}})
+	to.Columns[1].Comment = "the note"
+	stmts, err = c.AlterTableSQL(notes, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run(t, dsess, strings.Join(stmts, ";\n"))
+	s = run(t, dsess, "SELECT count(*) FROM it_notes FOR VERSION AS OF 2;\nSELECT body FROM it_notes")
+	if s.rows[0][0][0] != int64(2) || len(s.rows[1]) != 1 || s.rows[1][0][0] != "uno" {
+		t.Errorf("delta time travel = %v", s.rows)
+	}
+	run(t, dsess, "DROP TABLE it_notes")
+
 	// Plans and administration.
 	plan, err := c.Explain(ctx, driver.Scope{Database: "iceberg", Schema: "shop"}, "SELECT * FROM orders WHERE customer_id = 7", false)
 	if err != nil || plan.Root == nil {

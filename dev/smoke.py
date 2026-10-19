@@ -367,13 +367,38 @@ def main():
     _, plan = c.req("POST", f"/api/c/{trid}/explain", {"database": "iceberg", "schema": "shop", "sql": "SELECT status, count(*) FROM orders GROUP BY status", "analyze": True}, 200)
     _, pl = c.req("GET", f"/api/c/{trid}/processes", expect=200)
     ok(f"trino explain analyze: {plan['root']['operation']} → {[ch['operation'] for ch in plan['root'].get('children', [])]}, {len(pl['rows'])} running queries")
-    stream(c, trid, "DROP TABLE smoke_notes;\nDROP SCHEMA IF EXISTS iceberg.smoke_mig CASCADE;\nCREATE SCHEMA iceberg.smoke_mig", database="iceberg", schema="shop", confirm=True)
-    src, dst = {"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": trid, "database": "iceberg", "schema": "smoke_mig"}
+    stream(c, trid, "DROP TABLE smoke_notes", database="iceberg", schema="shop", confirm=True)
+    for catalog, label in (("iceberg", "Iceberg"), ("delta", "Delta Lake")):
+        stream(c, trid, f"DROP SCHEMA IF EXISTS {catalog}.smoke_mig CASCADE;\nCREATE SCHEMA {catalog}.smoke_mig", database="iceberg", schema="shop", confirm=True)
+        src, dst = {"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": trid, "database": catalog, "schema": "smoke_mig"}
+        _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+            "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+        plan = pr["plan"]
+        for tp in plan["tables"]:
+            tp["include"] = tp["source"]["name"] in ("stores", "categories")
+        _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+        for _ in range(180):
+            _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+            if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+                break
+            time.sleep(1)
+        done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+        assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
+        ok(f"migration MySQL -> {label} via Trino: {done}")
+        stream(c, trid, f"DROP SCHEMA {catalog}.smoke_mig CASCADE", database="iceberg", schema="shop", confirm=True)
+    # Delta Lake: versions from the transaction log, then a migration out of the lake into PostgreSQL.
+    _, t = c.req("GET", f"/api/c/{trid}/describe?db=delta&schema=sales&name=payments", expect=200)
+    assert t["options"]["connector"] == "delta_lake" and t["options"]["partitioned_by"] == "region" and int(t["options"]["versions"]) >= 5 and t["editable"], t["options"]
+    _, res = c.req("POST", f"/api/c/{trid}/browse", {"ref": {"database": "delta", "schema": "sales", "name": "payments"}, "limit": 3,
+        "filters": [{"column": "region", "op": "=", "value": "asia"}, {"column": "amount", "op": ">", "value": "1000.50"}]}, 200)
+    assert len(res["rows"]) == 3, res
+    ok(f"trino delta payments: partitioned by {t['options']['partitioned_by']}, {t['options']['versions']} versions, {t['options']['data_files']} files, ~{t.get('rowEstimate')} rows")
+    stream(c, conns["postgres"], "DROP SCHEMA IF EXISTS smoke_lake CASCADE;\nCREATE SCHEMA smoke_lake", database="city", confirm=True)
+    src, dst = {"connectionId": trid, "database": "delta", "schema": "sales"}, {"connectionId": conns["postgres"], "database": "city", "schema": "smoke_lake"}
     _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
         "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
     plan = pr["plan"]
-    for tp in plan["tables"]:
-        tp["include"] = tp["source"]["name"] in ("stores", "categories")
+    types = {col["source"]: col["type"] for tp in plan["tables"] for col in tp["columns"]}
     _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
     for _ in range(180):
         _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
@@ -382,8 +407,8 @@ def main():
         time.sleep(1)
     done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
     assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
-    ok(f"migration MySQL -> Iceberg via Trino: {done}")
-    stream(c, trid, "DROP SCHEMA iceberg.smoke_mig CASCADE", database="iceberg", schema="shop", confirm=True)
+    ok(f"migration Delta Lake via Trino -> PostgreSQL: {done}, amount as {types['amount']}, attributes as {types['attributes']}")
+    stream(c, conns["postgres"], "DROP SCHEMA smoke_lake CASCADE", database="city", confirm=True)
 
     # Redis and Valkey (Valkey signs in as an ACL user)
     for engine, params in (("redis", {"host": "redis"}), ("valkey", {"host": "valkey", "user": "rowsmith"})):

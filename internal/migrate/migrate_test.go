@@ -17,6 +17,9 @@ func TestTypeMapping(t *testing.T) {
 	ora := target{Engine: Oracle, Version: 23}
 	lite := target{Engine: SQLite}
 	tidb := target{Engine: "tidb"}
+	ice := target{Engine: Trino, Connector: "iceberg"}
+	deltaT := target{Engine: Trino, Connector: "delta_lake"}
+	hive := target{Engine: Trino, Connector: "hive"}
 	cases := []struct {
 		src  string
 		col  driver.Column
@@ -70,6 +73,20 @@ func TestTypeMapping(t *testing.T) {
 		{MongoDB, driver.Column{Type: "array", BaseType: "array", Kind: driver.KindArray}, pg, use{}, "jsonb"},
 		{Postgres, driver.Column{Type: "time(3) without time zone", BaseType: "time", Kind: driver.KindTime}, ora, use{}, "VARCHAR2(18)"},
 		{Postgres, driver.Column{Type: "double precision", BaseType: "float8", Kind: driver.KindFloat}, lite, use{}, "REAL"},
+		{MySQL, driver.Column{Type: "smallint", BaseType: "smallint", Kind: driver.KindInt}, ice, use{}, "integer"},
+		{MySQL, driver.Column{Type: "smallint", BaseType: "smallint", Kind: driver.KindInt}, deltaT, use{}, "smallint"},
+		{MySQL, driver.Column{Type: "datetime", BaseType: "datetime", Kind: driver.KindDateTime, Scale: i64(0)}, ice, use{}, "timestamp(6)"},
+		{Postgres, driver.Column{Type: "timestamp with time zone", BaseType: "timestamptz", Kind: driver.KindTimestamp, Scale: i64(6)}, ice, use{}, "timestamp(6) with time zone"},
+		{Postgres, driver.Column{Type: "timestamp with time zone", BaseType: "timestamptz", Kind: driver.KindTimestamp, Scale: i64(6)}, deltaT, use{}, "timestamp(3) with time zone"},
+		{Postgres, driver.Column{Type: "timestamp with time zone", BaseType: "timestamptz", Kind: driver.KindTimestamp, Scale: i64(6)}, hive, use{}, "timestamp(3)"},
+		{Postgres, driver.Column{Type: "time without time zone", BaseType: "time", Kind: driver.KindTime}, ice, use{}, "time(6)"},
+		{Postgres, driver.Column{Type: "time without time zone", BaseType: "time", Kind: driver.KindTime}, deltaT, use{}, "varchar"},
+		{Postgres, driver.Column{Type: "uuid", BaseType: "uuid", Kind: driver.KindUUID}, ice, use{}, "uuid"},
+		{Postgres, driver.Column{Type: "uuid", BaseType: "uuid", Kind: driver.KindUUID}, deltaT, use{}, "varchar"},
+		{Postgres, driver.Column{Type: "jsonb", BaseType: "jsonb", Kind: driver.KindJSON}, deltaT, use{}, "varchar"},
+		{Trino, driver.Column{Type: "decimal(12,2)", BaseType: "decimal", Kind: driver.KindDecimal, Precision: i64(12), Scale: i64(2)}, pg, use{}, "numeric(12,2)"},
+		{Trino, driver.Column{Type: "map(varchar, varchar)", BaseType: "map", Kind: driver.KindObject}, pg, use{}, "jsonb"},
+		{Trino, driver.Column{Type: "timestamp(3) with time zone", BaseType: "timestamp", Kind: driver.KindTimestamp, Scale: i64(3)}, my, use{}, "datetime(3)"},
 	}
 	for _, c := range cases {
 		m := typeFor(c.dst, canonOf(c.src, c.col), c.use)
