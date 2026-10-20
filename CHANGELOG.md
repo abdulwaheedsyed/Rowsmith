@@ -2,7 +2,7 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
-## 0.6.0 - Unreleased
+## 0.6.0 - 2026-10-20
 
 ### Engines
 
