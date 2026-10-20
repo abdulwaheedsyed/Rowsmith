@@ -127,6 +127,9 @@ services:
   mongo:
     image: mongo:8.3
     environment:
+      # MongoDB 8's tcmalloc breaks on Linux 6.19+ unless glibc leaves rseq
+      # to it (SERVER-121912); mongod refuses to start otherwise.
+      GLIBC_TUNABLES: glibc.pthread.rseq=0
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: ${DEV_DB_PASSWORD}
     volumes: ["./seed/mongo.js:/docker-entrypoint-initdb.d/10-seed.js:ro"]

@@ -174,7 +174,7 @@ func (c *conn) Server(ctx context.Context) (*driver.ServerInfo, error) {
 	return info, nil
 }
 
-func (c *conn) Databases(context.Context) ([]driver.Database, error)       { return nil, nil }
+func (c *conn) Databases(context.Context) ([]driver.Database, error)     { return nil, nil }
 func (c *conn) Schemas(context.Context, string) ([]driver.Schema, error) { return nil, nil }
 
 func (c *conn) tableNames(ctx context.Context) ([]string, error) {
@@ -476,4 +476,6 @@ func (c *conn) Classify(stmt string) driver.StatementKind {
 	return reqs[0].kind()
 }
 
-func errorf(format string, a ...any) error { return &driver.QueryError{Message: fmt.Sprintf(format, a...)} }
+func errorf(format string, a ...any) error {
+	return &driver.QueryError{Message: fmt.Sprintf(format, a...)}
+}

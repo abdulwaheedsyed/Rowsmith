@@ -51,12 +51,12 @@ func (e *expr) value(v types.AttributeValue) string {
 
 // request is a Query or Scan for a browse request.
 type request struct {
-	query            bool
-	index            string
-	keyCond, filter  string
-	e                *expr
-	forward          *bool
-	projection       string
+	query           bool
+	index           string
+	keyCond, filter string
+	e               *expr
+	forward         *bool
+	projection      string
 }
 
 func elemType(t string) string {

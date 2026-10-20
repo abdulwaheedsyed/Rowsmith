@@ -232,7 +232,9 @@ func fresh(t *testing.T, c *conn, sess driver.Session) {
 	out := &sink{}
 	sess.Execute(context.Background(), "DeleteTable\n{\"TableName\": \"it_items\"}", driver.ExecOptions{}, out)
 	run(t, sess, itDDL, 0)
-	t.Cleanup(func() { sess.Execute(context.Background(), "DeleteTable\n{\"TableName\": \"it_items\"}", driver.ExecOptions{}, &sink{}) })
+	t.Cleanup(func() {
+		sess.Execute(context.Background(), "DeleteTable\n{\"TableName\": \"it_items\"}", driver.ExecOptions{}, &sink{})
+	})
 }
 
 func TestIntegrationConsole(t *testing.T) {

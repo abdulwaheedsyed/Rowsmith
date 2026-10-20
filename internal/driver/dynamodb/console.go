@@ -30,9 +30,9 @@ var operations = map[string]driver.StatementKind{
 	"TransactGetItems": driver.StmtRead, "DescribeTable": driver.StmtRead, "ListTables": driver.StmtRead,
 	"DescribeTimeToLive": driver.StmtRead, "DescribeContinuousBackups": driver.StmtRead, "ListTagsOfResource": driver.StmtRead,
 	"DescribeLimits": driver.StmtRead,
-	"PutItem": driver.StmtWrite, "UpdateItem": driver.StmtWrite, "DeleteItem": driver.StmtWrite, "BatchWriteItem": driver.StmtWrite,
+	"PutItem":        driver.StmtWrite, "UpdateItem": driver.StmtWrite, "DeleteItem": driver.StmtWrite, "BatchWriteItem": driver.StmtWrite,
 	"TransactWriteItems": driver.StmtWrite,
-	"CreateTable": driver.StmtDDL, "UpdateTable": driver.StmtDDL, "DeleteTable": driver.StmtDDL, "UpdateTimeToLive": driver.StmtDDL,
+	"CreateTable":        driver.StmtDDL, "UpdateTable": driver.StmtDDL, "DeleteTable": driver.StmtDDL, "UpdateTimeToLive": driver.StmtDDL,
 	"TagResource": driver.StmtDDL, "UntagResource": driver.StmtDDL, "UpdateContinuousBackups": driver.StmtDDL,
 }
 
