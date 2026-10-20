@@ -80,10 +80,16 @@ jobs:
           } > dev/.env
       - name: Build
         run: ./dev/build.sh
+      # In two waves: the JVM and wide-column engines starting alongside the
+      # rest left too little CPU for MariaDB to start in time.
       - name: Start Rowsmith and the test databases
         run: >-
           docker compose -f dev/compose.yaml --env-file dev/.env up -d --wait --wait-timeout 300
-          rowsmith mysql mariadb postgis bastion private-pg mongo clickhouse redis redis-cluster valkey cockroach yugabyte tidb tidb-seed cassandra cassandra-seed scylla scylla-seed elasticsearch elasticsearch-seed opensearch opensearch-seed seaweedfs iceberg-rest trino trino-seed
+          rowsmith mysql mariadb postgis bastion private-pg mongo clickhouse redis redis-cluster valkey cockroach yugabyte tidb tidb-seed
+      - name: Start the heavier engines
+        run: >-
+          docker compose -f dev/compose.yaml --env-file dev/.env up -d --wait --wait-timeout 600
+          cassandra cassandra-seed scylla scylla-seed elasticsearch elasticsearch-seed opensearch opensearch-seed seaweedfs iceberg-rest trino trino-seed
       - name: Wait for Rowsmith
         run: |
           for i in $(seq 60); do
