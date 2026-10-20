@@ -553,6 +553,12 @@ func geoKey(v any) string {
 		if err := geojson.Unmarshal(x, &g); err != nil {
 			return string(x)
 		}
+	case driver.Doc:
+		// GeoJSON kept as a document (a DynamoDB map).
+		raw, _ := json.Marshal(x)
+		if err := geojson.Unmarshal(raw, &g); err != nil {
+			return string(raw)
+		}
 	case string:
 		s := strings.TrimSpace(x)
 		var err error

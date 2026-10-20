@@ -454,6 +454,64 @@ def main():
     stream(c, conns["elasticsearch"], "DELETE /stores\n\nDELETE /categories", confirm=True)
     stream(c, conns["postgres"], "DROP SCHEMA smoke_search CASCADE", database="city", confirm=True)
 
+    # DynamoDB Local: keys and indexes, Query or Scan from the grid's filters, conditional edits, PartiQL and API calls, migrations both ways.
+    _, cv = c.req("POST", "/api/connections", {"name": f"DynamoDB {time.time_ns()}", "driver": "dynamodb", "environment": "development",
+        "params": {"region": "us-east-1", "endpoint": "http://dynamodb:8000", "auth": "keys", "accessKeyId": "rowsmith"},
+        "secrets": {"secretAccessKey": "rowsmith"}}, 201)
+    did = cv["id"]
+    conns["dynamodb"] = did
+    _, objs = c.req("GET", f"/api/c/{did}/objects", expect=200)
+    counts = {o["name"]: o.get("rows") for o in objs}
+    assert counts.get("Orders") == 300 and counts.get("Customers") == 50 and counts.get("Sessions") == 20, counts
+    _, t = c.req("GET", f"/api/c/{did}/describe?name=Orders", expect=200)
+    assert t["primaryKey"] == ["customer_id", "order_id"] and t["ddl"].startswith("CreateTable") and "ByTotal" in t["ddl"], t
+    _, res = c.req("POST", f"/api/c/{did}/browse", {"ref": {"name": "Orders"}, "limit": 10,
+        "filters": [{"column": "customer_id", "op": "=", "value": "C0003"}], "sort": [{"column": "order_id", "desc": True}]}, 200)
+    assert res["sql"].startswith("Query") and len(res["rows"]) == 6, res
+    _, res = c.req("POST", f"/api/c/{did}/browse", {"ref": {"name": "Customers"}, "limit": 100, "filters": [{"column": "tier", "op": "=", "value": "pro"}]}, 200)
+    assert '"IndexName": "ByTier"' in res["sql"] and len(res["rows"]) == 13, res["sql"]
+    ok(f"dynamodb: {len(objs)} tables with item counts; partition key filters query the table or a global index")
+    stream(c, did, 'DeleteTable {"TableName": "smoke_notes"}', confirm=True)
+    code, ev = stream(c, did, 'CreateTable\n{"TableName": "smoke_notes", "BillingMode": "PAY_PER_REQUEST",\n "AttributeDefinitions": [{"AttributeName": "id", "AttributeType": "S"}],\n "KeySchema": [{"AttributeName": "id", "KeyType": "HASH"}]}\n\n'
+        "INSERT INTO \"smoke_notes\" VALUE {'id': '1', 'body': 'one'};\nINSERT INTO \"smoke_notes\" VALUE {'id': '2', 'body': 'two', 'n': 2}", confirm=True)
+    errs = [e["error"]["message"] for e in ev if e["t"] == "stmtEnd" and e.get("error")]
+    assert not errs, errs
+    nref = {"name": "smoke_notes", "kind": "table"}
+    c.req("POST", f"/api/c/{did}/edit", {"ref": nref, "edits": [{"op": "update", "key": {"id": "1"}, "values": {"body": "uno"}}, {"op": "delete", "key": {"id": "2"}},
+        {"op": "insert", "values": {"id": "3", "body": "tres"}}]}, 200)
+    code, er = c.req("POST", f"/api/c/{did}/edit", {"ref": nref, "edits": [{"op": "insert", "values": {"id": "3"}}]})
+    assert code >= 400 and "already exists" in json.dumps(er), (code, er)
+    code, ev = stream(c, did, 'SELECT id, body FROM "smoke_notes"\n\nScan {"TableName": "Orders", "Select": "COUNT"}')
+    results = [e for e in ev if e["t"] == "rows"]
+    got = sorted(r[0] for e in results[:1] for r in e["rows"])
+    assert got == ["1", "3"] and results[1]["rows"][0][0] == 300, results
+    code, body = stream(c, did, 'DeleteTable {"TableName": "smoke_notes"}')
+    assert code == 409, body
+    stream(c, did, 'DeleteTable {"TableName": "smoke_notes"}', confirm=True)
+    ok("dynamodb conditional edits (an insert never overwrites), PartiQL and API calls, DeleteTable needs confirmation")
+    stream(c, did, 'DeleteTable {"TableName": "stores"}\n\nDeleteTable {"TableName": "categories"}', confirm=True)
+    stream(c, conns["postgres"], "DROP SCHEMA IF EXISTS smoke_ddb CASCADE;\nCREATE SCHEMA smoke_ddb", database="city", confirm=True)
+    for src, dst, pick, label in (
+        ({"connectionId": conns["mysql"], "database": "shop"}, {"connectionId": did}, ("stores", "categories"), "MySQL -> DynamoDB"),
+        ({"connectionId": did}, {"connectionId": conns["postgres"], "database": "city", "schema": "smoke_ddb"}, ("Orders", "Customers"), "DynamoDB -> PostgreSQL"),
+    ):
+        _, pr = c.req("POST", "/api/migrations/plan", {"source": src, "target": dst, "options": {"data": True, "indexes": True, "foreignKeys": True,
+            "verify": "contents", "existing": "fail", "existingRows": "append"}}, 200)
+        plan = pr["plan"]
+        for tp in plan["tables"]:
+            tp["include"] = tp["source"]["name"] in pick
+        _, m = c.req("POST", "/api/migrations", {"source": src, "target": dst, "plan": plan, "confirm": ""})
+        for _ in range(180):
+            _, st = c.req("GET", f"/api/migrations/{m['id']}", expect=200)
+            if st["progress"]["status"] not in ("running", "queued", "pending", "planning"):
+                break
+            time.sleep(1)
+        done = [(t["source"], t["status"], (t.get("verify") or {}).get("contents")) for t in st["progress"]["tables"]]
+        assert st["progress"]["status"] == "done" and all(x[1] == "done" and x[2] == "match" for x in done), (done, st["progress"])
+        ok(f"migration {label}: {done}")
+    stream(c, did, 'DeleteTable {"TableName": "stores"}\n\nDeleteTable {"TableName": "categories"}', confirm=True)
+    stream(c, conns["postgres"], "DROP SCHEMA smoke_ddb CASCADE", database="city", confirm=True)
+
     # Trino over the lake: Iceberg tables, plain Parquet and CSV files, and a migration into Iceberg.
     _, cv = c.req("POST", "/api/connections", {"name": f"Lake (Trino) {time.time_ns()}", "driver": "trino", "environment": "development",
         "params": {"host": "trino", "user": "rowsmith", "catalog": "iceberg", "schema": "shop", "tls": "disable"}, "secrets": {}}, 201)

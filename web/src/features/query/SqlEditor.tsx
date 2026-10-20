@@ -143,6 +143,18 @@ const TrinoSQL = SQLDialect.define({
     "to_base64 st_point st_astext st_geometryfromtext st_distance st_contains row_number rank dense_rank lag lead",
 });
 
+// DynamoDB's console: PartiQL ("quoted" names, 'quoted' strings, <<bags>>)
+// and the API operations, whose input follows as JSON.
+const PartiQL = SQLDialect.define({
+  keywords:
+    "select from where and or not in between is missing null exists insert into value update set remove delete returning all old new " +
+    "modified updated begin transaction commit rollback scan query getitem putitem updateitem deleteitem batchgetitem batchwriteitem " +
+    "transactgetitems transactwriteitems describetable listtables createtable updatetable deletetable updatetimetolive describetimetolive " +
+    "describecontinuousbackups updatecontinuousbackups listtagsofresource tagresource untagresource describelimits true false",
+  types: "s n b bool m l ss ns bs",
+  builtin: "begins_with contains attribute_type size exists missing list_append if_not_exists",
+});
+
 export function dialectFor(d?: string, driverId?: string): SQLDialect {
   if (driverId === "mariadb") return MariaSQL;
   switch (d) {
@@ -151,6 +163,7 @@ export function dialectFor(d?: string, driverId?: string): SQLDialect {
     case "trino": return TrinoSQL;
     case "cql": return CQL;
     case "databricks": return DatabricksSQL;
+    case "partiql": return PartiQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

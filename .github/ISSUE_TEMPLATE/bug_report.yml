@@ -68,6 +68,7 @@ body:
         - Redis / Valkey
         - Cassandra / ScyllaDB
         - Elasticsearch / OpenSearch
+        - DynamoDB
         - BigQuery
         - Snowflake
         - Databricks

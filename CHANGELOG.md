@@ -6,6 +6,7 @@ The changes in each release of Rowsmith™. Versions follow [Semantic Versioning
 
 ### Engines
 
+- Amazon DynamoDB, in any region or DynamoDB Local, signing in with an access key, the server's own AWS credentials or an assumed role: tables with their item counts, keys, global and local indexes, capacity, time to live, streams and backups; a grid that queries by key (or a global index) when a partition key is filtered with = and scans otherwise; edits saved in one conditional transaction, so an insert never overwrites an item; a console for PartiQL and DynamoDB API calls in DynamoDB JSON; the structure editor; imports, exports, and migrations into and out of DynamoDB.
 - Databricks SQL warehouses with Unity Catalog, signing in with a personal access token or a service principal: catalogs, schemas, tables, views, materialized views, streaming tables, volumes and functions; Delta tables with their partitioning or clustering, files, size, version, informational keys and enforced CHECK constraints; nested values (arrays, maps, structs, VARIANT) as JSON; edits checked to match one row each; Spark plans; running queries, session settings and the warehouse's state; the structure editor; imports, exports, and migrations into and out of Databricks.
 
 ## 0.5.1 - 2026-10-20

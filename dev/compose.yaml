@@ -1,5 +1,5 @@
 # Throwaway databases for developing and testing Rowsmith.
-#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB, Elasticsearch, OpenSearch, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
+#   docker compose -f dev/compose.yaml --env-file dev/.env up -d            # core (MySQL, MariaDB, PostGIS, ClickHouse, MongoDB, Redis, Redis Cluster, Valkey, Cassandra, ScyllaDB, Elasticsearch, OpenSearch, DynamoDB, CockroachDB, YugabyteDB, TiDB, Trino with Iceberg and Delta Lake, SSH bastion): what dev/smoke.py tests
 #   docker compose -f dev/compose.yaml --env-file dev/.env --profile full up -d   # + MSSQL, Oracle, BigQuery emulator
 # Nothing but Rowsmith is published, and only on 127.0.0.1.
 name: rowsmith-dev
@@ -441,6 +441,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 120
+
+  # DynamoDB Local, in memory; any credentials are accepted.
+  dynamodb:
+    image: amazon/dynamodb-local:3.3.1
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory", "-port", "8000"]
+    networks: [dev]
+
+  dynamodb-seed:
+    image: amazon/aws-cli:2.37.9
+    depends_on:
+      dynamodb: { condition: service_started }
+    environment:
+      URL: http://dynamodb:8000
+      AWS_ACCESS_KEY_ID: rowsmith
+      AWS_SECRET_ACCESS_KEY: rowsmith
+    entrypoint: ["/seed/dynamodb-seed.sh"]
+    volumes: ["./seed/dynamodb-seed.sh:/seed/dynamodb-seed.sh:ro", "./seed/dynamodb:/seed/dynamodb:ro"]
+    networks: [dev]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 3s
+      timeout: 5s
+      retries: 100
 
   # A small lake: SeaweedFS as S3, an Iceberg REST catalog, and Trino with
   # iceberg, delta, hive (plain Parquet/ORC/CSV files) and tpch catalogs.

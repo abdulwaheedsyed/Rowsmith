@@ -642,6 +642,11 @@ func (r *run) copy(ctx context.Context, tp *TablePlan, dt *driver.Table, empty b
 			hints = append(hints, driver.Column{Name: c.Target, Type: mongoType(sk)})
 		} else {
 			dc, ok := dstCols[strings.ToLower(c.Target)]
+			if !ok && r.dst.engine() == DynamoDB {
+				// DynamoDB Local keeps no types for attributes outside the
+				// keys, so the planned type stands.
+				dc, ok = driver.Column{Name: c.Target, Type: c.Type, BaseType: strings.ToLower(c.Type)}, true
+			}
 			if !ok {
 				return fmt.Errorf("the target has no column %s", c.Target)
 			}
@@ -650,6 +655,7 @@ func (r *run) copy(ctx context.Context, tp *TablePlan, dt *driver.Table, empty b
 			}
 			dk = canonOf(r.dst.engine(), dc)
 			c.Target = dc.Name
+			hints = append(hints, dc)
 		}
 		cols = append(cols, copyCol{src: c.Source, conv: newConverter(r.src.engine(), r.dst.engine(), sk, dk), sk: sk, target: c.Target})
 		names = append(names, c.Target)
@@ -666,8 +672,8 @@ func (r *run) copy(ctx context.Context, tp *TablePlan, dt *driver.Table, empty b
 
 	bi := r.dst.Conn.(driver.BulkImporter)
 	importTable := dt
-	if toMongo {
-		importTable = &driver.Table{Ref: dt.Ref, Columns: hints}
+	if toMongo || r.dst.engine() == DynamoDB {
+		importTable = &driver.Table{Ref: dt.Ref, Columns: hints, PrimaryKey: dt.PrimaryKey}
 	}
 	if empty && toMongo {
 		if err := r.exec(ctx, []string{"db.getSiblingDB(" + jsString(dt.Ref.Database) + ").getCollection(" + jsString(dt.Ref.Name) + ").deleteMany({})"}); err != nil {

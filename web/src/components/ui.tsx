@@ -292,6 +292,7 @@ const engines: Record<string, { mono: string; hue: string }> = {
   scylladb: { mono: "Sc", hue: "#6c3fc8" },
   elasticsearch: { mono: "Es", hue: "#00a59c" },
   opensearch: { mono: "Os", hue: "#005eb8" },
+  dynamodb: { mono: "Dy", hue: "#4d6bfe" },
   valkey: { mono: "Vk", hue: "#3f9fa8" },
 };
 

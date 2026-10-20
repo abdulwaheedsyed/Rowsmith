@@ -62,13 +62,13 @@ function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<st
   return next;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, snowflake://, trino://, databricks://, sqlite: and bigquery:// URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, snowflake://, trino://, databricks://, dynamodb://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
     const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", redis: "redis", rediss: "redis", valkey: "valkey", valkeys: "valkey",
-      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb", snowflake: "snowflake", trino: "trino", trinos: "trino", databricks: "databricks" } as Record<string, string>)[scheme];
+      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb", snowflake: "snowflake", trino: "trino", trinos: "trino", databricks: "databricks", dynamodb: "dynamodb" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
     if (driver === "sqlite") {
@@ -104,6 +104,18 @@ function parseURL(raw: string): { driver?: string; params: Record<string, unknow
         const v = u.searchParams.get(k);
         if (v) params[k] = v;
       }
+      return { driver, params, secrets };
+    }
+    if (driver === "dynamodb") {
+      // dynamodb://ACCESS_KEY_ID:SECRET@us-east-1?endpoint=http://localhost:8000
+      params.region = decodeURIComponent(u.hostname);
+      if (u.username) {
+        params.auth = "keys";
+        params.accessKeyId = decodeURIComponent(u.username);
+      }
+      if (u.password) secrets.secretAccessKey = decodeURIComponent(u.password);
+      const endpoint = u.searchParams.get("endpoint");
+      if (endpoint) params.endpoint = endpoint;
       return { driver, params, secrets };
     }
     if (driver === "trino") {

@@ -89,7 +89,7 @@ jobs:
       - name: Start the heavier engines
         run: >-
           docker compose -f dev/compose.yaml --env-file dev/.env up -d --wait --wait-timeout 600
-          cassandra cassandra-seed scylla scylla-seed elasticsearch elasticsearch-seed opensearch opensearch-seed seaweedfs iceberg-rest trino trino-seed
+          cassandra cassandra-seed scylla scylla-seed elasticsearch elasticsearch-seed opensearch opensearch-seed dynamodb dynamodb-seed seaweedfs iceberg-rest trino trino-seed
       - name: Wait for Rowsmith
         run: |
           for i in $(seq 60); do

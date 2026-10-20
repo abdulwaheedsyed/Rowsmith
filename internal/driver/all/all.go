@@ -6,6 +6,7 @@ import (
 	_ "rowsmith/internal/driver/cassandra"
 	_ "rowsmith/internal/driver/clickhouse"
 	_ "rowsmith/internal/driver/databricks"
+	_ "rowsmith/internal/driver/dynamodb"
 	_ "rowsmith/internal/driver/elastic"
 	_ "rowsmith/internal/driver/mongodb"
 	_ "rowsmith/internal/driver/mssql"

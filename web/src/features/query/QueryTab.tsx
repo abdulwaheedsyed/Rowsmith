@@ -261,7 +261,7 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
     if (!sel.empty) return { selection: view.state.sliceDoc(sel.from, sel.to) };
     // The Redis console runs one command per line.
     const line = view.state.doc.lineAt(sel.head);
-    const st = drv?.dialect === "redis" ? (line.text.trim() ? { text: line.text.trim(), line: line.number } : null) : statementAround(doc, sel.head, drv?.dialect === "mongodb" || drv?.dialect === "elasticsearch");
+    const st = drv?.dialect === "redis" ? (line.text.trim() ? { text: line.text.trim(), line: line.number } : null) : statementAround(doc, sel.head, drv?.dialect === "mongodb" || drv?.dialect === "elasticsearch" || drv?.dialect === "partiql");
     if (!st) return {};
     const failed = run.stmts.find((x) => x.error);
     const err = failed && failed.sql.trim() === st.text.replace(/;$/, "").trim() ? errorText(failed.error!) : undefined;
@@ -422,7 +422,8 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
           handleRef={editor}
           placeholder={drv?.dialect === "mongodb" ? "db.orders.find({ status: \"paid\" }).sort({ placedAt: -1 }).limit(20)   ⌘↵ runs the statement at the cursor"
             : redis ? "HGETALL user:1   one command per line; ⌘↵ runs the line at the cursor"
-            : drv?.dialect === "elasticsearch" ? "GET /orders/_search   then the JSON body on the next lines; ⌘↵ runs the request at the cursor" : undefined}
+            : drv?.dialect === "elasticsearch" ? "GET /orders/_search   then the JSON body on the next lines; ⌘↵ runs the request at the cursor"
+            : drv?.dialect === "partiql" ? "SELECT * FROM \"Orders\" WHERE customer_id = 'C0001'   or an operation such as Query with its JSON input on the next lines" : undefined}
         />
       </div>
       <div className="query__split" role="separator" aria-orientation="horizontal" onPointerDown={onSplitDown} onPointerMove={onSplitMove} onPointerUp={onSplitUp} />

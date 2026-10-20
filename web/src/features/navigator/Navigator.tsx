@@ -370,6 +370,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
 export function sampleQuery(dialect: string | undefined, ref: ObjectRef, q: string) {
   if (dialect === "redis") return redisRead(ref);
   if (dialect === "mongodb") return `db.getCollection(${JSON.stringify(ref.name)}).find({}).limit(100)`;
+  if (dialect === "partiql") return `SELECT *\nFROM ${JSON.stringify(ref.name)}`;
   if (dialect === "elasticsearch") return `GET /${ref.name}/_search\n{\n  "query": { "match_all": {} },\n  "size": 100\n}`;
   if (dialect === "mssql") return `SELECT TOP (100) *\nFROM ${qualified(ref, q)}`;
   if (dialect === "plsql") return `SELECT *\nFROM ${qualified(ref, q)}\nFETCH FIRST 100 ROWS ONLY`;

@@ -486,6 +486,28 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 			tp.Notes = append(tp.Notes, "foreign keys have no Elasticsearch equivalent and were left out")
 		}
 	}
+	if dEng == DynamoDB && !same {
+		switch {
+		case len(tp.PrimaryKey) == 0:
+			tp.Include = false
+			tp.Notes = append(tp.Notes, "DynamoDB places items by their primary key, and this table has none: add one on the source, or create the table by hand")
+		case len(tp.PrimaryKey) > 2:
+			tp.Include = false
+			tp.Notes = append(tp.Notes, "a DynamoDB key is a partition key and at most one sort key, and this table's has more columns: create the table by hand with a key of your choice")
+		}
+		for _, cp := range tp.Columns {
+			if slices.Contains(tp.PrimaryKey, cp.Source) && cp.Type != "S" && cp.Type != "N" && cp.Type != "B" {
+				cp.Type, cp.Notes = "S", append(cp.Notes, "a key attribute is text, a number or binary: stored as text")
+			}
+			cp.Nullable = cp.Nullable || !slices.Contains(tp.PrimaryKey, cp.Source)
+		}
+		if len(st.Indexes) > 0 {
+			tp.Notes = append(tp.Notes, "indexes were left out: add global indexes in the structure editor for the lookups you need")
+		}
+		if len(st.ForeignKeys) > 0 {
+			tp.Notes = append(tp.Notes, "foreign keys have no DynamoDB equivalent and were left out")
+		}
+	}
 	if family(dEng) == Cassandra && !same {
 		if len(tp.PrimaryKey) == 0 {
 			tp.Include = false
@@ -516,7 +538,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 	}
 	for _, ix := range st.Indexes {
-		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino || (family(dEng) == Cassandra && !same) || (family(dEng) == Elastic && !same) || (dEng == Databricks && !same) {
+		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino || (family(dEng) == Cassandra && !same) || (family(dEng) == Elastic && !same) || (dEng == Databricks && !same) || (dEng == DynamoDB && !same) {
 			continue
 		}
 		ip := &IndexPlan{Name: ix.Name, Columns: slices.Clone(ix.Columns), Unique: ix.Unique, Where: ix.Where, Include: opts.Indexes}
@@ -567,7 +589,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 		tp.Indexes = append(tp.Indexes, ip)
 	}
-	if dEng != MongoDB && dEng != Trino && family(dEng) != Cassandra && family(dEng) != Elastic && dEng != Databricks && design.ForeignKeys {
+	if dEng != MongoDB && dEng != Trino && family(dEng) != Cassandra && family(dEng) != Elastic && dEng != Databricks && dEng != DynamoDB && design.ForeignKeys {
 		for _, fk := range st.ForeignKeys {
 			tp.ForeignKeys = append(tp.ForeignKeys, &FKPlan{
 				Name: uniqueNames(names, tp.Target, clipIdent(dEng, applyCase(fk.Name, opts.NameCase)), dEng), Columns: slices.Clone(fk.Columns),

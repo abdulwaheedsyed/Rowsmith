@@ -33,6 +33,7 @@ const (
 	Cassandra  = "cassandra"
 	Elastic    = "elasticsearch"
 	Databricks = "databricks"
+	DynamoDB   = "dynamodb"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -583,6 +584,8 @@ func canonOf(engine string, c driver.Column) canon {
 		return cassandraCanon(k, c, base)
 	case Elastic:
 		return elasticCanon(k, base)
+	case DynamoDB:
+		return dynamoCanon(k, base)
 	case Databricks:
 		return databricksCanon(k, c, base)
 	case MongoDB:
@@ -780,6 +783,8 @@ func typeFor(t target, k canon, u use) mapped {
 		cassandraType(k, &m)
 	case Elastic:
 		elasticType(k, &m)
+	case DynamoDB:
+		dynamoType(k, &m)
 	case Databricks:
 		databricksType(k, &m)
 	case MongoDB:
@@ -1996,6 +2001,57 @@ func elasticType(k canon, m *mapped) {
 		}
 	default:
 		m.Type = "keyword"
+	}
+}
+
+// dynamoCanon reads DynamoDB attribute types: numbers are exact decimals,
+// maps, lists and sets JSON.
+func dynamoCanon(k canon, base string) canon {
+	switch base {
+	case "s":
+		k.T = "text"
+	case "n":
+		k.T = "decimal"
+	case "b":
+		k.T = "blob"
+	case "bool":
+		k.T = "bool"
+	case "m", "l", "ss", "ns", "bs":
+		k.T = "json"
+	default:
+		k.T, k.Note = "json", "attributes of mixed types are copied as JSON"
+	}
+	return k
+}
+
+// dynamoType writes DynamoDB attribute types: S, N, B, BOOL, and maps or
+// lists for JSON.
+func dynamoType(k canon, m *mapped) {
+	m.Canon = canon{P: -1, S: -1, N: -1, Frac: -1}
+	switch k.T {
+	case "bool":
+		m.Type, m.Canon.T = "BOOL", "bool"
+	case "int", "decimal", "float":
+		m.Type, m.Canon.T = "N", "decimal"
+		if k.T == "decimal" && k.P > 38 {
+			m.note(true, "DynamoDB numbers hold 38 digits")
+		}
+	case "binary", "varbinary", "blob":
+		m.Type, m.Canon.T = "B", "blob"
+	case "json", "object", "array":
+		m.Type, m.Canon.T = "M", "json"
+		if k.T == "array" {
+			m.Type = "L"
+		}
+		m.note(false, "stored as a DynamoDB map or list")
+	case "geometry":
+		m.Type, m.Canon.T = "M", "geometry"
+		m.note(false, "shapes are stored as GeoJSON maps")
+	case "date", "datetime", "timestamptz", "time", "interval":
+		m.Type, m.Canon.T = "S", "text"
+		m.note(false, "stored as ISO 8601 text")
+	default:
+		m.Type, m.Canon.T = "S", "text"
 	}
 }
 
