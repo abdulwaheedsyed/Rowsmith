@@ -1,0 +1,32 @@
+== Physical Plan ==
+AdaptiveSparkPlan isFinalPlan=false
++- == Initial Plan ==
+   PhotonResultStage
+   +- PhotonColumnarToRow
+      +- PhotonGroupingAgg(keys=[c_mktsegment#27371], functions=[finalmerge_count(merge count#27386L) AS count(1)#27377L])
+         +- PhotonShuffleExchangeSource false
+            +- PhotonShuffleMapStage ENSURE_REQUIREMENTS, [id=#19570]
+               +- PhotonShuffleExchangeSink hashpartitioning(c_mktsegment#27371, 16)
+                  +- PhotonGroupingAgg(keys=[c_mktsegment#27371], functions=[partial_count(1) AS count#27386L])
+                     +- PhotonProject [c_mktsegment#27371]
+                        +- PhotonShuffledHashJoin [o_custkey#27357L], [c_custkey#27365L], Inner, BuildRight
+                           :- PhotonShuffleExchangeSource false
+                           :  +- PhotonShuffleMapStage ENSURE_REQUIREMENTS, [id=#19554]
+                           :     +- PhotonShuffleExchangeSink hashpartitioning(o_custkey#27357L, 16)
+                           :        +- PhotonProject [o_custkey#27357L]
+                           :           +- PhotonScan parquet samples.tpch.orders[o_custkey#27357L,o_totalprice#27359] DataFilters: [isnotnull(o_totalprice#27359), isnotnull(o_custkey#27357L), (o_totalprice#27359 > 1000.00)], DictionaryFilters: [(o_totalprice#27359 > 1000.00)], Format: parquet, Location: PreparedDeltaFileIndex(1 paths)[s3://system-tables-prod-us-east-2-uc-metastore-bucket/metastore/b..., OptionalDataFilters: [], PartitionFilters: [], ReadSchema: struct<o_custkey:bigint,o_totalprice:decimal(18,2)>, RequiredDataFilters: [isnotnull(o_totalprice#27359), isnotnull(o_custkey#27357L), (o_totalprice#27359 > 1000.00)]
+                           +- PhotonShuffleExchangeSource false
+                              +- PhotonShuffleMapStage ENSURE_REQUIREMENTS, [id=#19560]
+                                 +- PhotonShuffleExchangeSink hashpartitioning(c_custkey#27365L, 16)
+                                    +- PhotonScan parquet samples.tpch.customer[c_custkey#27365L,c_mktsegment#27371] DataFilters: [isnotnull(c_custkey#27365L)], DictionaryFilters: [], Format: parquet, Location: PreparedDeltaFileIndex(1 paths)[s3://system-tables-prod-us-east-2-uc-metastore-bucket/metastore/b..., OptionalDataFilters: [], PartitionFilters: [], ReadSchema: struct<c_custkey:bigint,c_mktsegment:string>, RequiredDataFilters: [isnotnull(c_custkey#27365L)]
+
+
+== Photon Explanation ==
+The query is fully supported by Photon.
+== Optimizer Statistics (table names per statistics state) ==
+  missing = customer, orders
+  partial = 
+  full    = 
+Corrective actions: consider running the following command on all tables with missing or partial statistics
+  ANALYZE TABLE <table-name> COMPUTE STATISTICS FOR ALL COLUMNS
+

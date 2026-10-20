@@ -93,6 +93,33 @@ const CQL = SQLDialect.define({
   doubleDollarQuotedStrings: true,
 });
 
+// Databricks SQL (Spark SQL): `backquoted` names, "double-quoted" strings
+// with backslash escapes, Delta and Unity Catalog statements.
+const DatabricksSQL = SQLDialect.define({
+  keywords:
+    "select from where group by order limit offset with having qualify join inner left right full outer cross semi anti lateral view " +
+    "on using as and or not in between like ilike rlike regexp is null distinct union intersect except minus case when then else end cast " +
+    "try_cast insert into overwrite values update set delete merge matched create replace table view materialized streaming temporary " +
+    "catalog schema database volume function returns language if exists comment tblproperties location using partitioned clustered cluster " +
+    "constraint primary key foreign references check default generated always identity alter add drop rename to column columns " +
+    "truncate describe detail history extended show explain use grant revoke optimize vacuum zorder restore version timestamp of " +
+    "analyze compute statistics refresh cache uncache pivot unpivot tablesample over partition rows range unbounded preceding following " +
+    "current row asc desc nulls first last window",
+  types:
+    "string varchar char bigint long int integer smallint short tinyint byte double float real decimal dec numeric boolean date " +
+    "timestamp timestamp_ntz timestamp_ltz binary array map struct variant interval geometry geography",
+  builtin:
+    "count sum avg min max count_if approx_count_distinct collect_list collect_set percentile_approx first last any_value coalesce nvl " +
+    "ifnull nullif if iff greatest least current_date current_timestamp now date_add date_sub datediff date_trunc date_format to_date " +
+    "to_timestamp from_unixtime unix_timestamp year month day hour explode explode_outer posexplode inline size array_contains " +
+    "element_at transform filter aggregate map_keys map_values struct named_struct to_json from_json parse_json variant_get " +
+    "get_json_object json_tuple split regexp_extract regexp_replace lower upper trim length substr concat concat_ws lpad rpad " +
+    "replace format_number md5 sha2 uuid row_number rank dense_rank lag lead ntile current_user current_catalog current_schema",
+  identifierQuotes: "`",
+  doubleQuotedStrings: true,
+  backslashEscapes: true,
+});
+
 // Trino SQL: standard quoting, with its lake syntax (FOR VERSION AS OF,
 // table properties, metadata tables) and nested types.
 const TrinoSQL = SQLDialect.define({
@@ -123,6 +150,7 @@ export function dialectFor(d?: string, driverId?: string): SQLDialect {
     case "snowflake": return SnowflakeSQL;
     case "trino": return TrinoSQL;
     case "cql": return CQL;
+    case "databricks": return DatabricksSQL;
     case "mysql": return MySQL;
     case "postgresql": return PostgreSQL;
     case "mssql": return MSSQL;

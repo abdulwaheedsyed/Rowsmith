@@ -287,6 +287,7 @@ const engines: Record<string, { mono: string; hue: string }> = {
   tidb: { mono: "Ti", hue: "#cf4f8b" },
   snowflake: { mono: "Sf", hue: "#29b5e8" },
   trino: { mono: "Tr", hue: "#dd00a1" },
+  databricks: { mono: "Db", hue: "#ff3621" },
   cassandra: { mono: "Ca", hue: "#1287b1" },
   scylladb: { mono: "Sc", hue: "#6c3fc8" },
   elasticsearch: { mono: "Es", hue: "#00a59c" },

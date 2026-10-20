@@ -201,3 +201,10 @@ func TestSplitCQL(t *testing.T) {
 		t.Errorf("consistency = %v", k)
 	}
 }
+
+func TestSplitDatabricks(t *testing.T) {
+	expect(t, "quotes", Split("SELECT `a;b`, \"c;d\", 'it\\'s;' FROM t; SELECT 2", Databricks), "SELECT `a;b`, \"c;d\", 'it\\'s;' FROM t", "SELECT 2")
+	if k, _ := Classify("MERGE INTO t USING s ON t.id = s.id WHEN MATCHED THEN DELETE", Databricks); k != driver.StmtWrite {
+		t.Errorf("merge = %v", k)
+	}
+}

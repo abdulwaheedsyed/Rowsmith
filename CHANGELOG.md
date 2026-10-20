@@ -2,6 +2,12 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.6.0 - Unreleased
+
+### Engines
+
+- Databricks SQL warehouses with Unity Catalog, signing in with a personal access token or a service principal: catalogs, schemas, tables, views, materialized views, streaming tables, volumes and functions; Delta tables with their partitioning or clustering, files, size, version, informational keys and enforced CHECK constraints; nested values (arrays, maps, structs, VARIANT) as JSON; edits checked to match one row each; Spark plans; running queries, session settings and the warehouse's state; the structure editor; imports, exports, and migrations into and out of Databricks.
+
 ## 0.5.1 - 2026-10-20
 
 ### Changes

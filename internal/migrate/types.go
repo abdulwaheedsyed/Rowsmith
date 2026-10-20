@@ -32,6 +32,7 @@ const (
 	Trino      = "trino"
 	Cassandra  = "cassandra"
 	Elastic    = "elasticsearch"
+	Databricks = "databricks"
 )
 
 // compatible are the servers that speak another engine's dialect without all
@@ -582,6 +583,8 @@ func canonOf(engine string, c driver.Column) canon {
 		return cassandraCanon(k, c, base)
 	case Elastic:
 		return elasticCanon(k, base)
+	case Databricks:
+		return databricksCanon(k, c, base)
 	case MongoDB:
 		switch base {
 		case "objectid":
@@ -777,6 +780,8 @@ func typeFor(t target, k canon, u use) mapped {
 		cassandraType(k, &m)
 	case Elastic:
 		elasticType(k, &m)
+	case Databricks:
+		databricksType(k, &m)
 	case MongoDB:
 		m.Type = mongoType(k)
 		switch {
@@ -1991,5 +1996,116 @@ func elasticType(k canon, m *mapped) {
 		}
 	default:
 		m.Type = "keyword"
+	}
+}
+
+// databricksCanon reads Databricks (Spark SQL) types as information_schema
+// writes them: bigint, decimal(10,2), array<string>, struct<…>, variant.
+func databricksCanon(k canon, c driver.Column, base string) canon {
+	switch base {
+	case "string":
+		k.T = "text"
+	case "varchar", "char":
+		k.T, k.N = base, iptr(c.Length)
+		if k.N <= 0 {
+			k.T = "text"
+		}
+	case "tinyint", "byte":
+		k.T, k.Bits = "int", 8
+	case "smallint", "short":
+		k.T, k.Bits = "int", 16
+	case "int", "integer":
+		k.T, k.Bits = "int", 32
+	case "bigint", "long":
+		k.T, k.Bits = "int", 64
+	case "float", "real":
+		k.T, k.Bits = "float", 32
+	case "double":
+		k.T, k.Bits = "float", 64
+	case "decimal", "dec", "numeric":
+		k.T, k.P, k.S = "decimal", iptr(c.Precision), iptr(c.Scale)
+	case "boolean":
+		k.T = "bool"
+	case "date":
+		k.T = "date"
+	case "timestamp", "timestamp_ltz":
+		k.T, k.Frac = "timestamptz", 6
+	case "timestamp_ntz":
+		k.T, k.Frac = "datetime", 6
+	case "binary":
+		k.T = "blob"
+	case "variant":
+		k.T = "json"
+	case "array", "map", "struct":
+		k.T = "object"
+	default:
+		k.T, k.Note = "text", c.Type+" values are copied as text"
+	}
+	return k
+}
+
+// databricksType writes Delta table types.
+func databricksType(k canon, m *mapped) {
+	switch k.T {
+	case "bool":
+		m.Type = "BOOLEAN"
+	case "int":
+		switch {
+		case k.Bits == 64 && k.Unsigned:
+			m.Type = "DECIMAL(20,0)"
+		case k.Bits == 8 && !k.Unsigned:
+			m.Type = "TINYINT"
+		case k.Bits == 16 && !k.Unsigned:
+			m.Type = "SMALLINT"
+		case k.Bits > 0 && k.Bits < 32 || k.Bits == 32 && !k.Unsigned:
+			m.Type = "INT"
+		default:
+			m.Type = "BIGINT"
+		}
+	case "decimal":
+		switch {
+		case k.P <= 0:
+			m.Type = "DECIMAL(38,9)"
+			m.note(true, "a decimal without a set precision becomes DECIMAL(38,9)")
+		case k.P > 38:
+			m.Type = fmt.Sprintf("DECIMAL(38,%d)", min(max(k.S, 0), 37))
+			m.note(true, "Databricks decimals hold 38 digits")
+		default:
+			m.Type = fmt.Sprintf("DECIMAL(%d,%d)", k.P, max(k.S, 0))
+		}
+	case "float":
+		m.Type = "DOUBLE"
+		if k.Bits == 32 {
+			m.Type = "FLOAT"
+		}
+	case "char", "varchar", "text", "xml", "enum", "set", "uuid", "objectid":
+		m.Type = "STRING"
+		if k.T == "enum" {
+			m.note(false, "Databricks has no enums; any text is accepted unless a CHECK constraint says otherwise")
+		}
+	case "binary", "varbinary", "blob":
+		m.Type = "BINARY"
+	case "date":
+		m.Type = "DATE"
+	case "time", "interval":
+		m.Type = "STRING"
+		m.note(false, "copied as text")
+	case "datetime":
+		m.Type = "TIMESTAMP_NTZ"
+		if k.Frac > 6 {
+			m.note(true, "Databricks timestamps keep microseconds; finer fractions are dropped")
+		}
+	case "timestamptz":
+		m.Type = "TIMESTAMP"
+		if k.Frac > 6 {
+			m.note(true, "Databricks timestamps keep microseconds; finer fractions are dropped")
+		}
+	case "json", "object", "array":
+		m.Type = "VARIANT"
+	case "geometry":
+		m.Type, m.Canon = "STRING", canon{T: "json", P: -1, S: -1, N: -1, Frac: -1}
+		m.note(false, "shapes are copied as GeoJSON text")
+	default:
+		m.Type = "STRING"
 	}
 }

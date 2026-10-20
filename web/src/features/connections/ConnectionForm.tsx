@@ -62,13 +62,13 @@ function switchParams(from: DriverInfo | undefined, to: DriverInfo, p: Record<st
   return next;
 }
 
-// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, snowflake://, trino://, sqlite: and bigquery:// URLs.
+// Parses mysql://, postgres://, mongodb://, sqlserver://, oracle://, clickhouse://, redis://, valkey://, cockroachdb://, yugabytedb://, tidb://, snowflake://, trino://, databricks://, sqlite: and bigquery:// URLs.
 function parseURL(raw: string): { driver?: string; params: Record<string, unknown>; secrets: Record<string, string> } | null {
   try {
     const u = new URL(raw.trim());
     const scheme = u.protocol.replace(":", "").toLowerCase();
     const driver = ({ mysql: "mysql", mariadb: "mariadb", postgres: "postgres", postgresql: "postgres", mongodb: "mongodb", "mongodb+srv": "mongodb", sqlserver: "mssql", mssql: "mssql", oracle: "oracle", sqlite: "sqlite", bigquery: "bigquery", clickhouse: "clickhouse", redis: "redis", rediss: "redis", valkey: "valkey", valkeys: "valkey",
-      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb", snowflake: "snowflake", trino: "trino", trinos: "trino" } as Record<string, string>)[scheme];
+      cockroachdb: "cockroachdb", cockroach: "cockroachdb", yugabytedb: "yugabytedb", yugabyte: "yugabytedb", tidb: "tidb", snowflake: "snowflake", trino: "trino", trinos: "trino", databricks: "databricks" } as Record<string, string>)[scheme];
     const params: Record<string, unknown> = {};
     const secrets: Record<string, string> = {};
     if (driver === "sqlite") {
@@ -89,6 +89,21 @@ function parseURL(raw: string): { driver?: string; params: Record<string, unknow
         if (v) params[k] = v;
       }
       if (u.password) params.auth = "password";
+      return { driver, params, secrets };
+    }
+    if (driver === "databricks") {
+      // databricks://token:dapi…@dbc-….cloud.databricks.com:443/sql/1.0/warehouses/abc?catalog=main&schema=default
+      params.host = decodeURIComponent(u.hostname);
+      if (u.port) params.port = Number(u.port);
+      params.httpPath = decodeURIComponent(u.pathname);
+      if (u.password) {
+        params.auth = "token";
+        secrets.token = decodeURIComponent(u.password);
+      }
+      for (const k of ["catalog", "schema"]) {
+        const v = u.searchParams.get(k);
+        if (v) params[k] = v;
+      }
       return { driver, params, secrets };
     }
     if (driver === "trino") {

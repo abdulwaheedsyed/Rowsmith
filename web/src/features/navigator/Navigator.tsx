@@ -37,7 +37,7 @@ export function kindIcon(kind: string) {
 
 const DESIGNABLE = new Set(["table", "partitioned_table", "collection"]);
 export const KEY_KINDS = new Set(["string", "hash", "list", "set", "zset", "stream", "ReJSON-RL"]);
-const BROWSABLE = new Set(["data_stream", "alias", "table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary", ...KEY_KINDS]);
+const BROWSABLE = new Set(["data_stream", "alias", "streaming_table", "table", "partitioned_table", "view", "materialized_view", "foreign_table", "external_table", "collection", "timeseries", "dictionary", ...KEY_KINDS]);
 // Most keys the navigator lists (the server's limit).
 const KEY_LIMIT = 2000;
 

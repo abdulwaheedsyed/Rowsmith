@@ -70,6 +70,7 @@ body:
         - Elasticsearch / OpenSearch
         - BigQuery
         - Snowflake
+        - Databricks
         - Trino / Iceberg / Delta Lake
         - SQLite
         - None in particular

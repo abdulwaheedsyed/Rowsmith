@@ -63,6 +63,9 @@ func translateDefault(srcEngine, dstEngine string, def string, k canon, dstType 
 	if dst == MongoDB {
 		return nil, ""
 	}
+	if dst == Databricks {
+		return nil, "the default " + def + " was not carried over; set it in the structure editor if it's needed"
+	}
 	if dst == Elastic {
 		return nil, "Elasticsearch fields have no defaults; the default " + def + " was not carried over"
 	}

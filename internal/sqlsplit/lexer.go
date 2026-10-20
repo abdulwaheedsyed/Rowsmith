@@ -27,8 +27,11 @@ const (
 	Trino Dialect = "trino"
 	// CQL (Cassandra, ScyllaDB): '//' comments and $$ strings; BEGIN BATCH …
 	// APPLY BATCH holds several statements.
-	CQL     Dialect = "cql"
-	Generic Dialect = "generic"
+	CQL Dialect = "cql"
+	// Databricks (Spark SQL): `backquoted` identifiers, "double-quoted" and
+	// 'single-quoted' strings, both with backslash escapes.
+	Databricks Dialect = "databricks"
+	Generic    Dialect = "generic"
 )
 
 type tokType uint8
@@ -126,12 +129,12 @@ func (l *lexer) next() token {
 			return emit(tString, closeTriple(s, i, `"""`, true))
 		}
 		t := tQuoted
-		if l.d == MySQL || l.d == BigQuery {
+		if l.d == MySQL || l.d == BigQuery || l.d == Databricks {
 			t = tString
 		}
 		return emit(t, closeQuote(s, i+1, '"', l.backslashIn('"')))
 
-	case c == '`' && (l.d == MySQL || l.d == BigQuery || l.d == SQLite || l.d == Generic || l.d == ClickHouse):
+	case c == '`' && (l.d == MySQL || l.d == BigQuery || l.d == SQLite || l.d == Generic || l.d == ClickHouse || l.d == Databricks):
 		return emit(tQuoted, closeQuote(s, i+1, '`', l.d == BigQuery || l.d == ClickHouse))
 
 	case c == '[' && (l.d == MSSQL || l.d == SQLite):
@@ -225,7 +228,7 @@ func (l *lexer) next() token {
 
 func (l *lexer) backslashIn(q byte) bool {
 	switch l.d {
-	case MySQL, BigQuery, ClickHouse:
+	case MySQL, BigQuery, ClickHouse, Databricks:
 		return true
 	case Snowflake:
 		return q == '\''

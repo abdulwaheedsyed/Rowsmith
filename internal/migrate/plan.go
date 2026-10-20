@@ -466,6 +466,14 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 			Columns: tp.PrimaryKey, Include: opts.Indexes && dEng != MongoDB, Note: "ClickHouse's sorting key, as a plain index: it doesn't make rows unique"})
 		tp.PrimaryKey = []string{}
 	}
+	if dEng == Databricks && !same {
+		if len(st.Indexes) > 0 {
+			tp.Notes = append(tp.Notes, "indexes were left out: Delta tables skip files by statistics and clustering instead")
+		}
+		if len(st.ForeignKeys) > 0 {
+			tp.Notes = append(tp.Notes, "foreign keys were left out; in Databricks they would be informational only")
+		}
+	}
 	if family(dEng) == Elastic && !same {
 		if len(tp.PrimaryKey) > 1 {
 			tp.Notes = append(tp.Notes, "a document has one _id, so the primary key of several columns was left out; the documents get generated ids")
@@ -508,7 +516,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 	}
 	for _, ix := range st.Indexes {
-		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino || (family(dEng) == Cassandra && !same) || (family(dEng) == Elastic && !same) {
+		if ix.Primary || (dEng == ClickHouse && !same) || dEng == Trino || (family(dEng) == Cassandra && !same) || (family(dEng) == Elastic && !same) || (dEng == Databricks && !same) {
 			continue
 		}
 		ip := &IndexPlan{Name: ix.Name, Columns: slices.Clone(ix.Columns), Unique: ix.Unique, Where: ix.Where, Include: opts.Indexes}
@@ -559,7 +567,7 @@ func planTable(src, dst Endpoint, t target, st *driver.Table, opts Options, name
 		}
 		tp.Indexes = append(tp.Indexes, ip)
 	}
-	if dEng != MongoDB && dEng != Trino && family(dEng) != Cassandra && family(dEng) != Elastic && design.ForeignKeys {
+	if dEng != MongoDB && dEng != Trino && family(dEng) != Cassandra && family(dEng) != Elastic && dEng != Databricks && design.ForeignKeys {
 		for _, fk := range st.ForeignKeys {
 			tp.ForeignKeys = append(tp.ForeignKeys, &FKPlan{
 				Name: uniqueNames(names, tp.Target, clipIdent(dEng, applyCase(fk.Name, opts.NameCase)), dEng), Columns: slices.Clone(fk.Columns),
