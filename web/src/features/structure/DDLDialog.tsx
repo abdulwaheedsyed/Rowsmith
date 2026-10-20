@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Trash2, Scissors } from "lucide-react";
 import { ApiError, post, stream } from "../../lib/api";
 import { toast, useWorkspace } from "../../lib/store";
-import type { Connection, ObjectRef } from "../../lib/types";
+import { levelNames, type Connection, type ObjectRef } from "../../lib/types";
 import { Alert, Button, Dialog, Field, Spinner } from "../../components/ui";
 import { useDriver } from "../../lib/queries";
 
@@ -41,11 +41,13 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
   const [force, setForce] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const keys = !!useDriver(conn.driver)?.caps.keys;
+  const drv = useDriver(conn.driver);
+  const keys = !!drv?.caps.keys;
+  const L = levelNames(drv);
   const isDb = action === "drop_database";
   const isSchema = action === "drop_schema";
   const name = isDb ? target.database! : isSchema ? target.schema! : target.name;
-  const what = isDb ? "database" : isSchema ? (conn.driver === "bigquery" ? "dataset" : "schema") : (target.kind ?? "object").replace("_", " ");
+  const what = isDb ? L.db : isSchema ? L.schema : (target.kind ?? "object").replace("_", " ");
   const startsHere = isDb && String((conn.params as Record<string, unknown>).database ?? "") === name;
   const pgFamily = ["postgres", "cockroachdb", "yugabytedb"].includes(conn.driver);
   const canCascade = (action === "drop" && pgFamily) || (isSchema && (pgFamily || conn.driver === "bigquery" || conn.driver === "snowflake" || conn.driver === "trino"));
@@ -104,7 +106,7 @@ export function DDLDialog({ conn, action, target, onClose, onDone }: { conn: Con
   const verb = action === "truncate" ? "Empty" : keys && action === "drop" ? "Delete" : "Drop";
   const description = action === "truncate" ? "Every row is permanently deleted. The structure stays."
     : keys && action === "drop" ? "The key and its value are permanently deleted."
-    : isDb ? "The database and everything in it, including all its tables and data, is permanently removed."
+    : isDb ? `The ${L.db} and everything in it, including all its tables and data, is permanently removed.`
     : isSchema ? `The ${what} and everything in it is permanently removed.`
     : "The object and everything in it is permanently removed.";
   return (

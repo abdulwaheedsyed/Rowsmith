@@ -51,6 +51,12 @@ func column(sc schemaColumn) driver.Column {
 }
 
 func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Table, error) {
+	return c.describe(ctx, ref, true)
+}
+
+// describe reads a table or view; without full it leaves out what browsing
+// and editing don't use (indexes, size estimates, the CQL text).
+func (c *conn) describe(ctx context.Context, ref driver.ObjectRef, full bool) (*driver.Table, error) {
 	ks := c.ksOf(ref.Database)
 	if ks == "" {
 		return nil, fmt.Errorf("%s: choose a keyspace", ref.Name)
@@ -124,6 +130,11 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	if counter {
 		t.Options["counter"] = "true"
 	}
+	// Counter tables take only increments, and views are written by the server.
+	t.Editable = t.Kind == "table" && !counter && !c.ro
+	if !full {
+		return t, nil
+	}
 	t.Indexes = append(t.Indexes, driver.Index{Name: "PRIMARY KEY", Columns: t.PrimaryKey, Primary: true, Unique: true})
 	if t.Kind == "table" {
 		t.Indexes = append(t.Indexes, c.indexes(ctx, ks, ref.Name)...)
@@ -143,8 +154,6 @@ func (c *conn) Describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 		t.Options["estimated_partitions"] = strconv.FormatInt(total, 10)
 	}
 
-	// Counter tables take only increments, and views are written by the server.
-	t.Editable = t.Kind == "table" && !counter && !c.ro
 	if t.Kind == "materialized_view" {
 		t.DDL = viewDDL(ks, ref.Name, base, where, includeAll, cols, partition, clustering, order)
 	} else {

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { ApiError, post } from "../../lib/api";
 import { useConnections, useDatabases, useDriver, useDrivers, useSchemas } from "../../lib/queries";
-import type { Connection, Me } from "../../lib/types";
+import { levelNames, type Connection, type Me } from "../../lib/types";
 import { ago, duration, int } from "../../lib/format";
 import { toast } from "../../lib/store";
 import { go } from "../../lib/nav";
@@ -92,6 +92,7 @@ function EndpointPicker({ label, value, onChange, role }: { label: string; value
   const conns = useConnections();
   const conn = conns.data?.find((c) => c.id === value.connectionId);
   const drv = useDriver(conn?.driver);
+  const L = levelNames(drv);
   const dbs = useDatabases(conn?.id, !!drv?.caps.databases);
   const schemas = useSchemas(conn?.id, value.database || undefined, !!drv?.caps.schemas && (!drv?.caps.databases || !!value.database));
   const usable = (c: Connection) => role === "source" || (c.access !== "read" && !c.readOnly && c.driver !== "bigquery");
@@ -125,14 +126,14 @@ function EndpointPicker({ label, value, onChange, role }: { label: string; value
       {conn && (drv?.caps.databases || drv?.caps.schemas) && (
         <div className="endpoint__scope">
           {drv?.caps.databases && (
-            <select className="select" value={value.database} onChange={(e) => onChange({ ...value, database: e.target.value, schema: "" })} aria-label={`${label} database`}>
-              <option value="">Default database</option>
+            <select className="select" value={value.database} onChange={(e) => onChange({ ...value, database: e.target.value, schema: "" })} aria-label={`${label} ${L.db}`}>
+              <option value="">Default {L.db}</option>
               {(dbs.data ?? []).filter((d) => !d.system).map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
           )}
           {drv?.caps.schemas && (
-            <select className="select" value={value.schema} onChange={(e) => onChange({ ...value, schema: e.target.value })} aria-label={`${label} schema`}>
-              <option value="">Default schema</option>
+            <select className="select" value={value.schema} onChange={(e) => onChange({ ...value, schema: e.target.value })} aria-label={`${label} ${L.schema}`}>
+              <option value="">Default {L.schema}</option>
               {(schemas.data ?? []).filter((s) => !s.system).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
             </select>
           )}

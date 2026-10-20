@@ -84,6 +84,33 @@ func TestIntegration(t *testing.T) {
 	}
 }
 
+// With a local data center, every session gets a routing policy of its own
+// (gocql panics when one is shared).
+func TestIntegrationDataCenter(t *testing.T) {
+	for _, tg := range targets {
+		t.Run(tg.id, func(t *testing.T) {
+			dc := open(t, tg).dc
+			d, _ := driver.Get(tg.id)
+			cn, err := d.Open(context.Background(), driver.OpenParams{
+				Params:  map[string]any{"host": os.Getenv(tg.prefix + "HOST"), "user": "rowsmith", "database": "shop", "datacenter": dc, "tls": "disable"},
+				Secrets: map[string]string{"password": os.Getenv(tg.prefix + "PASSWORD")}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cn.Close()
+			sess, err := cn.NewSession(context.Background(), driver.Scope{Database: "shop"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer sess.Close()
+			s := run(t, sess, "SELECT count(*) FROM customers;\nUSE system;\nSELECT count(*) FROM shop.customers")
+			if s.rows[0][0][0] != int64(60) || s.rows[1][0][0] != int64(60) {
+				t.Errorf("counts = %v", s.rows)
+			}
+		})
+	}
+}
+
 func testEngine(t *testing.T, c *conn) {
 	ctx := context.Background()
 	srv, err := c.Server(ctx)
@@ -101,9 +128,11 @@ func testEngine(t *testing.T, c *conn) {
 	}
 	kinds := map[string]string{}
 	for _, o := range objs {
-		kinds[o.Name] = o.Kind
+		if !strings.HasPrefix(o.Name, "it_") { // left by an interrupted run
+			kinds[o.Name] = o.Kind
+		}
 	}
-	if kinds["customers"] != "table" || kinds["orders_by_status"] != "materialized_view" || kinds["address"] != "type" || len(objs) != 6 {
+	if kinds["customers"] != "table" || kinds["orders_by_status"] != "materialized_view" || kinds["address"] != "type" || len(kinds) != 6 {
 		t.Errorf("objects = %v", kinds)
 	}
 

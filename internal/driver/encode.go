@@ -321,3 +321,37 @@ const (
 	// StreamBudget bounds one result set streamed to the SQL console.
 	StreamBudget = 128 << 20
 )
+
+// EmitRows sends a result set that is already in memory, in batches. For
+// the console, cells are previewed and the set stops at StreamBudget; sinks
+// that want full values (exports, migrations) get every row whole.
+// maxRows > 0 sends at most that many rows.
+func EmitRows(sink Sink, cols []ResultColumn, rows [][]any, maxRows int, start time.Time) error {
+	if err := sink.Columns(cols); err != nil {
+		return err
+	}
+	sum := ResultSummary{RowCount: int64(len(rows))}
+	if maxRows > 0 && len(rows) > maxRows {
+		rows, sum.Truncated = rows[:maxRows], true
+	}
+	full := WantsFullValues(sink)
+	size := 0
+	for i := 0; i < len(rows); i += 500 {
+		batch := rows[i:min(i+500, len(rows))]
+		if !full {
+			for _, r := range batch {
+				PreviewRow(r)
+				size += RowSize(r)
+			}
+		}
+		if err := sink.Rows(batch); err != nil {
+			return err
+		}
+		if size > StreamBudget {
+			sum.Truncated, sum.Clipped = true, true
+			break
+		}
+	}
+	sum.DurationMS = float64(time.Since(start).Microseconds()) / 1000
+	return sink.EndResult(sum)
+}

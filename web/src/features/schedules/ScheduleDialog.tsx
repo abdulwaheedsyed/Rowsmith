@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, CalendarClock, FlaskConical, Mail, Send, Webhook, X } from "lucide-react";
 import { ApiError, get, post, put } from "../../lib/api";
 import { useConnections, useDatabases, useDriver, useSchemas } from "../../lib/queries";
-import type { User } from "../../lib/types";
+import { levelNames, type User } from "../../lib/types";
 import { duration, int } from "../../lib/format";
 import { toast } from "../../lib/store";
 import { go } from "../../lib/nav";
@@ -81,6 +81,7 @@ function ScheduleDialog({ req, onClose }: { req: Req; onClose(): void }) {
 
   const conn = conns.data?.find((c) => c.id === d.connectionId);
   const drv = useDriver(conn?.driver);
+  const L = levelNames(drv);
   const dbs = useDatabases(conn?.id, !!drv?.caps.databases);
   const schemas = useSchemas(conn?.id, d.database || undefined, !!drv?.caps.schemas);
   const users = useQuery({ queryKey: ["users"], queryFn: () => get<User[]>("users"), staleTime: 60_000 });
@@ -178,7 +179,7 @@ function ScheduleDialog({ req, onClose }: { req: Req; onClose(): void }) {
                 </select>
               </Field>
               {drv?.caps.databases && (
-                <Field label="Database">
+                <Field label={L.Db}>
                   <select className="select" value={d.database} onChange={(e) => set({ database: e.target.value, schema: "" })}>
                     <option value="">Default</option>
                     {d.database && !(dbs.data ?? []).some((x) => x.name === d.database) && <option value={d.database}>{d.database}</option>}
@@ -187,7 +188,7 @@ function ScheduleDialog({ req, onClose }: { req: Req; onClose(): void }) {
                 </Field>
               )}
               {drv?.caps.schemas && (
-                <Field label="Schema">
+                <Field label={L.Schema}>
                   <select className="select" value={d.schema} onChange={(e) => set({ schema: e.target.value })}>
                     <option value="">Default</option>
                     {d.schema && !(schemas.data ?? []).some((x) => x.name === d.schema) && <option value={d.schema}>{d.schema}</option>}

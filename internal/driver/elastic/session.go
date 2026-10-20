@@ -97,7 +97,7 @@ func (c *conn) run(ctx context.Context, r request, opts driver.ExecOptions, sink
 			}
 		}
 	}
-	if isSearch(ep) && r.method != "HEAD" && wholeIndex(opts) {
+	if isSearch(ep) && r.method != "HEAD" && wholeIndex(opts, r.body) {
 		return c.scrollAll(ctx, path, r.body, fields, opts, sink, start)
 	}
 	var body any
@@ -131,8 +131,23 @@ func (c *conn) run(ctx context.Context, r request, opts driver.ExecOptions, sink
 func isSearch(ep string) bool { return ep == "_search" || strings.HasSuffix(ep, "/_search") }
 
 // wholeIndex says whether every hit is wanted: exports and migrations read
-// with no row limit.
-func wholeIndex(opts driver.ExecOptions) bool { return opts.MaxRows == 0 }
+// with no row limit, of a search that names no size, from or aggregations
+// of its own (those run as written).
+func wholeIndex(opts driver.ExecOptions, body []byte) bool {
+	if opts.MaxRows != 0 {
+		return false
+	}
+	var q map[string]json.RawMessage
+	if len(body) > 0 && json.Unmarshal(body, &q) != nil {
+		return false
+	}
+	for _, k := range []string{"size", "from", "aggs", "aggregations", "search_after", "pit"} {
+		if _, ok := q[k]; ok {
+			return false
+		}
+	}
+	return true
+}
 
 // scrollAll reads every hit of a search, a thousand at a time, as exports
 // and migrations need: from and size stop at 10,000 hits.
@@ -561,34 +576,7 @@ func emit(sink driver.Sink, rs resultSet, opts driver.ExecOptions, start time.Ti
 	if rs.cols == nil {
 		rs.cols = []driver.ResultColumn{col("response", driver.KindText)}
 	}
-	if err := sink.Columns(rs.cols); err != nil {
-		return err
-	}
-	sum := driver.ResultSummary{RowCount: int64(len(rs.rows))}
-	rows := rs.rows
-	if opts.MaxRows > 0 && len(rows) > opts.MaxRows {
-		rows, sum.Truncated = rows[:opts.MaxRows], true
-	}
-	full := driver.WantsFullValues(sink)
-	size := 0
-	for i := 0; i < len(rows); i += 500 {
-		batch := rows[i:min(i+500, len(rows))]
-		for _, r := range batch {
-			if !full {
-				driver.PreviewRow(r)
-			}
-			size += driver.RowSize(r)
-		}
-		if err := sink.Rows(batch); err != nil {
-			return err
-		}
-		if size > driver.StreamBudget {
-			sum.Truncated, sum.Clipped = true, true
-			break
-		}
-	}
-	sum.DurationMS = float64(time.Since(start).Microseconds()) / 1000
-	return sink.EndResult(sum)
+	return driver.EmitRows(sink, rs.cols, rs.rows, opts.MaxRows, start)
 }
 
 // ---- profiles, tasks and settings ------------------------------------------------------

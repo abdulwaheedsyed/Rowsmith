@@ -83,7 +83,7 @@ func (d cqlDriver) Info() driver.Info {
 	}
 	return driver.Info{
 		ID: d.id, Name: d.name, Order: d.order, Description: desc,
-		Dialect: "cql", DefaultPort: 9042, SSH: true, QuoteChar: `"`,
+		Dialect: "cql", DefaultPort: 9042, SSH: true, QuoteChar: `"`, Levels: &driver.Levels{Database: "keyspace"},
 		Fields: fields,
 		Caps: driver.Caps{Databases: true, SQL: true, EditRows: true, DDL: true, CreateDatabase: true, DropDatabase: true,
 			Explain: true, Processes: true, Variables: true},
@@ -123,6 +123,7 @@ type conn struct {
 	dc      string
 	user    string
 	timeout time.Duration
+	localDC string // the configured data center, which each session's routing policy prefers
 
 	mu       sync.Mutex
 	sessions map[string]*gocql.Session // console sessions by keyspace
@@ -154,8 +155,9 @@ func (d cqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, 
 	if user := strings.TrimSpace(p.String("user")); user != "" {
 		cfg.Authenticator = gocql.PasswordAuthenticator{Username: user, Password: p.Secret("password")}
 	}
-	if dc := strings.TrimSpace(p.String("datacenter")); dc != "" {
-		cfg.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(gocql.DCAwareRoundRobinPolicy(dc))
+	localDC := strings.TrimSpace(p.String("datacenter"))
+	if localDC != "" {
+		cfg.PoolConfig.HostSelectionPolicy = hostPolicy(localDC)
 	}
 	if p.Bool("contactOnly") {
 		// Only the listed nodes, not the addresses the cluster announces.
@@ -171,7 +173,7 @@ func (d cqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, 
 	if tc != nil {
 		cfg.SslOpts = &gocql.SslOptions{Config: tc, EnableHostVerification: !tc.InsecureSkipVerify}
 	}
-	c := &conn{cfg: cfg, ro: p.ReadOnly, defKS: strings.TrimSpace(p.String("database")), cons: cons, user: strings.TrimSpace(p.String("user")),
+	c := &conn{cfg: cfg, localDC: localDC, ro: p.ReadOnly, defKS: strings.TrimSpace(p.String("database")), cons: cons, user: strings.TrimSpace(p.String("user")),
 		timeout: cfg.Timeout, sessions: map[string]*gocql.Session{}}
 	type opened struct {
 		s   *gocql.Session
@@ -214,6 +216,12 @@ func (d cqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, 
 		}
 	}
 	return c, nil
+}
+
+// hostPolicy sends each query to a replica of its partition in the local
+// data center. A session needs a policy of its own.
+func hostPolicy(dc string) gocql.HostSelectionPolicy {
+	return gocql.TokenAwareHostPolicy(gocql.DCAwareRoundRobinPolicy(dc))
 }
 
 type dialer driver.DialFunc
@@ -265,6 +273,10 @@ func (c *conn) session(ks string) (*gocql.Session, error) {
 	}
 	cfg := *c.cfg
 	cfg.Keyspace = ks
+	if c.localDC != "" {
+		// gocql panics when sessions share a token-aware policy.
+		cfg.PoolConfig.HostSelectionPolicy = hostPolicy(c.localDC)
+	}
 	s, err := cfg.CreateSession()
 	if err != nil {
 		return nil, mapError(err)

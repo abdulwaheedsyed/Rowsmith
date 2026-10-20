@@ -10,7 +10,7 @@ import {
 import { go } from "../../lib/nav";
 import { useDatabases, useDriver, useObjects, useSchemas, useServer, qualified } from "../../lib/queries";
 import { useUI, useWorkspace } from "../../lib/store";
-import type { Connection, DbObject, ObjectRef } from "../../lib/types";
+import { levelNames, type Connection, type DbObject, type ObjectRef } from "../../lib/types";
 import { bytes, compact, int } from "../../lib/format";
 import { Button, EngineBadge, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Spinner, Tip, Alert } from "../../components/ui";
 import { newQueryTab, openObject, openPanel, openDiagram, openDesign } from "../workspace/actions";
@@ -49,6 +49,7 @@ function facts(o: DbObject) {
 
 export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }) {
   const drv = useDriver(conn.driver);
+  const L = levelNames(drv);
   const server = useServer(conn.id);
   const scope = useWorkspace((s) => s.scope[conn.id]) ?? {};
   const measure = useUI((s) => s.navMeasure);
@@ -189,14 +190,14 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
             {canWrite && (drv?.design || drv?.caps.createDatabase || drv?.caps.editRows) && <MenuSep />}
             {canWrite && keys && ready && <MenuItem icon={<Plus />} onSelect={() => setNewKey("string")}>New key…</MenuItem>}
             {canWrite && drv?.design && ready && <MenuItem icon={<PencilRuler />} onSelect={() => openDesign(conn, { database: scope.database, schema: scope.schema })}>New {drv.caps.documents ? "collection" : "table"}…</MenuItem>}
-            {canWrite && drv?.caps.createDatabase && <MenuItem icon={<Database />} onSelect={() => setNameDlg({ action: "create_database" })}>New database…</MenuItem>}
-            {canWrite && drv?.caps.schemas && drv?.caps.ddl && (!hasDbs || !!scope.database) && <MenuItem icon={<Layers />} onSelect={() => setNameDlg({ action: "create_schema", target: { database: scope.database, name: "" } })}>New schema…</MenuItem>}
+            {canWrite && drv?.caps.createDatabase && <MenuItem icon={<Database />} onSelect={() => setNameDlg({ action: "create_database" })}>New {L.db}…</MenuItem>}
+            {canWrite && drv?.caps.schemas && drv?.caps.ddl && (!hasDbs || !!scope.database) && <MenuItem icon={<Layers />} onSelect={() => setNameDlg({ action: "create_schema", target: { database: scope.database, name: "" } })}>New {L.schema}…</MenuItem>}
             {canWrite && drv?.caps.dropDatabase && scope.database && !dbs.data?.find((d) => d.name === scope.database)?.system && (
-              <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop_database", ref: { database: scope.database, name: scope.database! } })}>Drop database {scope.database}…</MenuItem>
+              <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop_database", ref: { database: scope.database, name: scope.database! } })}>Drop {L.db} {scope.database}…</MenuItem>
             )}
             {canWrite && hasSchemas && drv?.caps.ddl && scope.schema && !schemas.data?.find((s) => s.name === scope.schema)?.system && (
               <MenuItem icon={<Trash2 />} danger onSelect={() => setDdl({ action: "drop_schema", ref: { database: scope.database, schema: scope.schema, name: scope.schema! } })}>
-                Drop {conn.driver === "bigquery" ? "dataset" : "schema"} {scope.schema}…
+                Drop {L.schema} {scope.schema}…
               </MenuItem>
             )}
             <MenuSep />
@@ -228,7 +229,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
           {hasDbs && (
             <ScopePicker
               icon={<Database />}
-              label="Database"
+              label={L.Db}
               value={scope.database}
               loading={dbs.isLoading}
               items={(dbs.data ?? []).map((d) => ({ value: d.name, meta: d.size ? bytes(d.size) : d.tables !== undefined && d.tables !== null ? `${d.tables} ${keys ? "keys" : "tables"}` : "", dim: d.system || (keys && !d.tables) }))}
@@ -238,7 +239,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
           {hasSchemas && (
             <ScopePicker
               icon={<Layers />}
-              label="Schema"
+              label={L.Schema}
               value={scope.schema}
               loading={schemas.isLoading}
               items={(schemas.data ?? []).map((s) => ({ value: s.name, meta: s.owner ?? "", dim: s.system }))}
@@ -262,7 +263,7 @@ export function Navigator({ conn, onEdit }: { conn: Connection; onEdit(): void }
         {objects.isLoading && ready && <div className="navigator__loading"><Spinner /> Loading objects…</div>}
         {objects.error && <div className="navigator__error"><Alert kind="danger">{(objects.error as Error).message}</Alert></div>}
         {objects.data && groups.length === 0 && (
-          <p className="navigator__empty muted">{filter ? `Nothing matches “${filter}”.` : keys ? "This database has no keys." : "This schema is empty."}</p>
+          <p className="navigator__empty muted">{filter ? `Nothing matches “${filter}”.` : keys ? "This database has no keys." : `This ${hasSchemas ? L.schema : hasDbs ? L.db : "connection"} is empty.`}</p>
         )}
         {keys && (objects.data?.length ?? 0) >= KEY_LIMIT && (
           <p className="navigator__empty faint">Showing the first {int(KEY_LIMIT)} keys{pattern ? " that match" : ""}. Narrow them with a pattern, such as user:*.</p>

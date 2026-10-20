@@ -2,18 +2,19 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, post, stream } from "../../lib/api";
 import { toast } from "../../lib/store";
-import type { Connection, ObjectRef } from "../../lib/types";
+import { levelNames, type Connection, type ObjectRef } from "../../lib/types";
+import { useDriver } from "../../lib/queries";
 import { Alert, Button, Dialog, Field, Spinner } from "../../components/ui";
 
 type Action = "create_database" | "create_schema" | "rename";
-
-const titles: Record<Action, string> = { create_database: "New database", create_schema: "New schema", rename: "Rename" };
 
 /** Asks for one name, previews the engine's statement and runs it through the console. */
 export function NameDDLDialog({ conn, action, target, onClose, onDone }: {
   conn: Connection; action: Action; target?: ObjectRef; onClose(): void; onDone?(name: string): void;
 }) {
   const qc = useQueryClient();
+  const L = levelNames(useDriver(conn.driver));
+  const title = action === "create_database" ? `New ${L.db}` : action === "create_schema" ? `New ${L.schema}` : "Rename";
   const [name, setName] = useState(action === "rename" ? target?.name ?? "" : "");
   const [collation, setCollation] = useState("");
   const [script, setScript] = useState("");
@@ -67,7 +68,7 @@ export function NameDDLDialog({ conn, action, target, onClose, onDone }: {
 
   const what = action === "rename" ? `${(target?.kind ?? "object").replace("_", " ")} ${target?.name}` : "";
   return (
-    <Dialog open onOpenChange={(o) => !o && !busy && onClose()} title={action === "rename" ? `Rename ${what}` : titles[action]}
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()} title={action === "rename" ? `Rename ${what}` : title}
       description={action === "create_schema" && target?.database ? `In ${target.database}.` : undefined}
       footer={<><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant={conn.environment === "production" ? "danger" : "primary"} disabled={!script || busy} loading={busy} onClick={run}>{action === "rename" ? "Rename" : "Create"}</Button></>}>
       <form className="col gap-4" onSubmit={(e) => { e.preventDefault(); if (script && !busy) run(); }}>

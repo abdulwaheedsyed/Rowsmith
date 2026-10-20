@@ -456,7 +456,12 @@ func (e *Engine) ApplyEdits(ctx context.Context, t *driver.Table, edits []driver
 				if n == 0 {
 					return nil, partial(fmt.Errorf("change %d: the row no longer exists or was modified by someone else", i+1), ex, res.Applied)
 				}
-				return nil, partial(fmt.Errorf("change %d would affect %d rows; nothing was saved", i+1, n), ex, res.Applied)
+				if _, inTx := ex.(*sql.Tx); !inTx {
+					// Without a transaction the statement has run: the rows
+					// changed between the check and the write.
+					return nil, partial(fmt.Errorf("change %d changed %d rows instead of one, as the table changed while saving", i+1, n), ex, res.Applied)
+				}
+				return nil, fmt.Errorf("change %d would affect %d rows; nothing was saved", i+1, n)
 			}
 		}
 		res.Statements = append(res.Statements, q)

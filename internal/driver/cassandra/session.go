@@ -212,14 +212,16 @@ func streamRows(iter *gocql.Iter, cols []gocql.ColumnInfo, opts driver.ExecOptio
 			sum.Truncated = true
 			break
 		}
-		if !full {
-			driver.PreviewRow(row)
-		}
 		sum.RowCount++
 		batch = append(batch, row)
-		if size += driver.RowSize(row); size > driver.StreamBudget {
-			sum.Truncated, sum.Clipped = true, true
-			break
+		// Only the console gets previews and a size limit; exports and
+		// migrations read every row whole.
+		if !full {
+			driver.PreviewRow(row)
+			if size += driver.RowSize(row); size > driver.StreamBudget {
+				sum.Truncated, sum.Clipped = true, true
+				break
+			}
 		}
 		if len(batch) == cap(batch) {
 			if err := flush(); err != nil {

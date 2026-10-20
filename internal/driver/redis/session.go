@@ -289,34 +289,7 @@ func emit(sink driver.Sink, rs resultSet, opts driver.ExecOptions, start time.Ti
 			return err
 		}
 	}
-	if err := sink.Columns(rs.cols); err != nil {
-		return err
-	}
-	sum := driver.ResultSummary{RowCount: int64(len(rs.rows))}
-	rows := rs.rows
-	if opts.MaxRows > 0 && len(rows) > opts.MaxRows {
-		rows, sum.Truncated = rows[:opts.MaxRows], true
-	}
-	full := driver.WantsFullValues(sink)
-	size := 0
-	for start := 0; start < len(rows); start += 500 {
-		batch := rows[start:min(start+500, len(rows))]
-		for _, r := range batch {
-			if !full {
-				driver.PreviewRow(r)
-			}
-			size += driver.RowSize(r)
-		}
-		if err := sink.Rows(batch); err != nil {
-			return err
-		}
-		if size > driver.StreamBudget {
-			sum.Truncated, sum.Clipped = true, true
-			break
-		}
-	}
-	sum.DurationMS = float64(time.Since(start).Microseconds()) / 1000
-	return sink.EndResult(sum)
+	return driver.EmitRows(sink, rs.cols, rs.rows, opts.MaxRows, start)
 }
 
 func rc(name string, kind driver.ValueKind) driver.ResultColumn {

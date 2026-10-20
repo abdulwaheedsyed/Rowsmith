@@ -126,7 +126,9 @@ func (l *layout) columns() []driver.Column {
 	return cols
 }
 
-func (c *conn) describe(ctx context.Context, ref driver.ObjectRef) (*driver.Table, *layout, error) {
+// shape is what browsing and editing need: the columns from the mapping and
+// whether documents can be edited, without stats or settings.
+func (c *conn) shape(ctx context.Context, ref driver.ObjectRef) (*driver.Table, *layout, error) {
 	l, err := c.mappings(ctx, ref.Name)
 	if err != nil {
 		return nil, nil, err
@@ -143,6 +145,15 @@ func (c *conn) describe(ctx context.Context, ref driver.ObjectRef) (*driver.Tabl
 	}
 	// Data streams take new documents only; edits go to a backing index.
 	t.Editable = !c.ro && kind != "data_stream"
+	return t, l, nil
+}
+
+func (c *conn) describe(ctx context.Context, ref driver.ObjectRef) (*driver.Table, *layout, error) {
+	t, l, err := c.shape(ctx, ref)
+	if err != nil {
+		return nil, nil, err
+	}
+	kind := t.Kind
 
 	var stats struct {
 		All struct {

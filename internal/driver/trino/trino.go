@@ -80,7 +80,7 @@ func (trinoDriver) Info() driver.Info {
 	return driver.Info{
 		ID: "trino", Name: "Trino", Order: 80,
 		Description: "Trino 400+ and Starburst: Iceberg, Delta Lake, Hive (Parquet, ORC, CSV) and every catalog the cluster federates",
-		Dialect:     "trino", DefaultPort: 8080, Fields: fields, SSH: true,
+		Dialect:     "trino", DefaultPort: 8080, Fields: fields, SSH: true, Levels: &driver.Levels{Database: "catalog"},
 		Ports: []driver.PortRule{{When: map[string][]string{"tls": secure}, Port: 443}},
 		Caps: driver.Caps{Databases: true, Schemas: true, SQL: true, EditRows: true, DDL: true, Explain: true,
 			Processes: true, Variables: true},

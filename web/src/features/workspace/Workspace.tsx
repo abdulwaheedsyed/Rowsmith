@@ -8,7 +8,7 @@ import {
 import { get, post, qs } from "../../lib/api";
 import { useDatabases, useDriver, useObjects, useServer } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
-import type { Connection, DbObject, HistoryEntry, Me, Result } from "../../lib/types";
+import { levelNames, type Connection, type DbObject, type HistoryEntry, type Me, type Result } from "../../lib/types";
 import { ago, bytes, compact, duration, int, pluralize, temperForMs, modKey, cellText } from "../../lib/format";
 import { Alert, Button, Dialog, Empty, EngineBadge, Env, Kbd, Spinner } from "../../components/ui";
 import { BrowseTab } from "../browse/BrowseTab";
@@ -189,7 +189,7 @@ function ConnectionHome({ conn }: { conn: Connection }) {
       <div className="connhome__grid">
         {drv?.caps.databases && (
           <section className="card connhome__card">
-            <h2 className="eyebrow">Databases</h2>
+            <h2 className="eyebrow">{levelNames(drv).Dbs}</h2>
             {dbs.isLoading && <Spinner />}
             <div className="dblist">
               {(dbs.data ?? []).filter((d) => !d.system).concat((dbs.data ?? []).filter((d) => d.system)).map((d) => (

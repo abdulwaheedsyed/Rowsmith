@@ -5,7 +5,7 @@ import { Play, Square, ChevronDown, Wand2, Save, GitBranch, Undo2, Check, ListTr
 import { ApiError, get, post, put, stream } from "../../lib/api";
 import { useCatalog, useDriver, useDatabases, useSchemas } from "../../lib/queries";
 import { useWorkspace, toast, type Tab } from "../../lib/store";
-import type { Connection, Me, Plan, SavedQuery, PendingStatement, Danger, StatementKind } from "../../lib/types";
+import { levelNames, type Connection, type Me, type Plan, type SavedQuery, type PendingStatement, type Danger, type StatementKind } from "../../lib/types";
 import { modKey } from "../../lib/format";
 import { Alert, Button, Dialog, Field, Kbd, Menu, MenuContent, MenuItem, MenuSep, MenuTrigger, Tip } from "../../components/ui";
 import { SqlEditor, byteOffset, statementAround, type EditorHandle, type StatementMark } from "./SqlEditor";
@@ -25,6 +25,7 @@ const ROW_LIMITS = [100, 1000, 10000, 100000];
 
 export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; active: boolean }) {
   const drv = useDriver(conn.driver);
+  const L = levelNames(drv);
   const qc = useQueryClient();
   const updateTab = useWorkspace((s) => s.updateTab);
   const run = useRuns((s) => s.runs[tab.id]) ?? { status: "idle", stmts: [], lineOffset: 0 } as RunState;
@@ -375,14 +376,14 @@ export function QueryTab({ tab, conn, active }: { tab: Tab; conn: Connection; ac
         </Tip>
         <div className="vdivider" />
         {hasDbs && (
-          <select className="select query__scope" value={database ?? ""} onChange={(e) => updateTab(tab.id, { database: e.target.value || undefined, schema: undefined })} aria-label="Database">
-            <option value="">No database</option>
+          <select className="select query__scope" value={database ?? ""} onChange={(e) => updateTab(tab.id, { database: e.target.value || undefined, schema: undefined })} aria-label={L.Db}>
+            <option value="">No {L.db}</option>
             {(dbs.data ?? []).map((d) => <option key={d.name} value={d.name}>{d.name}</option>)}
           </select>
         )}
         {hasSchemas && (
-          <select className="select query__scope" value={schema ?? ""} onChange={(e) => updateTab(tab.id, { schema: e.target.value || undefined })} aria-label="Schema">
-            <option value="">Default schema</option>
+          <select className="select query__scope" value={schema ?? ""} onChange={(e) => updateTab(tab.id, { schema: e.target.value || undefined })} aria-label={L.Schema}>
+            <option value="">Default {L.schema}</option>
             {(schemas.data ?? []).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
           </select>
         )}

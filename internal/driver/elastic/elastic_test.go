@@ -127,3 +127,37 @@ func TestDDL(t *testing.T) {
 		t.Error("accepted an invalid index name")
 	}
 }
+
+func TestReviewFixes(t *testing.T) {
+	// A """ string keeps lines that look like comments.
+	reqs, err := parseScript("PUT /_scripts/s\n{\"script\": {\"lang\": \"mustache\", \"source\": \"\"\"\n# heading\n// not a comment\n\"\"\"}}\n# a real comment\nGET /x/_search")
+	if err != nil || len(reqs) != 2 || !strings.Contains(string(reqs[0].body), `# heading\n// not a comment`) {
+		t.Errorf("triple quotes = %+v, %v", reqs, err)
+	}
+	// SQL is a read unless the statement writes.
+	for body, want := range map[string]driver.StatementKind{
+		`{"query": "SELECT * FROM orders"}`: driver.StmtRead, `{"query": "  delete from orders"}`: driver.StmtWrite,
+	} {
+		r := request{method: "POST", path: "/_plugins/_sql", body: []byte(body)}
+		if k := r.kind(); k != want {
+			t.Errorf("%s = %s", body, k)
+		}
+	}
+	// Exports scroll only through searches that set nothing of their own.
+	all := driver.ExecOptions{}
+	for body, want := range map[string]bool{"": true, `{"query": {"match_all": {}}}`: true, `{"size": 10}`: false, `{"size": 0, "aggs": {}}`: false,
+		`{"from": 20}`: false} {
+		if got := wholeIndex(all, []byte(body)); got != want {
+			t.Errorf("wholeIndex(%s) = %v", body, got)
+		}
+	}
+	if wholeIndex(driver.ExecOptions{MaxRows: 100}, nil) {
+		t.Error("the console scrolled")
+	}
+	// _id alone asks for no source at all.
+	tb := &driver.Table{Columns: []driver.Column{{Name: "_id", Kind: driver.KindString}}}
+	body, err := (&conn{}).searchBody(tb, &layout{fields: map[string]field{}}, driver.BrowseRequest{Columns: []string{"_id"}})
+	if err != nil || body["_source"] != false {
+		t.Errorf("_source = %v, %v", body["_source"], err)
+	}
+}

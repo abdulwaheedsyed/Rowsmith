@@ -226,13 +226,16 @@ func (c *conn) searchBody(t *driver.Table, l *layout, req driver.BrowseRequest) 
 			}
 		}
 		body["_source"] = src
+		if len(src) == 0 {
+			body["_source"] = false // _id alone
+		}
 	}
 	return body, nil
 }
 
 func (c *conn) Browse(ctx context.Context, req driver.BrowseRequest) (*driver.Result, error) {
 	start := time.Now()
-	t, l, err := c.describe(ctx, req.Ref)
+	t, l, err := c.shape(ctx, req.Ref)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +300,7 @@ func (c *conn) Browse(ctx context.Context, req driver.BrowseRequest) (*driver.Re
 }
 
 func (c *conn) Count(ctx context.Context, req driver.BrowseRequest) (driver.Count, error) {
-	t, l, err := c.describe(ctx, req.Ref)
+	t, l, err := c.shape(ctx, req.Ref)
 	if err != nil {
 		return driver.Count{}, err
 	}
@@ -372,7 +375,7 @@ func (c *conn) ApplyEdits(ctx context.Context, ref driver.ObjectRef, edits []dri
 	if c.ro {
 		return nil, driver.ErrReadOnly
 	}
-	t, l, err := c.describe(ctx, ref)
+	t, l, err := c.shape(ctx, ref)
 	if err != nil {
 		return nil, err
 	}

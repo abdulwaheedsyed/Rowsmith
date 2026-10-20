@@ -2,6 +2,24 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.5.1 - Unreleased
+
+### Changes
+
+- The navigator, console, schedules, migrations and dialogs call each engine's levels by its own names: keyspaces for Cassandra and ScyllaDB, catalogs for Trino, datasets for BigQuery.
+- Grid pages on Cassandra, ScyllaDB, Elasticsearch and OpenSearch read only the structure they need, not table statistics and settings, so they load with fewer requests.
+
+### Fixes
+
+- Cassandra and ScyllaDB connections with a local data center could not open a console or explain a query: the driver stopped with an error about a shared routing policy.
+- Exports and migrations from Cassandra, ScyllaDB, Elasticsearch, OpenSearch, Redis and Valkey stopped after 128 MB of data, a limit meant only for console results.
+- Exporting an Elasticsearch or OpenSearch search with its own size, from or aggregations returned every document instead (or failed, for aggregations), as if the whole index were wanted.
+- On OpenSearch, a SQL DELETE sent through the console counted as a read, so read-only users could run it.
+- Lines starting with # or // inside Elasticsearch `"""` strings were dropped as comments.
+- Sorting a Cassandra table by clustering columns in an order the server refuses now explains the rule instead of passing on the server's error.
+- An Elasticsearch export of _id alone failed.
+- On Trino, a failed edit that had changed several rows said nothing was saved.
+
 ## 0.5.0 - 2026-10-20
 
 ### Engines

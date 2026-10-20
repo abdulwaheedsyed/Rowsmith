@@ -127,3 +127,23 @@ func TestDDL(t *testing.T) {
 		t.Errorf("inline = %s", got)
 	}
 }
+
+func TestOrderBy(t *testing.T) {
+	tb := &driver.Table{Options: map[string]string{"clustering_order": "placed_at DESC, order_id ASC"}}
+	for _, c := range []struct {
+		sorts []driver.Sort
+		eq    bool
+		want  string
+	}{
+		{[]driver.Sort{{Column: "placed_at", Desc: true}}, true, " ORDER BY placed_at DESC"},
+		{[]driver.Sort{{Column: "placed_at"}, {Column: "order_id", Desc: true}}, true, " ORDER BY placed_at ASC, order_id DESC"}, // all reversed
+		{[]driver.Sort{{Column: "order_id"}}, true, ""},                                                                          // not a prefix
+		{[]driver.Sort{{Column: "placed_at", Desc: true}, {Column: "order_id", Desc: true}}, true, ""},                           // mixed
+		{[]driver.Sort{{Column: "placed_at", Desc: true}}, false, ""},                                                            // whole table
+	} {
+		got, err := orderBy(tb, c.sorts, c.eq)
+		if (c.want == "") != (err != nil) || got != c.want {
+			t.Errorf("%+v (partition %v) = %q, %v", c.sorts, c.eq, got, err)
+		}
+	}
+}

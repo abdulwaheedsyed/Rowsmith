@@ -62,6 +62,17 @@ export interface DriverInfo {
   design?: TableDesign;
   /** Default ports that depend on other fields (protocol, TLS); the first match wins. */
   ports?: { when: Record<string, string[]>; port: number }[];
+  /** Names of the database and schema levels where the engine uses others (keyspace, catalog, dataset). */
+  levels?: { database?: string; schema?: string };
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** An engine's words for its database and schema levels, in the forms the UI needs. */
+export function levelNames(drv?: DriverInfo) {
+  const db = drv?.levels?.database || "database";
+  const schema = drv?.levels?.schema || "schema";
+  return { db, schema, Db: cap(db), Schema: cap(schema), Dbs: cap(db) + "s", Schemas: cap(schema) + "s" };
 }
 
 /** What the structure editor may offer for an engine (driver.TableDesign). */

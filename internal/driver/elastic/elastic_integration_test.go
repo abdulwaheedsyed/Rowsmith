@@ -248,6 +248,15 @@ func testEngine(t *testing.T, c *conn) {
 	if len(s.rows[0]) != 2500 || len(s.cols[0]) != 3 {
 		t.Errorf("export read %d rows, %d columns", len(s.rows[0]), len(s.cols[0]))
 	}
+	// An exported search keeps its own size, and aggregations run as written.
+	s = run(t, sess, "GET /"+idx+"/_search\n{\"size\": 7}", 0)
+	if len(s.rows[0]) != 7 {
+		t.Errorf("sized export read %d rows", len(s.rows[0]))
+	}
+	s = run(t, sess, "GET /"+idx+"/_search\n{\"size\": 0, \"aggs\": {\"n\": {\"max\": {\"field\": \"n\"}}}}", 0)
+	if len(s.rows) != 1 || s.rows[0][0][0] == nil {
+		t.Errorf("exported aggregation = %v", s.rows)
+	}
 
 	// The console: Dev Tools requests, aggregations, _cat, SQL, errors and read-only.
 	s = run(t, sess, `# products by category

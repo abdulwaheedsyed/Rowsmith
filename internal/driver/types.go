@@ -83,12 +83,22 @@ type Info struct {
 	Types       []string   `json:"types"`      // data types offered by the column editor
 	URLSchemes  []string   `json:"urlSchemes"` // connection URLs the form can parse
 	QuoteChar   string     `json:"quoteChar"`  // identifier quote for client-side snippets
+	// Levels name the engine's database and schema levels in the UI when
+	// they go by other names (keyspace, catalog, dataset); empty keeps
+	// "database" and "schema".
+	Levels *Levels `json:"levels,omitempty"`
 	// Design describes the structure editor for this engine; nil hides it.
 	Design *TableDesign `json:"design,omitempty"`
 	// Ports are default ports that depend on other fields, such as a
 	// protocol or TLS. The first rule whose fields all match gives the
 	// default; DefaultPort applies when none does.
 	Ports []PortRule `json:"ports,omitempty"`
+}
+
+// Levels are lower-case singular names, such as "keyspace".
+type Levels struct {
+	Database string `json:"database,omitempty"`
+	Schema   string `json:"schema,omitempty"`
 }
 
 // PortRule is a default port for the field values in When.

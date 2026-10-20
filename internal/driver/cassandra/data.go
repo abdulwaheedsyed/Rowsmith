@@ -235,21 +235,41 @@ func splitTop(s string) []string {
 	return append(out, strings.TrimSpace(s[start:]))
 }
 
-// orderBy allows sorting by clustering columns inside one partition, the
-// only order Cassandra keeps.
+// orderBy allows the orders Cassandra keeps: inside one partition, by the
+// first clustering columns in their declared order, all in their declared
+// direction or all reversed.
 func orderBy(t *driver.Table, sorts []driver.Sort, eqPartition bool) (string, error) {
 	if len(sorts) == 0 {
 		return "", nil
 	}
-	clustering := map[string]bool{}
-	for _, c := range strings.Split(t.Options["clustering_order"], ",") {
-		name, _, _ := strings.Cut(strings.TrimSpace(c), " ")
-		clustering[name] = name != ""
+	type clusteringCol struct {
+		name string
+		desc bool
 	}
+	var declared []clusteringCol
+	var names []string
+	for _, c := range strings.Split(t.Options["clustering_order"], ",") {
+		name, dir, _ := strings.Cut(strings.TrimSpace(c), " ")
+		if name != "" {
+			declared = append(declared, clusteringCol{name, strings.EqualFold(dir, "DESC")})
+			names = append(names, name)
+		}
+	}
+	inOrder := fmt.Errorf("sort by the clustering columns (%s), in that order", strings.Join(names, ", "))
+	if !eqPartition || len(declared) == 0 {
+		return "", errors.New("Cassandra keeps rows in partition order: sort by a clustering column after filtering the whole partition key with =")
+	}
+	if len(sorts) > len(declared) {
+		return "", inOrder
+	}
+	reversed := sorts[0].Desc != declared[0].desc
 	parts := make([]string, len(sorts))
 	for i, s := range sorts {
-		if !clustering[s.Column] || !eqPartition {
-			return "", errors.New("Cassandra keeps rows in partition order: sort by a clustering column after filtering the whole partition key with =")
+		if s.Column != declared[i].name {
+			return "", inOrder
+		}
+		if (s.Desc != declared[i].desc) != reversed {
+			return "", errors.New("Cassandra sorts by the clustering columns all in their declared directions or all reversed")
 		}
 		parts[i] = quote(s.Column) + map[bool]string{true: " DESC", false: " ASC"}[s.Desc]
 	}
@@ -300,7 +320,7 @@ func (c *conn) browseStatement(t *driver.Table, req driver.BrowseRequest, limit 
 
 func (c *conn) Browse(ctx context.Context, req driver.BrowseRequest) (*driver.Result, error) {
 	start := time.Now()
-	t, err := c.Describe(ctx, req.Ref)
+	t, err := c.describe(ctx, req.Ref, false)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +370,7 @@ func (c *conn) Browse(ctx context.Context, req driver.BrowseRequest) (*driver.Re
 // Count counts with count(*), which reads every row in range; a whole table
 // gets a time limit so a large one fails clearly rather than hanging.
 func (c *conn) Count(ctx context.Context, req driver.BrowseRequest) (driver.Count, error) {
-	t, err := c.Describe(ctx, req.Ref)
+	t, err := c.describe(ctx, req.Ref, false)
 	if err != nil {
 		return driver.Count{}, err
 	}
@@ -410,7 +430,7 @@ func (c *conn) ApplyEdits(ctx context.Context, ref driver.ObjectRef, edits []dri
 	if c.ro {
 		return nil, driver.ErrReadOnly
 	}
-	t, err := c.Describe(ctx, ref)
+	t, err := c.describe(ctx, ref, false)
 	if err != nil {
 		return nil, err
 	}

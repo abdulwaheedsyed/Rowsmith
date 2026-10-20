@@ -63,9 +63,13 @@ func parseScript(script string) ([]request, error) {
 		return nil
 	}
 	offset := 0
+	inTriple := false // inside a """ string, where lines are text, not comments or requests
 	for i, line := range strings.SplitAfter(script, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if m := methodLine.FindStringSubmatch(trimmed); m != nil {
+		if inTriple {
+			body = append(body, line)
+			inTriple = strings.Count(line, `"""`)%2 == 0
+		} else if m := methodLine.FindStringSubmatch(trimmed); m != nil {
 			if err := flush(offset); err != nil {
 				return nil, err
 			}
@@ -77,6 +81,7 @@ func parseScript(script string) ([]request, error) {
 			}
 		} else if !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "//") {
 			body = append(body, line)
+			inTriple = strings.Count(line, `"""`)%2 == 1
 		}
 		offset += len(line)
 	}
@@ -136,6 +141,20 @@ func (r request) kind() driver.StatementKind {
 		return driver.StmtRead
 	}
 	ep := r.endpoint()
+	if r.method == "POST" && (ep == "_sql" || ep == "_plugins/_sql") {
+		// SQL reads, unless the statement is one OpenSearch can run to
+		// delete documents.
+		var q struct {
+			Query string `json:"query"`
+		}
+		json.Unmarshal(r.body, &q)
+		first, _, _ := strings.Cut(strings.TrimSpace(q.Query), " ")
+		switch strings.ToUpper(first) {
+		case "SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN", "WITH", "":
+			return driver.StmtRead
+		}
+		return driver.StmtWrite
+	}
 	if r.method == "POST" {
 		for _, e := range readEndpoints {
 			if strings.Contains("/"+ep+"/", "/"+e+"/") {
