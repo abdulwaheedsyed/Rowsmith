@@ -22,7 +22,10 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
+          # The LicenseRef is Go's patent grant (the PATENTS file), which
+          # golang.org/x modules carry beside BSD-3-Clause.
           allow-licenses: >-
             MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, MPL-2.0,
-            OFL-1.1, Unlicense, CC0-1.0, CC-BY-4.0, Python-2.0, BlueOak-1.0.0, Zlib
+            OFL-1.1, Unlicense, CC0-1.0, CC-BY-4.0, Python-2.0, BlueOak-1.0.0, Zlib,
+            LicenseRef-scancode-google-patent-license-golang
           comment-summary-in-pr: on-failure

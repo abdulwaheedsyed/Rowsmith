@@ -2,6 +2,7 @@
 # pull request per ecosystem; major updates arrive one at a time, so each can
 # be tested on its own. Security updates are separate and arrive as soon as an
 # advisory is published (turn them on under Settings → Code security).
+# Versions wait 14 days after their release before they're offered.
 version: 2
 updates:
   - package-ecosystem: gomod
@@ -10,7 +11,7 @@ updates:
       interval: weekly
       day: monday
     cooldown:
-      default-days: 3
+      default-days: 14
     groups:
       go:
         update-types: [minor, patch]
@@ -21,7 +22,7 @@ updates:
       interval: weekly
       day: monday
     cooldown:
-      default-days: 3
+      default-days: 14
     groups:
       web:
         update-types: [minor, patch]
@@ -32,6 +33,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 14
     groups:
       images:
         update-types: [minor, patch]
@@ -41,6 +44,8 @@ updates:
     directory: /dev
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: [version-update:semver-major]
@@ -53,6 +58,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 14
     groups:
       actions:
         patterns: ["*"]
