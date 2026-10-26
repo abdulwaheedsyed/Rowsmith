@@ -201,7 +201,7 @@ services:
       retries: 100
 
   valkey:
-    image: valkey/valkey:9.0
+    image: valkey/valkey:9.1
     environment:
       PW: ${DEV_DB_PASSWORD}
     # Signs in as an ACL user (rowsmith), unlike the Redis service's default user.
@@ -265,7 +265,7 @@ services:
       retries: 100
 
   tidb:
-    image: pingcap/tidb:v8.5.5
+    image: pingcap/tidb:v8.5.8
     networks: [dev]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:10080/status >/dev/null"]
@@ -347,7 +347,7 @@ services:
   # ScyllaDB in developer mode on one core, with password sign-in. It has
   # no default superuser: rowsmith is created at first start.
   scylla:
-    image: scylladb/scylla:2026.3.2
+    image: scylladb/scylla:2026.3.3
     environment:
       PW: ${DEV_DB_PASSWORD}
     entrypoint:
@@ -362,7 +362,7 @@ services:
     networks: [dev]
 
   scylla-seed:
-    image: scylladb/scylla:2026.3.2
+    image: scylladb/scylla:2026.3.3
     depends_on:
       scylla: { condition: service_started }
     environment:
@@ -391,7 +391,7 @@ services:
 
   # Elasticsearch with password sign-in over plain HTTP.
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms512m -Xmx512m
@@ -404,7 +404,7 @@ services:
     networks: [dev]
 
   elasticsearch-seed:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
     depends_on:
       elasticsearch: { condition: service_started }
     environment:
@@ -453,7 +453,7 @@ services:
     networks: [dev]
 
   dynamodb-seed:
-    image: amazon/aws-cli:2.37.9
+    image: amazon/aws-cli:2.37.12
     depends_on:
       dynamodb: { condition: service_started }
     environment:
@@ -472,7 +472,7 @@ services:
   # A small lake: SeaweedFS as S3, an Iceberg REST catalog, and Trino with
   # iceberg, delta, hive (plain Parquet/ORC/CSV files) and tpch catalogs.
   seaweedfs:
-    image: chrislusf/seaweedfs:4.47
+    image: chrislusf/seaweedfs:4.48
     environment:
       PW: ${DEV_DB_PASSWORD}
     entrypoint:
