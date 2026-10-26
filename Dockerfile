@@ -3,7 +3,7 @@
 # The web app and the binary are built on the build machine's platform and the
 # binary is cross-compiled, so images for other platforms need no emulation.
 
-FROM --platform=$BUILDPLATFORM node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:25-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
