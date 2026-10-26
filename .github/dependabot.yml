@@ -35,6 +35,11 @@ updates:
       day: monday
     cooldown:
       default-days: 14
+    ignore:
+      # Node 25 is a short-lived release, already out of support: the base
+      # image moves from one long-term release to the next.
+      - dependency-name: node
+        versions: [">= 25, < 26"]
     groups:
       images:
         update-types: [minor, patch]
