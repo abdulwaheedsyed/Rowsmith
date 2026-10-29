@@ -499,7 +499,9 @@ services:
       seaweedfs: { condition: service_healthy }
     environment:
       CATALOG_WAREHOUSE: s3://lake/warehouse
-      CATALOG_URI: jdbc:sqlite:file:/tmp/iceberg_catalog.db
+      # Commits overlap; without a busy timeout SQLite refuses the second
+      # with SQLITE_BUSY, which Trino reports as a failed commit.
+      CATALOG_URI: jdbc:sqlite:file:/tmp/iceberg_catalog.db?busy_timeout=30000&journal_mode=WAL
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
       CATALOG_S3_ENDPOINT: http://seaweedfs:8333
       CATALOG_S3_PATH__STYLE__ACCESS: "true"
