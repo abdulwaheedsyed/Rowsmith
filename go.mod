@@ -23,7 +23,7 @@ require (
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/snowflakedb/gosnowflake/v2 v2.3.0
-	github.com/trinodb/trino-go-client v0.337.0
+	github.com/trinodb/trino-go-client v1.3.0
 	github.com/twpayne/go-geom v1.7.0
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.9.2

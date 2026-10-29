@@ -46,7 +46,7 @@ func kindOf(typ string) driver.ValueKind {
 			return driver.KindTimestamp
 		}
 		return driver.KindDateTime
-	case "json":
+	case "json", "variant":
 		return driver.KindJSON
 	case "array":
 		return driver.KindArray

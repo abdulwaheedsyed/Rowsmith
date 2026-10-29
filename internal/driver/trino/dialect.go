@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/trinodb/trino-go-client/trino"
+
 	"rowsmith/internal/driver"
 	"rowsmith/internal/driver/sqlbase"
 	"rowsmith/internal/sqlsplit"
@@ -42,8 +44,8 @@ func (dialect) Paginate(q string, limit int, offset int64, _ bool) string {
 func (dialect) Kind(ct *sql.ColumnType) driver.ValueKind { return kindOf(ct.DatabaseTypeName()) }
 
 // Encode turns a scanned value into a cell. The client decodes arrays,
-// maps and rows into Go values; rows arrive by position and get their
-// field names back from the type.
+// maps and rows into Go values: rows as trino.Row with their field names,
+// VARIANT values as trino.Variant, which reads as JSON.
 func (dialect) Encode(v any, ct *sql.ColumnType, kind driver.ValueKind) any {
 	switch x := v.(type) {
 	case nil:
@@ -66,6 +68,12 @@ func (dialect) Encode(v any, ct *sql.ColumnType, kind driver.ValueKind) any {
 		return encodeNested(x, typ)
 	case map[string]any:
 		return encodeNested(x, "")
+	case trino.Row, trino.Variant:
+		typ := ""
+		if ct != nil {
+			typ = ct.DatabaseTypeName()
+		}
+		return encodeNested(x, typ)
 	}
 	return sqlbase.GenericEncode(v, kind)
 }
@@ -75,20 +83,44 @@ func (dialect) Encode(v any, ct *sql.ColumnType, kind driver.ValueKind) any {
 func encodeNested(v any, typ string) any {
 	switch x := v.(type) {
 	case []any:
-		if names := rowFields(typ); names != nil && len(names) == len(x) {
-			d := driver.Doc{Keys: names, Values: map[string]any{}}
-			fieldTypes := rowFieldTypes(typ)
-			for i, n := range names {
-				d.Values[n] = encodeNested(x[i], fieldTypes[i])
-			}
-			return d
-		}
 		elem := elementType(typ)
 		out := make([]any, len(x))
 		for i, e := range x {
 			out[i] = encodeNested(e, elem)
 		}
 		return out
+	case trino.Row:
+		if !x.Valid {
+			return nil
+		}
+		fieldTypes := rowFieldTypes(typ)
+		d := driver.Doc{Values: map[string]any{}}
+		for i := range x.Len() {
+			name, ft := x.Name(i), ""
+			if len(fieldTypes) == x.Len() {
+				ft = fieldTypes[i]
+			}
+			if _, dup := d.Values[name]; !dup {
+				d.Keys = append(d.Keys, name)
+			}
+			d.Values[name] = encodeNested(x.Value(i), ft)
+		}
+		return d
+	case trino.Variant:
+		if !x.Valid {
+			return nil
+		}
+		b, err := x.MarshalJSON()
+		if err != nil {
+			return x.String()
+		}
+		dec := json.NewDecoder(strings.NewReader(string(b)))
+		dec.UseNumber() // numbers stay exact
+		var out any
+		if dec.Decode(&out) != nil {
+			return string(b)
+		}
+		return encodeNested(out, "")
 	case map[string]any:
 		keys := make([]string, 0, len(x))
 		for k := range x {
@@ -110,20 +142,6 @@ func encodeNested(v any, typ string) any {
 		return driver.EncodeInt(x)
 	}
 	return v
-}
-
-// rowFields reads the field names of ROW(name type, …), or nil.
-func rowFields(typ string) []string {
-	parts := rowParts(typ)
-	if parts == nil {
-		return nil
-	}
-	names := make([]string, len(parts))
-	for i, p := range parts {
-		name, _, _ := strings.Cut(strings.TrimSpace(p), " ")
-		names[i] = strings.ToLower(strings.Trim(name, `"`))
-	}
-	return names
 }
 
 func rowFieldTypes(typ string) []string {

@@ -71,20 +71,13 @@ func TestParseAnalyze(t *testing.T) {
 	}
 }
 
-func TestRowFields(t *testing.T) {
+func TestRowFieldTypes(t *testing.T) {
 	typ := `row(phone varchar, "Address" row(city varchar, zip integer), tags array(varchar))`
-	if got := rowFields(typ); !reflect.DeepEqual(got, []string{"phone", "address", "tags"}) {
-		t.Errorf("fields = %q", got)
-	}
-	if got := rowFieldTypes(typ); got[1] != "row(city varchar, zip integer)" {
+	if got := rowFieldTypes(typ); len(got) != 3 || got[1] != "row(city varchar, zip integer)" || got[2] != "array(varchar)" {
 		t.Errorf("types = %q", got)
 	}
-	if rowFields("array(varchar)") != nil {
-		t.Error("array read as a row")
-	}
-	d := encodeNested([]any{"555", []any{"Oslo", int64(7)}, []any{"a"}}, typ).(driver.Doc)
-	if inner := d.Values["address"].(driver.Doc); inner.Values["city"] != "Oslo" || !reflect.DeepEqual(d.Keys, []string{"phone", "address", "tags"}) {
-		t.Errorf("doc = %+v", d)
+	if got := rowFieldTypes("array(varchar)"); len(got) != 0 {
+		t.Errorf("array read as a row: %q", got)
 	}
 }
 

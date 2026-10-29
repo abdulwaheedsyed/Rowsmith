@@ -169,6 +169,28 @@ func TestIntegrationTrino(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer sess.Close()
+	// Rows come back as objects with their field names (nested, in arrays,
+	// NULL), and VARIANT values as JSON with exact numbers.
+	out := run(t, sess, `SELECT CAST(ROW(1, 'a', ROW(2.5)) AS ROW(id bigint, name varchar, nested ROW(x double))) AS r,
+  ARRAY[CAST(ROW(1, 'b') AS ROW(n integer, s varchar))] AS rs, CAST(NULL AS ROW(a integer)) AS nr,
+  CAST(JSON '{"a": 1, "b": [1.5, "x"], "big": 12345678901234567890}' AS variant) AS v, CAST(NULL AS variant) AS nv`)
+	got := map[string]string{}
+	for i, col := range out.cols[0] {
+		b, _ := json.Marshal(out.rows[0][0][i])
+		got[col.Name] = string(b)
+	}
+	for name, want := range map[string]string{
+		"r": `{"id":1,"name":"a","nested":{"x":2.5}}`, "rs": `[{"n":1,"s":"b"}]`, "nr": "null",
+		"v": `{"a":1,"b":[1.5,"x"],"big":12345678901234567890}`, "nv": "null",
+	} {
+		if got[name] != want {
+			t.Errorf("%s = %s, want %s", name, got[name], want)
+		}
+	}
+	if k := out.cols[0][3].Kind; k != driver.KindJSON {
+		t.Errorf("variant kind = %s", k)
+	}
+
 	run(t, sess, "DROP TABLE IF EXISTS it_people")
 	def := driver.TableDef{Ref: ice("it_people"), Comment: "people for tests", Options: map[string]string{"format": "PARQUET", "partitioning": "bucket(id, 2)"},
 		Columns: []driver.ColumnDef{
