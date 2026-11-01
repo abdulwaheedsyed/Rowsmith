@@ -9,11 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/ssh"
-
 	"rowsmith/internal/driver"
 	"rowsmith/internal/session"
 	"rowsmith/internal/sqlsplit"
+	ssh "rowsmith/internal/sshx"
 	"rowsmith/internal/store"
 )
 

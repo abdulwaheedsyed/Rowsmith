@@ -161,6 +161,9 @@
   gap: 12px;
   align-items: flex-start;
 }
+.connform__compress {
+  margin-top: 14px;
+}
 .hop {
   width: 100%;
   padding: 12px 14px 14px;

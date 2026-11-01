@@ -25,8 +25,9 @@ import (
 
 // SSHSettings is the non-secret part of a connection's tunnel config.
 type SSHSettings struct {
-	Enabled bool     `json:"enabled"`
-	Hops    []SSHHop `json:"hops"`
+	Enabled     bool     `json:"enabled"`
+	Hops        []SSHHop `json:"hops"`
+	Compression bool     `json:"compression,omitempty"`
 }
 
 type SSHHop struct {
@@ -160,12 +161,21 @@ func (m *Manager) Secrets(c *store.Connection) (map[string]string, error) {
 	return out, nil
 }
 
+// TestResult is what a connection test found.
+type TestResult struct {
+	Server  *driver.ServerInfo
+	Latency time.Duration
+	// SSHCompression is the compression the SSH server agreed to, when the
+	// tunnel asked for it: "none" if it declined.
+	SSHCompression string
+}
+
 // Test opens a throwaway connection (used by the connection form).
-func (m *Manager) Test(ctx context.Context, c *store.Connection, secrets map[string]string) (*driver.ServerInfo, time.Duration, error) {
+func (m *Manager) Test(ctx context.Context, c *store.Connection, secrets map[string]string) (*TestResult, error) {
 	start := time.Now()
 	conn, _, th, err := m.openWith(ctx, c, secrets, false)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	defer func() {
 		conn.Close()
@@ -174,7 +184,15 @@ func (m *Manager) Test(ctx context.Context, c *store.Connection, secrets map[str
 		}
 	}()
 	info, err := conn.Server(ctx)
-	return info, time.Since(start), err
+	if err != nil {
+		return nil, err
+	}
+	res := &TestResult{Server: info, Latency: time.Since(start)}
+	var ssh SSHSettings
+	if th != nil && json.Unmarshal(c.SSH, &ssh) == nil && ssh.Compression {
+		res.SSHCompression = th.Compression()
+	}
+	return res, nil
 }
 
 func (m *Manager) open(ctx context.Context, c *store.Connection, readOnly bool) (driver.Conn, driver.Driver, *tunnel.Handle, error) {
@@ -207,7 +225,7 @@ func (m *Manager) openWith(ctx context.Context, c *store.Connection, secrets map
 		if !drv.Info().SSH {
 			return nil, nil, nil, errors.New("this database type does not support SSH tunnels")
 		}
-		cfg := tunnel.Config{}
+		cfg := tunnel.Config{Compression: ssh.Compression}
 		for i, h := range ssh.Hops {
 			hop := tunnel.Hop{Host: h.Host, Port: h.Port, User: h.User}
 			switch h.Auth {

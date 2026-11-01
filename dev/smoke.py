@@ -200,6 +200,17 @@ def main():
     code, ev = stream(c, cv["id"], "SHOW SESSION STATUS LIKE 'Compression'")
     rows = [r for e in ev if e["t"] == "rows" for r in e["rows"]]
     assert code == 200 and rows == [["Compression", "ON"]], ev; ok("ssh: MySQL through the tunnel with zlib compression")
+    # The tunnel itself compressed, which is what PostgreSQL has
+    zssh = {**ssh, "compression": True}
+    _, cv = c.req("POST", "/api/connections", {"name": f"Vault via bastion, compressed tunnel {time.time_ns()}", "driver": "postgres", "environment": "development",
+        "params": {"host": "private-pg", "user": "postgres", "database": "vault", "tls": "disable"},
+        "secrets": {"password": PW, "ssh.0.password": env["DEV_SSH_PASSWORD"]}, "ssh": zssh}, 201)
+    _, body = c.req("POST", f"/api/connections/{cv['id']}/test", expect=200)
+    assert body.get("sshCompression") == "zlib@openssh.com", body
+    code, ev = stream(c, cv["id"], "SELECT n, repeat('row ' || n, 40) AS filler FROM generate_series(1, 20000) n", database="vault", maxRows=20000)
+    rows = [r for e in ev if e["t"] == "rows" for r in e["rows"]]
+    assert code == 200 and len(rows) == 20000 and rows[-1][0] == 20000 and rows[-1][1] == "row 20000" * 40, (code, len(rows), rows[-1:])
+    ok(f"ssh: PostgreSQL through a compressed tunnel (zlib@openssh.com), {len(rows)} rows")
 
     # ClickHouse
     _, cv = c.req("POST", "/api/connections", {"name": f"Analytics (ClickHouse) {time.time_ns()}", "driver": "clickhouse", "environment": "development",

@@ -112,6 +112,7 @@ export interface SSHHop {
 export interface SSHSettings {
   enabled: boolean;
   hops: SSHHop[];
+  compression?: boolean;
 }
 
 export interface Connection {

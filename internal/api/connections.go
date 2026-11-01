@@ -434,12 +434,16 @@ func (s *Server) testSavedConnection(w http.ResponseWriter, r *http.Request, rc 
 func (s *Server) runTest(w http.ResponseWriter, r *http.Request, rc *reqCtx, c *store.Connection, secrets map[string]string) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
-	info, dur, err := s.sessions.Test(ctx, c, secrets)
+	res, err := s.sessions.Test(ctx, c, secrets)
 	if err != nil {
 		writeDBErr(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]any{"server": info, "latencyMs": dur.Milliseconds()})
+	out := map[string]any{"server": res.Server, "latencyMs": res.Latency.Milliseconds()}
+	if res.SSHCompression != "" {
+		out["sshCompression"] = res.SSHCompression
+	}
+	writeJSON(w, 200, out)
 }
 
 func (s *Server) getShares(w http.ResponseWriter, r *http.Request, rc *reqCtx) {

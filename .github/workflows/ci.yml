@@ -34,6 +34,15 @@ jobs:
           fi
       - name: Vet
         run: go vet ./...
+      - name: Check internal/sshx matches x/crypto plus its patch
+        run: |
+          dev/sshx-sync.sh
+          if [ -n "$(git status --porcelain -- internal/sshx)" ]; then
+            echo "internal/sshx differs from golang.org/x/crypto plus rowsmith.patch; run dev/sshx-sync.sh:"
+            git status --short -- internal/sshx
+            git diff --stat -- internal/sshx
+            exit 1
+          fi
       - name: Test
         run: go test ./...
       - name: Check for known vulnerabilities

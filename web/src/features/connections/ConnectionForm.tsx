@@ -187,9 +187,10 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
   const [secrets, setSecrets] = useState<SecretEdits>({});
   const [sshOn, setSshOn] = useState(!!conn?.ssh?.enabled);
   const [hops, setHops] = useState<SSHHop[]>(conn?.ssh?.hops?.length ? conn.ssh.hops : [{ host: "", port: 22, user: "", auth: "password" }]);
+  const [sshCompress, setSshCompress] = useState(!!conn?.ssh?.compression);
   const [open, setOpen] = useState<Record<string, boolean>>({ tls: false, advanced: false, url: false });
   const [url, setUrl] = useState("");
-  const [test, setTest] = useState<{ state: "idle" | "running" | "ok" | "error"; msg?: string; server?: ServerInfo; ms?: number }>({ state: "idle" });
+  const [test, setTest] = useState<{ state: "idle" | "running" | "ok" | "error"; msg?: string; server?: ServerInfo; ms?: number; compression?: string }>({ state: "idle" });
   const [saving, setSaving] = useState(false);
   const [hostKey, setHostKey] = useState<{ key: HostKey; then: "test" | "save" } | null>(null);
   const [changedKey, setChangedKey] = useState<HostKey | null>(null);
@@ -245,7 +246,7 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
   function payload() {
     const cleanSecrets: Record<string, string | null> = {};
     for (const [k, v] of Object.entries(secrets)) cleanSecrets[k] = v;
-    const ssh = driver?.ssh ? { enabled: sshOn, hops: hops.map((h) => ({ ...h, port: Number(h.port) || 22 })) } : undefined;
+    const ssh = driver?.ssh ? { enabled: sshOn, hops: hops.map((h) => ({ ...h, port: Number(h.port) || 22 })), compression: sshCompress } : undefined;
     return {
       name: name.trim() || autoName(),
       driver: driverId,
@@ -282,8 +283,8 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
   async function runTest() {
     setTest({ state: "running" });
     try {
-      const r = await post<{ server: ServerInfo; latencyMs: number }>("connections/test", { ...payload(), id: conn?.id });
-      setTest({ state: "ok", server: r.server, ms: r.latencyMs });
+      const r = await post<{ server: ServerInfo; latencyMs: number; sshCompression?: string }>("connections/test", { ...payload(), id: conn?.id });
+      setTest({ state: "ok", server: r.server, ms: r.latencyMs, compression: r.sshCompression });
     } catch (e) {
       if (handleErr(e, "test")) return setTest({ state: "idle" });
       setTest({ state: "error", msg: e instanceof ApiError ? e.message : String(e) });
@@ -430,7 +431,13 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
                     <label className="switch"><input type="checkbox" checked={sshOn} onChange={(e) => setSshOn(e.target.checked)} /> {sshOn ? "On" : "Off"}</label>
                   }>
                     {sshOn ? (
-                      <SSHHops hops={hops} setHops={setHops} secrets={secrets} setSecrets={setSecrets} secretsSet={secretsSet} />
+                      <>
+                        <SSHHops hops={hops} setHops={setHops} secrets={secrets} setSecrets={setSecrets} secretsSet={secretsSet} />
+                        <div className="connform__compress">
+                          <label className="check"><input type="checkbox" checked={sshCompress} onChange={(e) => setSshCompress(e.target.checked)} /> Compress traffic through the tunnel</label>
+                          <div className="field__help">Compresses the traffic between Rowsmith and the {hops.length > 1 ? "last jump host" : "SSH server"}, which helps on slow links. It works for every database type, PostgreSQL included. It costs CPU on both ends, so leave it off on a fast network. The server must allow it; OpenSSH does by default.</div>
+                        </div>
+                      </>
                     ) : (
                       <p className="muted connform__hint">Reach a database on a private network by connecting through an SSH server. The database host is then resolved from that server.</p>
                     )}
@@ -516,11 +523,12 @@ export function ConnectionDialog({ conn, initialDriver, onClose }: { conn?: Conn
   );
 }
 
-function TestResult({ test }: { test: { state: string; msg?: string; server?: ServerInfo; ms?: number } }) {
+function TestResult({ test }: { test: { state: string; msg?: string; server?: ServerInfo; ms?: number; compression?: string } }) {
   if (test.state === "ok" && test.server)
     return (
       <span className="testres testres--ok">
         <CheckCircle2 size={15} /> Connected · {test.server.product} {test.server.version} · {test.ms} ms
+        {test.compression && (test.compression === "none" ? " · the SSH server declined compression" : " · compressed")}
       </span>
     );
   if (test.state === "error")

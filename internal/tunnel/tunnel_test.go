@@ -10,15 +10,17 @@ import (
 	"log/slog"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/ssh"
+	ssh "rowsmith/internal/sshx"
 )
 
 // sshServer is a minimal bastion for tests: password sign-in and port
-// forwarding, with a way to cut every connection as a restart would.
+// forwarding, with a way to cut every connection as a restart would, and
+// the compressions it allows.
 type sshServer struct {
 	ln    net.Listener
 	conf  *ssh.ServerConfig
@@ -27,7 +29,7 @@ type sshServer struct {
 	conns []net.Conn
 }
 
-func newSSHServer(t *testing.T) *sshServer {
+func newSSHServer(t *testing.T, compressions ...string) *sshServer {
 	t.Helper()
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -44,6 +46,7 @@ func newSSHServer(t *testing.T) *sshServer {
 		return nil, errors.New("wrong password")
 	}}
 	conf.AddHostKey(signer)
+	conf.Compressions = compressions
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -233,4 +236,60 @@ func TestReconnectStillChecksTheHostKey(t *testing.T) {
 	if !errors.As(err, &changed) || changed.Fingerprint != Fingerprint(other.PublicKey()) {
 		t.Fatalf("reconnecting to a changed key: %v, want a HostKeyMismatchError", err)
 	}
+}
+
+// TestCompressionOnTheLastHop: only the last hop, which carries the database
+// traffic, is asked to compress; the hops before it carry encrypted SSH.
+func TestCompressionOnTheLastHop(t *testing.T) {
+	jump := newSSHServer(t, ssh.CompressionZlibOpenSSH)
+	last := newSSHServer(t, ssh.CompressionZlibOpenSSH)
+	echo := echoServer(t)
+	var keys trusted
+	for _, s := range []*sshServer{jump, last} {
+		pub := s.key.PublicKey()
+		keys = append(keys, KnownKey{KeyType: pub.Type(), PublicKey: base64.StdEncoding.EncodeToString(pub.Marshal())})
+	}
+	m := NewManager(byPort{jump.hop().Port: keys[:1], last.hop().Port: keys[1:]}, slog.New(slog.DiscardHandler))
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	h, err := m.Acquire(ctx, Config{Hops: []Hop{jump.hop(), last.hop()}, Compression: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Release()
+	if got := h.Compression(); got != ssh.CompressionZlibOpenSSH {
+		t.Errorf("last hop compression = %q", got)
+	}
+	if got := h.t.clients[0].Conn.(ssh.AlgorithmsConnMetadata).Algorithms().Read.Compression(); got != "none" {
+		t.Errorf("first hop compression = %q", got)
+	}
+	c, err := h.Dial(ctx, "tcp", echo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	msg := []byte(strings.Repeat("SELECT * FROM orders WHERE id = 42;\n", 20000))
+	go c.Write(msg)
+	got := make([]byte, len(msg))
+	if _, err := io.ReadFull(c, got); err != nil || string(got) != string(msg) {
+		t.Fatalf("echo through the compressed tunnel: %v", err)
+	}
+
+	// Without compression it's another tunnel, and the server isn't asked.
+	plain, err := m.Acquire(ctx, Config{Hops: []Hop{jump.hop(), last.hop()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer plain.Release()
+	if plain.t == h.t || plain.Compression() != "none" {
+		t.Errorf("an uncompressed config shared the tunnel or compressed (%q)", plain.Compression())
+	}
+}
+
+// byPort trusts each test server's own key.
+type byPort map[int][]KnownKey
+
+func (k byPort) HostKeys(_ context.Context, _ string, port int) ([]KnownKey, error) {
+	return k[port], nil
 }

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ssh"
+	ssh "rowsmith/internal/sshx"
 )
 
 type Hop struct {
@@ -44,6 +44,10 @@ func (h Hop) addr() string {
 type Config struct {
 	Hops      []Hop         // first hop is dialed directly; each next hop through the previous
 	KeepAlive time.Duration // default 30s
+	// Compression asks the last hop for zlib compression, which carries the
+	// database traffic; the hops before it carry encrypted SSH, which doesn't
+	// compress. The server may decline it.
+	Compression bool
 }
 
 type KnownKey struct {
@@ -246,6 +250,18 @@ func (h *Handle) Release() {
 	})
 }
 
+// Compression returns the compression agreed with the last hop for the
+// traffic coming back through it: "none" when the server declined it.
+func (h *Handle) Compression() string {
+	h.mu.Lock()
+	t := h.t
+	h.mu.Unlock()
+	if m, ok := t.clients[len(t.clients)-1].Conn.(ssh.AlgorithmsConnMetadata); ok {
+		return m.Algorithms().Read.Compression()
+	}
+	return ""
+}
+
 func (h *Handle) Alive() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -284,6 +300,9 @@ func (m *Manager) connect(ctx context.Context, cfg Config) ([]*ssh.Client, error
 		}
 		if algos := algorithmsFor(known); len(algos) > 0 {
 			conf.HostKeyAlgorithms = algos
+		}
+		if cfg.Compression && i == len(cfg.Hops)-1 {
+			conf.Compressions = []string{ssh.CompressionZlibOpenSSH, ssh.CompressionZlib}
 		}
 
 		var raw net.Conn
@@ -495,7 +514,10 @@ func (m *Manager) CloseAll() {
 }
 
 func configKey(cfg Config) string {
-	b, _ := json.Marshal(cfg.Hops)
+	b, _ := json.Marshal(struct {
+		Hops        []Hop
+		Compression bool
+	}{cfg.Hops, cfg.Compression})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }

@@ -95,6 +95,7 @@ source dev/.env && NET=rowsmith-dev_dev GO_ENV="-e ROWSMITH_TEST_ORACLE_HOST=ora
 | Trino | `ROWSMITH_TEST_TRINO_HOST=trino`. The dev stack runs Trino with an Iceberg REST catalog and SeaweedFS as S3 storage; `trino-seed` loads `dev/seed/trino.sql`: Iceberg tables in `iceberg.shop` (with several snapshots) and Parquet and CSV files under `hive.raw`, and `dev/seed/trino-delta.sql`: a Delta Lake table in `delta.sales` with several versions. |
 | DynamoDB | `ROWSMITH_TEST_DYNAMODB_ENDPOINT=http://dynamodb:8000` (any access key). The dev stack runs DynamoDB Local in memory, and `dev/seed/dynamodb-seed.sh` creates Customers (with a global index), Orders (partition and sort key, a local index) and Sessions (provisioned, with TTL) and loads `dev/seed/dynamodb/`. The test creates and deletes its own `it_` tables. |
 | Databricks | `ROWSMITH_TEST_DATABRICKS_HOST`, `_HTTP_PATH` (a SQL warehouse's), `_TOKEN_FILE` (a file holding a personal access token): a workspace of your own, such as Free Edition. The test reads `samples.tpch` and works in a schema of its own in the `workspace` catalog, which it drops, using a minute or two of the warehouse. Run it with `go test` on the host. |
+| SSH compression | `ROWSMITH_TEST_SSH_HOST=bastion`, `ROWSMITH_TEST_SSH_PASSWORD=$DEV_SSH_PASSWORD`: runs compressed sessions against the bastion's OpenSSH, in `./internal/sshx/`. |
 | Redis, Valkey | `ROWSMITH_TEST_REDIS_HOST=redis`, `ROWSMITH_TEST_REDIS_PASSWORD=$DEV_DB_PASSWORD`, `ROWSMITH_TEST_VALKEY_HOST=valkey`, `ROWSMITH_TEST_VALKEY_USER=rowsmith`, `ROWSMITH_TEST_VALKEY_PASSWORD=$DEV_DB_PASSWORD`, and for the three-node cluster `ROWSMITH_TEST_REDIS_CLUSTER_HOST=redis-cluster`, `ROWSMITH_TEST_REDIS_CLUSTER_PASSWORD=$DEV_DB_PASSWORD` |
 
 MySQL, MariaDB, TiDB, PostgreSQL, CockroachDB, YugabyteDB, ClickHouse, MongoDB, Redis, Valkey, Cassandra, ScyllaDB, Elasticsearch, OpenSearch, DynamoDB and Trino are also covered by the smoke test.
@@ -116,6 +117,12 @@ Dependabot opens update pull requests every Monday: minor and patch updates grou
 
 ```bash
 python3 dev/notices.py
+```
+
+Rowsmith's SSH tunnels use `internal/sshx`, a copy of golang.org/x/crypto/ssh with compression added (see its [README](internal/sshx/README.md)). When golang.org/x/crypto changes version, rebuild the copy from the new version and commit it; CI fails until you do:
+
+```bash
+dev/sshx-sync.sh
 ```
 
 ## Commits and pull requests
