@@ -300,3 +300,44 @@ func hasDatabase(t *testing.T, c *conn, name string) bool {
 	}
 	return false
 }
+
+// Each compressor is negotiated: the server counts what it decompresses.
+func TestIntegrationCompression(t *testing.T) {
+	plain := openTestConn(t)
+	inflated := func(alg string) int64 {
+		st, err := plain.client.Database("admin").RunCommand(context.Background(), bson.D{{Key: "serverStatus", Value: 1}}).Raw()
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, _ := st.Lookup("network", "compression", alg, "decompressor", "bytesIn").AsInt64OK()
+		return n
+	}
+	d, _ := driver.Get("mongodb")
+	for _, alg := range []string{"zstd", "snappy", "zlib"} {
+		t.Run(alg, func(t *testing.T) {
+			before := inflated(alg)
+			cn, err := d.Open(context.Background(), driver.OpenParams{AppName: "rowsmith-test",
+				Params: map[string]any{"mode": "fields", "host": os.Getenv("ROWSMITH_TEST_MONGO_HOST"), "port": cmpOr(os.Getenv("ROWSMITH_TEST_MONGO_PORT"), "27017"),
+					"user": cmpOr(os.Getenv("ROWSMITH_TEST_MONGO_USER"), "root"), "authSource": "admin", "tls": "disable", "compression": alg},
+				Secrets: map[string]string{"password": os.Getenv("ROWSMITH_TEST_MONGO_PASSWORD")}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cn.Close()
+			c := cn.(*conn)
+			if _, err := c.client.ListDatabaseNames(context.Background(), bson.D{}); err != nil {
+				t.Fatal(err)
+			}
+			if after := inflated(alg); after <= before {
+				t.Errorf("%s bytes decompressed: %d before, %d after", alg, before, after)
+			}
+		})
+	}
+}
+
+func cmpOr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}

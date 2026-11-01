@@ -23,6 +23,9 @@ func NetworkFields(defaultPort int, dbLabel string, dbRequired bool) []Field {
 	return f
 }
 
+// CompressionHelp explains a driver's wire compression option.
+const CompressionHelp = "Compresses results on the way from the server. Worth it over slow links such as SSH tunnels and VPNs; on a fast network it only costs CPU."
+
 var TLSModes = []Option{
 	{Value: "disable", Label: "Disabled"},
 	{Value: "prefer", Label: "Preferred (encrypt if the server supports it)"},

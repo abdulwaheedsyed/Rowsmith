@@ -53,6 +53,9 @@ func (mongoDriver) Info() driver.Info {
 			{Key: "tls", Label: "TLS / SSL", Type: driver.FieldSelect, Options: driver.TLSModes, Default: "disable", Section: "tls", ShowIf: connect},
 			{Key: "tlsCA", Label: "CA certificate (PEM)", Type: driver.FieldFile, Section: "tls", ShowIf: map[string][]string{"tls": {"require", "verify-ca", "verify-full"}}},
 			{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
+			{Key: "compression", Label: "Compression", Type: driver.FieldSelect, Default: "none", Section: "advanced", Span: 3,
+				Options: []driver.Option{{Value: "none", Label: "None"}, {Value: "zstd", Label: "Zstandard"}, {Value: "snappy", Label: "Snappy"}, {Value: "zlib", Label: "zlib"}},
+				Help:    driver.CompressionHelp + " A connection string's compressors setting applies when this is None."},
 		},
 		Caps: driver.Caps{Databases: true, Documents: true, EditRows: true, DDL: true, Explain: true, Processes: true, Variables: true,
 			Users: true, Geometry: true, CreateDatabase: false, DropDatabase: true},
@@ -112,6 +115,10 @@ func (mongoDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, 
 		} else if tc != nil {
 			opts.SetTLSConfig(tc)
 		}
+	}
+	if c := p.String("compression"); c != "" && c != "none" {
+		// The server picks it if it supports it, else replies uncompressed.
+		opts.SetCompressors([]string{c})
 	}
 	if p.Dial != nil {
 		// Through a tunnel only the configured host is reachable, so do not

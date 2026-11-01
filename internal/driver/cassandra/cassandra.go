@@ -19,6 +19,7 @@ import (
 	"time"
 
 	gocql "github.com/apache/cassandra-gocql-driver/v2"
+	"github.com/apache/cassandra-gocql-driver/v2/lz4"
 
 	"rowsmith/internal/driver"
 	"rowsmith/internal/sqlsplit"
@@ -72,6 +73,8 @@ func (d cqlDriver) Info() driver.Info {
 			Help: "For SSH tunnels and networks where the addresses nodes announce can't be reached."},
 		driver.Field{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
 		driver.Field{Key: "queryTimeout", Label: "Query timeout (seconds)", Type: driver.FieldNumber, Default: 60, Section: "advanced", Span: 3},
+		driver.Field{Key: "compression", Label: "Compression", Type: driver.FieldSelect, Default: "none", Section: "advanced", Span: 3,
+			Options: []driver.Option{{Value: "none", Label: "None"}, {Value: "lz4", Label: "LZ4"}}, Help: driver.CompressionHelp},
 	)
 	desc := "Apache Cassandra 4.0 and later, and DataStax Enterprise"
 	if d.id == "scylladb" {
@@ -162,6 +165,10 @@ func (d cqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Conn, 
 	if p.Bool("contactOnly") {
 		// Only the listed nodes, not the addresses the cluster announces.
 		cfg.DisableInitialHostLookup = true
+	}
+	if p.String("compression") == "lz4" {
+		// LZ4 is the one compression every supported version takes: protocol v5 dropped Snappy.
+		cfg.Compressor = lz4.LZ4Compressor{}
 	}
 	if p.Dial != nil {
 		cfg.Dialer = dialer(p.Dial)

@@ -156,6 +156,14 @@ function parseURL(raw: string): { driver?: string; params: Record<string, unknow
       const m = ssl.toLowerCase();
       params.tls = m === "disable" || m === "disabled" || m === "false" ? "disable" : m.includes("verify_identity") || m === "verify-full" ? "verify-full" : m.includes("verify") ? "verify-ca" : m === "require" || m === "required" || m === "true" ? "require" : "prefer";
     }
+    // compress=true (MySQL), compress=lz4 (ClickHouse) or compressors=zstd,snappy (MongoDB).
+    const comp = (u.searchParams.get("compressors") ?? u.searchParams.get("compress") ?? "").split(",")[0].trim().toLowerCase();
+    if (comp) {
+      const off = comp === "false" || comp === "0" || comp === "none";
+      if (driver === "mysql" || driver === "mariadb" || driver === "tidb") params.compression = off ? "none" : "zlib";
+      else if (driver === "clickhouse") params.compression = off ? "none" : comp === "zstd" ? "zstd" : "lz4";
+      else if (driver === "mongodb" && ["zstd", "snappy", "zlib"].includes(comp)) params.compression = comp;
+    }
     return { driver, params, secrets };
   } catch {
     return null;

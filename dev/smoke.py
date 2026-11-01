@@ -194,6 +194,12 @@ def main():
     assert not [e for e in ev if e["t"] == "stmtEnd" and e.get("error")], ev; ok("production connection: confirmed DDL ran through the tunnel")
     code, body = c.req("POST", f"/api/c/{vid}/access/apply", {"grants": [{"principal": "postgres", "level": "schema", "database": "vault", "schema": "public", "privilege": "USAGE"}]})
     assert code == 409 and body["error"]["code"] == "confirm_required", body; ok("production connection: access changes require confirmation")
+    _, cv = c.req("POST", "/api/connections", {"name": f"Shop via bastion, compressed {time.time_ns()}", "driver": "mysql", "environment": "development",
+        "params": {"host": "mysql", "user": "root", "tls": "disable", "compression": "zlib"},
+        "secrets": {"password": PW, "ssh.0.password": env["DEV_SSH_PASSWORD"]}, "ssh": ssh}, 201)
+    code, ev = stream(c, cv["id"], "SHOW SESSION STATUS LIKE 'Compression'")
+    rows = [r for e in ev if e["t"] == "rows" for r in e["rows"]]
+    assert code == 200 and rows == [["Compression", "ON"]], ev; ok("ssh: MySQL through the tunnel with zlib compression")
 
     # ClickHouse
     _, cv = c.req("POST", "/api/connections", {"name": f"Analytics (ClickHouse) {time.time_ns()}", "driver": "clickhouse", "environment": "development",

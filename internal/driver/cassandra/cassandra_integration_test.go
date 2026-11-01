@@ -3,6 +3,7 @@ package cassandra
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -381,5 +382,42 @@ CONSISTENCY`)
 			t.Fatalf("ddl: %v", err)
 		}
 		run(t, sess, strings.Join(st, ";\n"))
+	}
+}
+
+// With compression on, the connection starts up with LZ4, which the server
+// lists among the client's options.
+func TestIntegrationCompression(t *testing.T) {
+	for _, tg := range targets {
+		t.Run(tg.id, func(t *testing.T) {
+			host := os.Getenv(tg.prefix + "HOST")
+			if host == "" {
+				t.Skip(tg.prefix + "HOST not set")
+			}
+			d, _ := driver.Get(tg.id)
+			cn, err := d.Open(context.Background(), driver.OpenParams{
+				Params:  map[string]any{"host": host, "user": "rowsmith", "database": "shop", "tls": "disable", "compression": "lz4"},
+				Secrets: map[string]string{"password": os.Getenv(tg.prefix + "PASSWORD")}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer cn.Close()
+			sess, err := cn.NewSession(context.Background(), driver.Scope{Database: "shop"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer sess.Close()
+			clients := "system_views.clients"
+			if tg.id == "scylladb" {
+				clients = "system.clients"
+			}
+			s := run(t, sess, "SELECT count(*) FROM customers;\nSELECT client_options FROM "+clients)
+			if s.rows[0][0][0] != int64(60) {
+				t.Errorf("count = %v", s.rows[0])
+			}
+			if !strings.Contains(fmt.Sprint(s.rows[1]), "lz4") {
+				t.Errorf("no client started up with lz4: %v", s.rows[1])
+			}
+		})
 	}
 }

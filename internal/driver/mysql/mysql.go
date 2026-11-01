@@ -61,6 +61,8 @@ func (d *mysqlDriver) Info() driver.Info {
 	fields = append(fields,
 		driver.Field{Key: "connectTimeout", Label: "Connect timeout (seconds)", Type: driver.FieldNumber, Default: 15, Section: "advanced", Span: 3},
 		driver.Field{Key: "timezone", Label: "Session time zone", Type: driver.FieldText, Placeholder: "server default, e.g. +00:00", Section: "advanced", Span: 3},
+		driver.Field{Key: "compression", Label: "Compression", Type: driver.FieldSelect, Default: "none", Section: "advanced", Span: 3,
+			Options: []driver.Option{{Value: "none", Label: "None"}, {Value: "zlib", Label: "zlib"}}, Help: driver.CompressionHelp},
 		driver.Field{Key: "allowCleartext", Label: "Allow cleartext password plugin (only over TLS/SSH)", Type: driver.FieldBool, Section: "advanced"},
 	)
 	info := driver.Info{
@@ -133,6 +135,12 @@ func (d *mysqlDriver) Open(ctx context.Context, p driver.OpenParams) (driver.Con
 	cfg.ClientFoundRows = true // UPDATE reports matched rows, so unchanged saves are not "missing"
 	cfg.Timeout = time.Duration(p.Int("connectTimeout", 15)) * time.Second
 	cfg.AllowCleartextPasswords = p.Bool("allowCleartext")
+	if p.String("compression") == "zlib" {
+		// Used only if the server offers it.
+		if err := cfg.Apply(my.EnableCompression(true)); err != nil {
+			return nil, err
+		}
+	}
 	cfg.Params = map[string]string{}
 	cfg.ConnectionAttributes = "program_name:" + p.AppName
 	if tz := strings.TrimSpace(p.String("timezone")); tz != "" {

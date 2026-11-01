@@ -2,6 +2,12 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
+## 0.7.0 - Unreleased
+
+### Changes
+
+- MySQL, MariaDB, TiDB, MongoDB, Cassandra and ScyllaDB connections have a Compression setting under Advanced (zlib for MySQL, MariaDB and TiDB; Zstandard, Snappy or zlib for MongoDB; LZ4 for Cassandra and ScyllaDB). It's off by default; turn it on when large results or migrations go over a slow link such as an SSH tunnel. The server must support it, and connections stay uncompressed when it doesn't. Pasted URLs with `compress=` or `compressors=` fill it in, for ClickHouse too.
+
 ## 0.6.0 - 2026-10-20
 
 ### Engines
