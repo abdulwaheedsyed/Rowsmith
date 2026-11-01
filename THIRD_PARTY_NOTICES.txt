@@ -50,14 +50,14 @@ In the server binary (Go):
   github.com/bahlo/generic-list-go                                             v0.2.0         BSD
   github.com/buger/jsonparser                                                  v1.1.2         MIT
   github.com/cespare/xxhash/v2                                                 v2.3.0         MIT
-  github.com/coreos/go-oidc/v3                                                 v3.5.0         Apache-2.0
+  github.com/coreos/go-oidc/v3                                                 v3.21.0        Apache-2.0
   github.com/databricks/databricks-sql-go                                      v1.16.0        Apache-2.0
   github.com/dustin/go-humanize                                                v1.0.1         MIT
   github.com/felixge/httpsnoop                                                 v1.1.0         MIT
   github.com/gabriel-vasile/mimetype                                           v1.4.7         MIT
   github.com/go-faster/city                                                    v1.0.1         MIT
   github.com/go-faster/errors                                                  v0.7.1         BSD
-  github.com/go-jose/go-jose/v3                                                v3.0.5         Apache-2.0
+  github.com/go-jose/go-jose/v4                                                v4.1.6         Apache-2.0
   github.com/go-logr/logr                                                      v1.4.4         Apache-2.0
   github.com/go-logr/stdr                                                      v1.2.2         Apache-2.0
   github.com/go-sql-driver/mysql                                               v1.10.1        MPL-2.0
@@ -180,39 +180,39 @@ In the web app (npm):
   @maplibre/mlt                           1.3.0          (MIT OR Apache-2.0)
   @maplibre/vt-pbf                        4.3.2          MIT
   @marijn/find-cluster-break              1.0.4          MIT
-  @radix-ui/primitive                     1.1.7          MIT
-  @radix-ui/react-arrow                   1.1.16         MIT
-  @radix-ui/react-collection              1.1.16         MIT
+  @radix-ui/primitive                     1.2.0          MIT
+  @radix-ui/react-arrow                   1.1.17         MIT
+  @radix-ui/react-collection              1.2.0          MIT
   @radix-ui/react-compose-refs            1.1.5          MIT
-  @radix-ui/react-context                 1.2.2          MIT
-  @radix-ui/react-context-menu            2.3.8          MIT
-  @radix-ui/react-dialog                  1.2.0          MIT
-  @radix-ui/react-direction               1.1.5          MIT
-  @radix-ui/react-dismissable-layer       1.1.20         MIT
-  @radix-ui/react-dropdown-menu           2.1.25         MIT
-  @radix-ui/react-focus-guards            1.1.6          MIT
-  @radix-ui/react-focus-scope             1.2.0          MIT
+  @radix-ui/react-context                 1.3.0          MIT
+  @radix-ui/react-context-menu            2.4.0          MIT
+  @radix-ui/react-dialog                  1.3.0          MIT
+  @radix-ui/react-direction               1.2.0          MIT
+  @radix-ui/react-dismissable-layer       1.2.0          MIT
+  @radix-ui/react-dropdown-menu           2.2.0          MIT
+  @radix-ui/react-focus-guards            1.2.0          MIT
+  @radix-ui/react-focus-scope             1.3.0          MIT
   @radix-ui/react-id                      1.1.4          MIT
-  @radix-ui/react-menu                    2.1.25         MIT
-  @radix-ui/react-popover                 1.2.0          MIT
-  @radix-ui/react-popper                  1.3.8          MIT
-  @radix-ui/react-portal                  1.1.18         MIT
+  @radix-ui/react-menu                    2.2.0          MIT
+  @radix-ui/react-popover                 1.3.0          MIT
+  @radix-ui/react-popper                  1.4.0          MIT
+  @radix-ui/react-portal                  1.2.0          MIT
   @radix-ui/react-presence                1.1.11         MIT
-  @radix-ui/react-primitive               2.1.11         MIT
-  @radix-ui/react-roving-focus            1.1.20         MIT
-  @radix-ui/react-slot                    1.4.0          MIT
-  @radix-ui/react-tooltip                 1.3.0          MIT
-  @radix-ui/react-use-callback-ref        1.1.4          MIT
-  @radix-ui/react-use-controllable-state  1.2.6          MIT
+  @radix-ui/react-primitive               2.2.0          MIT
+  @radix-ui/react-roving-focus            1.2.0          MIT
+  @radix-ui/react-slot                    1.5.0          MIT
+  @radix-ui/react-tooltip                 1.4.0          MIT
+  @radix-ui/react-use-callback-ref        1.1.5          MIT
+  @radix-ui/react-use-controllable-state  1.3.0          MIT
   @radix-ui/react-use-effect-event        0.0.5          MIT
   @radix-ui/react-use-is-hydrated         0.1.3          MIT
   @radix-ui/react-use-layout-effect       1.1.4          MIT
   @radix-ui/react-use-rect                1.1.4          MIT
   @radix-ui/react-use-size                1.1.5          MIT
-  @radix-ui/react-visually-hidden         1.2.12         MIT
+  @radix-ui/react-visually-hidden         1.2.13         MIT
   @radix-ui/rect                          1.1.3          MIT
-  @tanstack/query-core                    5.104.1        MIT
-  @tanstack/react-query                   5.104.1        MIT
+  @tanstack/query-core                    5.104.2        MIT
+  @tanstack/react-query                   5.104.2        MIT
   @types/d3-color                         3.1.3          MIT
   @types/d3-drag                          3.0.7          MIT
   @types/d3-interpolate                   3.0.4          MIT
@@ -249,7 +249,7 @@ In the web app (npm):
   json-stringify-pretty-compact           4.0.0          MIT
   kdbush                                  4.1.0          ISC
   lucide-react                            1.55.0         ISC
-  maplibre-gl                             6.13.0         BSD-3-Clause
+  maplibre-gl                             6.14.0         BSD-3-Clause
   minimist                                1.2.8          MIT
   moo                                     0.5.3          BSD-3-Clause
   murmurhash-js                           1.0.0          MIT
@@ -1214,7 +1214,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-github.com/coreos/go-oidc/v3 v3.5.0
+github.com/coreos/go-oidc/v3 v3.21.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -1375,7 +1375,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/go-jose/go-jose/v3 v3.0.5
+github.com/go-jose/go-jose/v4 v4.1.6
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -8860,7 +8860,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-@radix-ui/primitive 1.1.7
+@radix-ui/primitive 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8887,7 +8887,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-arrow 1.1.16
+@radix-ui/react-arrow 1.1.17
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8914,7 +8914,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-collection 1.1.16
+@radix-ui/react-collection 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8968,7 +8968,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-context 1.2.2
+@radix-ui/react-context 1.3.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8995,7 +8995,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-context-menu 2.3.8
+@radix-ui/react-context-menu 2.4.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9022,7 +9022,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dialog 1.2.0
+@radix-ui/react-dialog 1.3.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9049,7 +9049,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-direction 1.1.5
+@radix-ui/react-direction 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9076,7 +9076,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dismissable-layer 1.1.20
+@radix-ui/react-dismissable-layer 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9103,7 +9103,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dropdown-menu 2.1.25
+@radix-ui/react-dropdown-menu 2.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9130,7 +9130,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-focus-guards 1.1.6
+@radix-ui/react-focus-guards 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9157,7 +9157,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-focus-scope 1.2.0
+@radix-ui/react-focus-scope 1.3.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9211,7 +9211,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-menu 2.1.25
+@radix-ui/react-menu 2.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9238,7 +9238,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-popover 1.2.0
+@radix-ui/react-popover 1.3.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9265,7 +9265,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-popper 1.3.8
+@radix-ui/react-popper 1.4.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9292,7 +9292,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-portal 1.1.18
+@radix-ui/react-portal 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9346,7 +9346,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-primitive 2.1.11
+@radix-ui/react-primitive 2.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9373,7 +9373,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-roving-focus 1.1.20
+@radix-ui/react-roving-focus 1.2.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9400,7 +9400,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-slot 1.4.0
+@radix-ui/react-slot 1.5.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9427,7 +9427,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-tooltip 1.3.0
+@radix-ui/react-tooltip 1.4.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9454,7 +9454,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-use-callback-ref 1.1.4
+@radix-ui/react-use-callback-ref 1.1.5
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9481,7 +9481,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-use-controllable-state 1.2.6
+@radix-ui/react-use-controllable-state 1.3.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9643,7 +9643,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-visually-hidden 1.2.12
+@radix-ui/react-visually-hidden 1.2.13
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9697,7 +9697,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/query-core 5.104.1
+@tanstack/query-core 5.104.2
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9724,7 +9724,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/react-query 5.104.1
+@tanstack/react-query 5.104.2
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -10891,7 +10891,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-maplibre-gl 6.13.0
+maplibre-gl 6.14.0
 License: BSD-3-Clause
 --------------------------------------------------------------------------------
 
