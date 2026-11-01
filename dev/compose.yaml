@@ -448,12 +448,12 @@ services:
 
   # DynamoDB Local, in memory; any credentials are accepted.
   dynamodb:
-    image: amazon/dynamodb-local:3.3.1
+    image: amazon/dynamodb-local:3.3.2
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory", "-port", "8000"]
     networks: [dev]
 
   dynamodb-seed:
-    image: amazon/aws-cli:2.37.12
+    image: amazon/aws-cli:2.38.1
     depends_on:
       dynamodb: { condition: service_started }
     environment:
