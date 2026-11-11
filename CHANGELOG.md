@@ -11,7 +11,7 @@ The changes in each release of Rowsmith™. Versions follow [Semantic Versioning
 
 ### Fixes
 
-- Built with Go 1.27.3, whose certificate checks refuse compromised intermediate certificates (GO-2026-6809), for email sent over TLS among others.
+- Built with Go 1.27.4. Go 1.27.3 made certificate checks refuse compromised intermediate certificates (GO-2026-6809), for email sent over TLS among others, and 1.27.4 fixes a crash of the web server when an upload goes over its size limit while the response is being written (GO-2026-6859).
 - Databricks sign-in with a service principal verifies tokens with go-jose v4.1.6 instead of go-jose v3, which has no fix for GHSA-mgcc-cww5-fp2q, GHSA-vvm8-gf78-28g4 and GHSA-4w3g-jfj2-cw2q.
 - Zstandard data from MongoDB and Trino, and Brotli data from ClickHouse, are decompressed with klauspost/compress 1.20.2 and brotli 1.2.7: crafted data could crash the server (GO-2026-6865) or make it allocate excessive memory (GO-2026-6888).
 
