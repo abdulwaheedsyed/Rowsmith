@@ -28,6 +28,7 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 	go.mongodb.org/mongo-driver/v2 v2.9.2
 	golang.org/x/crypto v0.58.0
+	golang.org/x/sys v0.49.0
 	google.golang.org/api v0.304.0
 	gopkg.in/inf.v0 v0.9.1
 	modernc.org/sqlite v1.60.1
@@ -154,7 +155,6 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect

@@ -2,12 +2,17 @@
 
 The changes in each release of Rowsmith™. Versions follow [Semantic Versioning](https://semver.org/). Until 1.0, a new minor version (0.2, 0.3) may change how something works; its notes say what to do when upgrading.
 
-## 0.7.0 - Unreleased
+## 0.7.0 - 2026-11-11
 
 ### Changes
 
 - MySQL, MariaDB, TiDB, MongoDB, Cassandra and ScyllaDB connections have a Compression setting under Advanced (zlib for MySQL, MariaDB and TiDB; Zstandard, Snappy or zlib for MongoDB; LZ4 for Cassandra and ScyllaDB). It's off by default; turn it on when large results or migrations go over a slow link such as an SSH tunnel. The server must support it, and connections stay uncompressed when it doesn't. Pasted URLs with `compress=` or `compressors=` fill it in, for ClickHouse too.
 - SSH tunnels can compress the traffic they carry, for every engine, PostgreSQL, SQL Server, Oracle and Redis included, whose protocols can't compress. Turn on *Compress traffic through the tunnel* under SSH tunnel. Rowsmith asks the SSH server for zlib (OpenSSH allows it by default), and Test connection says whether the server agreed. On the dev stack, a 21 MB result crossed the tunnel as 5.8 MB. Go's SSH library has no compression, so Rowsmith now carries its own copy of it with compression added, rebuilt from each new golang.org/x/crypto release.
+
+### Fixes
+
+- Built with Go 1.27.3, whose certificate checks refuse compromised intermediate certificates (GO-2026-6809), for email sent over TLS among others.
+- Databricks sign-in with a service principal verifies tokens with go-jose v4.1.6 instead of go-jose v3, which has no fix for GHSA-mgcc-cww5-fp2q, GHSA-vvm8-gf78-28g4 and GHSA-4w3g-jfj2-cw2q.
 
 ## 0.6.0 - 2026-10-20
 
