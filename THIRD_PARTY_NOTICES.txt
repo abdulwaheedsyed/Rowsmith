@@ -9,50 +9,50 @@ In the server binary (Go):
   cloud.google.com/go                                                          v0.123.0       Apache-2.0
   cloud.google.com/go/auth                                                     v0.24.1-0.20261001053825-dbc26066f70a Apache-2.0
   cloud.google.com/go/auth/oauth2adapt                                         v0.3.0         Apache-2.0
-  cloud.google.com/go/bigquery                                                 v1.85.0        Apache-2.0
+  cloud.google.com/go/bigquery                                                 v1.86.1        Apache-2.0
   cloud.google.com/go/compute/metadata                                         v0.10.0        Apache-2.0
-  cloud.google.com/go/iam                                                      v1.12.0        Apache-2.0
+  cloud.google.com/go/iam                                                      v1.14.0        Apache-2.0
   filippo.io/edwards25519                                                      v1.2.0         BSD
   github.com/Azure/azure-sdk-for-go/sdk/azcore                                 v1.23.1        MIT
   github.com/Azure/azure-sdk-for-go/sdk/internal                               v1.12.0        MIT
   github.com/Azure/azure-sdk-for-go/sdk/storage/azblob                         v1.0.0         MIT
   github.com/BurntSushi/toml                                                   v1.4.0         MIT
   github.com/ClickHouse/ch-go                                                  v0.74.0        Apache-2.0
-  github.com/ClickHouse/clickhouse-go/v2                                       v2.49.0        Apache-2.0
+  github.com/ClickHouse/clickhouse-go/v2                                       v2.50.0        Apache-2.0
   github.com/andybalholm/brotli                                                v1.2.7         MIT
-  github.com/anthropics/anthropic-sdk-go                                       v1.82.0        MIT
+  github.com/anthropics/anthropic-sdk-go                                       v1.84.0        MIT
   github.com/apache/arrow-go/v18                                               v18.4.0        Apache-2.0
   github.com/apache/arrow/go/v12                                               v12.0.1        Apache-2.0
   github.com/apache/arrow/go/v15                                               v15.0.2        Apache-2.0
   github.com/apache/cassandra-gocql-driver/v2                                  v2.1.2         Apache-2.0
   github.com/apache/thrift                                                     v0.24.0        Apache-2.0
-  github.com/aws/aws-sdk-go-v2                                                 v1.47.3        Apache-2.0
+  github.com/aws/aws-sdk-go-v2                                                 v1.47.5        Apache-2.0
   github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream                        v1.7.14        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/config                                          v1.33.9        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/credentials                                     v1.20.9        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/feature/ec2/imds                                v1.20.3        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/config                                          v1.33.13       Apache-2.0
+  github.com/aws/aws-sdk-go-v2/credentials                                     v1.20.13       Apache-2.0
+  github.com/aws/aws-sdk-go-v2/feature/ec2/imds                                v1.20.5        Apache-2.0
   github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager                      v0.3.5         Apache-2.0
-  github.com/aws/aws-sdk-go-v2/internal/configsources                          v1.5.6         Apache-2.0
-  github.com/aws/aws-sdk-go-v2/internal/endpoints/v2                           v2.8.6         Apache-2.0
-  github.com/aws/aws-sdk-go-v2/internal/v4a                                    v1.5.6         Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/dynamodb                                v1.70.3        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding                v1.13.21       Apache-2.0
+  github.com/aws/aws-sdk-go-v2/internal/configsources                          v1.5.8         Apache-2.0
+  github.com/aws/aws-sdk-go-v2/internal/endpoints/v2                           v2.8.8         Apache-2.0
+  github.com/aws/aws-sdk-go-v2/internal/v4a                                    v1.5.8         Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/dynamodb                                v1.72.3        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding                v1.13.23       Apache-2.0
   github.com/aws/aws-sdk-go-v2/service/internal/checksum                       v1.9.24        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery             v1.13.6        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/internal/presigned-url                  v1.14.6        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery             v1.13.8        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/internal/presigned-url                  v1.14.8        Apache-2.0
   github.com/aws/aws-sdk-go-v2/service/internal/s3shared                       v1.19.32       Apache-2.0
   github.com/aws/aws-sdk-go-v2/service/s3                                      v1.106.0       Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/signin                                  v1.10.4        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/sso                                     v1.38.4        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/ssooidc                                 v1.43.4        Apache-2.0
-  github.com/aws/aws-sdk-go-v2/service/sts                                     v1.51.4        Apache-2.0
-  github.com/aws/smithy-go                                                     v1.28.5        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/signin                                  v1.12.1        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/sso                                     v1.39.1        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/ssooidc                                 v1.44.1        Apache-2.0
+  github.com/aws/aws-sdk-go-v2/service/sts                                     v1.51.6        Apache-2.0
+  github.com/aws/smithy-go                                                     v1.28.7        Apache-2.0
   github.com/bahlo/generic-list-go                                             v0.2.0         BSD
   github.com/buger/jsonparser                                                  v1.1.2         MIT
   github.com/cespare/xxhash/v2                                                 v2.3.0         MIT
   github.com/coreos/go-oidc/v3                                                 v3.21.0        Apache-2.0
-  github.com/databricks/databricks-sql-go                                      v1.16.0        Apache-2.0
-  github.com/dustin/go-humanize                                                v1.0.1         MIT
+  github.com/databricks/databricks-sql-go                                      v1.18.0        Apache-2.0
+  github.com/dustin/go-humanize                                                v1.1.0         MIT
   github.com/felixge/httpsnoop                                                 v1.1.0         MIT
   github.com/gabriel-vasile/mimetype                                           v1.4.7         MIT
   github.com/go-faster/city                                                    v1.0.1         MIT
@@ -69,37 +69,37 @@ In the server binary (Go):
   github.com/google/flatbuffers                                                v25.2.10+incompatible Apache-2.0
   github.com/google/s2a-go                                                     v0.1.11        Apache-2.0
   github.com/google/uuid                                                       v1.6.0         BSD
-  github.com/googleapis/enterprise-certificate-proxy                           v0.3.23        Apache-2.0
-  github.com/googleapis/gax-go/v2                                              v2.26.2        BSD
+  github.com/googleapis/enterprise-certificate-proxy                           v0.3.24        Apache-2.0
+  github.com/googleapis/gax-go/v2                                              v2.27.0        BSD
   github.com/hashicorp/go-cleanhttp                                            v0.5.2         MPL-2.0
   github.com/hashicorp/go-retryablehttp                                        v0.7.7         MPL-2.0
-  github.com/hashicorp/go-uuid                                                 v1.0.3         MPL-2.0
+  github.com/hashicorp/go-uuid                                                 v1.0.4         MPL-2.0
   github.com/invopop/jsonschema                                                v0.14.0        MIT
   github.com/jackc/pgpassfile                                                  v1.0.0         MIT
   github.com/jackc/pgservicefile                                               v0.0.0-20240606120523-5a60cdf6a761 MIT
-  github.com/jackc/pgx/v5                                                      v5.11.0        MIT
-  github.com/jackc/puddle/v2                                                   v2.2.2         MIT
+  github.com/jackc/pgx/v5                                                      v5.12.0        MIT
+  github.com/jackc/puddle/v2                                                   v2.2.3         MIT
   github.com/jcmturner/aescts/v2                                               v2.0.0         Apache-2.0
   github.com/jcmturner/dnsutils/v2                                             v2.0.0         Apache-2.0
   github.com/jcmturner/gofork                                                  v1.7.6         BSD
   github.com/jcmturner/goidentity/v6                                           v6.0.1         Apache-2.0
   github.com/jcmturner/gokrb5/v8                                               v8.4.4         Apache-2.0
   github.com/jcmturner/rpc/v2                                                  v2.0.3         Apache-2.0
-  github.com/klauspost/compress                                                v1.20.2        Apache-2.0
+  github.com/klauspost/compress                                                v1.20.3        Apache-2.0
   github.com/klauspost/cpuid/v2                                                v2.4.0         MIT
   github.com/mattn/go-colorable                                                v0.1.13        MIT
   github.com/mattn/go-isatty                                                   v0.0.24        MIT
   github.com/microsoft/go-mssqldb                                              v1.11.2        BSD
-  github.com/paulmach/orb                                                      v0.13.0        MIT
+  github.com/paulmach/orb                                                      v0.14.0        MIT
   github.com/pb33f/ordered-map/v2                                              v2.3.1         Apache-2.0
-  github.com/pierrec/lz4/v4                                                    v4.1.30        BSD
+  github.com/pierrec/lz4/v4                                                    v4.1.33        BSD
   github.com/pkg/browser                                                       v0.0.0-20240102092130-5ac0b6a4141c BSD
   github.com/pkg/errors                                                        v0.9.1         BSD
   github.com/redis/go-redis/v9                                                 v9.23.0        BSD
   github.com/remyoudompheng/bigfft                                             v0.0.0-20230129092748-24d4a6f8daec BSD
   github.com/rs/zerolog                                                        v1.34.0        MIT
   github.com/segmentio/asm                                                     v1.2.1         MIT
-  github.com/shopspring/decimal                                                v1.4.0         MIT
+  github.com/shopspring/decimal                                                v1.5.0         MIT
   github.com/sijms/go-ora/v2                                                   v2.9.0         MIT
   github.com/snowflakedb/gosnowflake/v2                                        v2.3.0         Apache-2.0
   github.com/standard-webhooks/standard-webhooks/libraries                     v0.0.1         MIT
@@ -107,7 +107,7 @@ In the server binary (Go):
   github.com/tidwall/match                                                     v1.1.1         MIT
   github.com/tidwall/pretty                                                    v1.2.1         MIT
   github.com/tidwall/sjson                                                     v1.2.5         MIT
-  github.com/trinodb/trino-go-client                                           v1.3.0         Apache-2.0
+  github.com/trinodb/trino-go-client                                           v1.4.1         Apache-2.0
   github.com/twpayne/go-geom                                                   v1.7.0         BSD
   github.com/xdg-go/scram                                                      v1.2.0         Apache-2.0
   github.com/xdg-go/stringprep                                                 v1.0.4         Apache-2.0
@@ -117,9 +117,10 @@ In the server binary (Go):
   go.opentelemetry.io/auto/sdk                                                 v1.2.1         Apache-2.0
   go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc  v0.67.0        Apache-2.0
   go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp                v0.69.0        Apache-2.0
-  go.opentelemetry.io/otel                                                     v1.46.0        Apache-2.0
-  go.opentelemetry.io/otel/metric                                              v1.46.0        Apache-2.0
-  go.opentelemetry.io/otel/trace                                               v1.46.0        Apache-2.0
+  go.opentelemetry.io/otel                                                     v1.47.0        Apache-2.0
+  go.opentelemetry.io/otel/log                                                 v1.47.0        Apache-2.0
+  go.opentelemetry.io/otel/metric                                              v1.47.0        Apache-2.0
+  go.opentelemetry.io/otel/trace                                               v1.47.0        Apache-2.0
   go.uber.org/atomic                                                           v1.12.0        MIT
   go.yaml.in/yaml/v4                                                           v4.0.0-rc.2    Apache-2.0
   golang.org/x/crypto                                                          v0.58.0        BSD
@@ -131,21 +132,21 @@ In the server binary (Go):
   golang.org/x/text                                                            v0.43.0        BSD
   golang.org/x/time                                                            v0.16.0        BSD
   golang.org/x/xerrors                                                         v0.0.0-20240903120638-7835f813f4da BSD
-  google.golang.org/api                                                        v0.304.0       BSD
-  google.golang.org/genproto                                                   v0.0.0-20260715232425-e75dac1f907d Apache-2.0
-  google.golang.org/genproto/googleapis/api                                    v0.0.0-20260715232425-e75dac1f907d Apache-2.0
-  google.golang.org/genproto/googleapis/rpc                                    v0.0.0-20261005182115-fad411399dd8 Apache-2.0
+  google.golang.org/api                                                        v0.310.0       BSD
+  google.golang.org/genproto                                                   v0.0.0-20261012220534-4341edf3f941 Apache-2.0
+  google.golang.org/genproto/googleapis/api                                    v0.0.0-20261012220534-4341edf3f941 Apache-2.0
+  google.golang.org/genproto/googleapis/rpc                                    v0.0.0-20261019180522-ce908d29299b Apache-2.0
   google.golang.org/grpc                                                       v1.84.0        Apache-2.0
   google.golang.org/protobuf                                                   v1.36.12       BSD
   gopkg.in/inf.v0                                                              v0.9.1         BSD
-  modernc.org/libc                                                             v1.77.1        BSD
+  modernc.org/libc                                                             v1.79.0        BSD
   modernc.org/mathutil                                                         v1.7.1         BSD
   modernc.org/memory                                                           v1.12.1        BSD
-  modernc.org/sqlite                                                           v1.60.1        BSD
+  modernc.org/sqlite                                                           v1.61.1        BSD
 
 In the web app (npm):
 
-  @codemirror/autocomplete                6.20.3         MIT
+  @codemirror/autocomplete                6.20.4         MIT
   @codemirror/commands                    6.11.1         MIT
   @codemirror/lang-javascript             6.2.5          MIT
   @codemirror/lang-json                   6.0.2          MIT
@@ -155,9 +156,9 @@ In the web app (npm):
   @codemirror/search                      6.7.2          MIT
   @codemirror/state                       6.7.6          MIT
   @codemirror/streamparser                6.0.0          MIT
-  @codemirror/view                        6.43.14        MIT
-  @dagrejs/dagre                          3.1.1          MIT
-  @dagrejs/graphlib                       4.0.5          MIT
+  @codemirror/view                        6.43.15        MIT
+  @dagrejs/dagre                          3.1.3          MIT
+  @dagrejs/graphlib                       4.0.6          MIT
   @floating-ui/core                       1.8.0          MIT
   @floating-ui/dom                        1.8.0          MIT
   @floating-ui/react-dom                  2.1.9          MIT
@@ -172,36 +173,36 @@ In the web app (npm):
   @lezer/lr                               1.4.10         MIT
   @mapbox/jsonlint-lines-primitives       2.0.3          MIT
   @mapbox/point-geometry                  1.1.0          ISC
-  @mapbox/tiny-sdf                        2.2.0          BSD-2-Clause
+  @mapbox/tiny-sdf                        2.3.0          BSD-2-Clause
   @mapbox/unitbezier                      1.0.0          BSD-2-Clause
   @mapbox/vector-tile                     3.0.0          BSD-3-Clause
-  @maplibre/geojson-vt                    6.1.2          ISC
+  @maplibre/geojson-vt                    6.3.0          ISC
   @maplibre/maplibre-gl-style-spec        26.4.4         ISC
   @maplibre/mlt                           1.3.0          (MIT OR Apache-2.0)
-  @maplibre/vt-pbf                        4.3.2          MIT
+  @maplibre/vt-pbf                        4.3.3          MIT
   @marijn/find-cluster-break              1.0.4          MIT
   @radix-ui/primitive                     1.2.0          MIT
   @radix-ui/react-arrow                   1.1.17         MIT
   @radix-ui/react-collection              1.2.0          MIT
   @radix-ui/react-compose-refs            1.1.5          MIT
   @radix-ui/react-context                 1.3.0          MIT
-  @radix-ui/react-context-menu            2.4.0          MIT
-  @radix-ui/react-dialog                  1.3.0          MIT
+  @radix-ui/react-context-menu            2.4.1          MIT
+  @radix-ui/react-dialog                  1.3.1          MIT
   @radix-ui/react-direction               1.2.0          MIT
-  @radix-ui/react-dismissable-layer       1.2.0          MIT
-  @radix-ui/react-dropdown-menu           2.2.0          MIT
+  @radix-ui/react-dismissable-layer       1.2.1          MIT
+  @radix-ui/react-dropdown-menu           2.2.1          MIT
   @radix-ui/react-focus-guards            1.2.0          MIT
-  @radix-ui/react-focus-scope             1.3.0          MIT
+  @radix-ui/react-focus-scope             1.3.1          MIT
   @radix-ui/react-id                      1.1.4          MIT
-  @radix-ui/react-menu                    2.2.0          MIT
-  @radix-ui/react-popover                 1.3.0          MIT
+  @radix-ui/react-menu                    2.2.1          MIT
+  @radix-ui/react-popover                 1.3.1          MIT
   @radix-ui/react-popper                  1.4.0          MIT
   @radix-ui/react-portal                  1.2.0          MIT
   @radix-ui/react-presence                1.1.11         MIT
   @radix-ui/react-primitive               2.2.0          MIT
-  @radix-ui/react-roving-focus            1.2.0          MIT
+  @radix-ui/react-roving-focus            1.2.1          MIT
   @radix-ui/react-slot                    1.5.0          MIT
-  @radix-ui/react-tooltip                 1.4.0          MIT
+  @radix-ui/react-tooltip                 1.4.1          MIT
   @radix-ui/react-use-callback-ref        1.1.5          MIT
   @radix-ui/react-use-controllable-state  1.3.0          MIT
   @radix-ui/react-use-effect-event        0.0.5          MIT
@@ -211,8 +212,8 @@ In the web app (npm):
   @radix-ui/react-use-size                1.1.5          MIT
   @radix-ui/react-visually-hidden         1.2.13         MIT
   @radix-ui/rect                          1.1.3          MIT
-  @tanstack/query-core                    5.104.2        MIT
-  @tanstack/react-query                   5.104.2        MIT
+  @tanstack/query-core                    5.105.1        MIT
+  @tanstack/react-query                   5.105.1        MIT
   @types/d3-color                         3.1.3          MIT
   @types/d3-drag                          3.0.7          MIT
   @types/d3-interpolate                   3.0.4          MIT
@@ -222,8 +223,8 @@ In the web app (npm):
   @types/geojson                          7946.0.16      MIT
   @types/react                            19.3.0         MIT
   @types/react-dom                        19.3.0         MIT
-  @xyflow/react                           12.12.0        MIT
-  @xyflow/system                          0.0.83         MIT
+  @xyflow/react                           12.12.1        MIT
+  @xyflow/system                          0.0.84         MIT
   argparse                                2.0.1          Python-2.0
   aria-hidden                             1.2.6          MIT
   bidi-js                                 1.1.0          MIT
@@ -248,8 +249,8 @@ In the web app (npm):
   gl-matrix                               3.4.4          MIT
   json-stringify-pretty-compact           4.0.0          MIT
   kdbush                                  4.1.0          ISC
-  lucide-react                            1.55.0         ISC
-  maplibre-gl                             6.14.0         BSD-3-Clause
+  lucide-react                            1.66.0         ISC
+  maplibre-gl                             6.16.0         BSD-3-Clause
   minimist                                1.2.8          MIT
   moo                                     0.5.3          BSD-3-Clause
   murmurhash-js                           1.0.0          MIT
@@ -261,8 +262,8 @@ In the web app (npm):
   quickselect                             3.0.0          ISC
   railroad-diagrams                       1.0.0          CC0-1.0
   randexp                                 0.4.6          MIT
-  react                                   19.3.0         MIT
-  react-dom                               19.3.0         MIT
+  react                                   19.3.1         MIT
+  react-dom                               19.3.1         MIT
   react-remove-scroll                     2.7.2          MIT
   react-remove-scroll-bar                 2.3.8          MIT
   react-style-singleton                   2.2.3          MIT
@@ -280,7 +281,7 @@ In the web app (npm):
   use-sync-external-store                 1.7.0          MIT
   w3c-keyname                             2.2.8          MIT
   wouter                                  3.13.0         Unlicense
-  zustand                                 5.0.15         MIT
+  zustand                                 5.0.16         MIT
   zustand                                 4.5.7          MIT
 
 ================================================================================
@@ -338,7 +339,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-cloud.google.com/go/bigquery v1.85.0
+cloud.google.com/go/bigquery v1.86.1
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -352,7 +353,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-cloud.google.com/go/iam v1.12.0
+cloud.google.com/go/iam v1.14.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -509,7 +510,7 @@ Licensed under the Apache License, Version 2.0 (the full text is at the end of t
 Copyright 2016-2023 ClickHouse, Inc.
 
 ================================================================================
-github.com/ClickHouse/clickhouse-go/v2 v2.49.0
+github.com/ClickHouse/clickhouse-go/v2 v2.50.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -543,7 +544,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-github.com/anthropics/anthropic-sdk-go v1.82.0
+github.com/anthropics/anthropic-sdk-go v1.84.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -794,7 +795,7 @@ This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2 v1.47.3
+github.com/aws/aws-sdk-go-v2 v1.47.5
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -814,21 +815,21 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/config v1.33.9
+github.com/aws/aws-sdk-go-v2/config v1.33.13
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/credentials v1.20.9
+github.com/aws/aws-sdk-go-v2/credentials v1.20.13
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3
+github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -842,35 +843,35 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6
+github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6
+github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6
+github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/dynamodb v1.70.3
+github.com/aws/aws-sdk-go-v2/service/dynamodb v1.72.3
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21
+github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -884,14 +885,14 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.6
+github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.6
+github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -912,35 +913,35 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/signin v1.10.4
+github.com/aws/aws-sdk-go-v2/service/signin v1.12.1
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/sso v1.38.4
+github.com/aws/aws-sdk-go-v2/service/sso v1.39.1
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.4
+github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/aws-sdk-go-v2/service/sts v1.51.4
+github.com/aws/aws-sdk-go-v2/service/sts v1.51.6
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/aws/smithy-go v1.28.5
+github.com/aws/smithy-go v1.28.7
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -1229,14 +1230,14 @@ This product includes software developed at CoreOS, Inc.
 (http://www.coreos.com/).
 
 ================================================================================
-github.com/databricks/databricks-sql-go v1.16.0
+github.com/databricks/databricks-sql-go v1.18.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/dustin/go-humanize v1.0.1
+github.com/dustin/go-humanize v1.1.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -1936,14 +1937,14 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/googleapis/enterprise-certificate-proxy v0.3.23
+github.com/googleapis/enterprise-certificate-proxy v0.3.24
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/googleapis/gax-go/v2 v2.26.2
+github.com/googleapis/gax-go/v2 v2.27.0
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -2714,11 +2715,11 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
       the Mozilla Public License, v. 2.0.
 
 ================================================================================
-github.com/hashicorp/go-uuid v1.0.3
+github.com/hashicorp/go-uuid v1.0.4
 License: MPL-2.0
 --------------------------------------------------------------------------------
 
-Copyright © 2015-2022 HashiCorp, Inc.
+Copyright IBM Corp. 2015, 2025
 
 Mozilla Public License, version 2.0
 
@@ -3165,7 +3166,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-github.com/jackc/pgx/v5 v5.11.0
+github.com/jackc/pgx/v5 v5.12.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -3193,7 +3194,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-github.com/jackc/puddle/v2 v2.2.2
+github.com/jackc/puddle/v2 v2.2.3
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -3289,7 +3290,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/klauspost/compress v1.20.2
+github.com/klauspost/compress v1.20.3
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -3702,7 +3703,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-github.com/paulmach/orb v0.13.0
+github.com/paulmach/orb v0.14.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -3735,7 +3736,7 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-github.com/pierrec/lz4/v4 v4.1.30
+github.com/pierrec/lz4/v4 v4.1.33
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -3939,7 +3940,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-github.com/shopspring/decimal v1.4.0
+github.com/shopspring/decimal v1.5.0
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -4155,7 +4156,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-github.com/trinodb/trino-go-client v1.3.0
+github.com/trinodb/trino-go-client v1.4.1
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -4644,21 +4645,28 @@ License: Apache-2.0
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-go.opentelemetry.io/otel v1.46.0
+go.opentelemetry.io/otel v1.47.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-go.opentelemetry.io/otel/metric v1.46.0
+go.opentelemetry.io/otel/log v1.47.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-go.opentelemetry.io/otel/trace v1.46.0
+go.opentelemetry.io/otel/metric v1.47.0
+License: Apache-2.0
+--------------------------------------------------------------------------------
+
+Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
+
+================================================================================
+go.opentelemetry.io/otel/trace v1.47.0
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -5058,7 +5066,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-google.golang.org/api v0.304.0
+google.golang.org/api v0.310.0
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -5091,21 +5099,21 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-google.golang.org/genproto v0.0.0-20260715232425-e75dac1f907d
+google.golang.org/genproto v0.0.0-20261012220534-4341edf3f941
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-google.golang.org/genproto/googleapis/api v0.0.0-20260715232425-e75dac1f907d
+google.golang.org/genproto/googleapis/api v0.0.0-20261012220534-4341edf3f941
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
 Licensed under the Apache License, Version 2.0 (the full text is at the end of this file).
 
 ================================================================================
-google.golang.org/genproto/googleapis/rpc v0.0.0-20261005182115-fad411399dd8
+google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b
 License: Apache-2.0
 --------------------------------------------------------------------------------
 
@@ -5202,7 +5210,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-modernc.org/libc v1.77.1
+modernc.org/libc v1.79.0
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -5662,7 +5670,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-modernc.org/sqlite v1.60.1
+modernc.org/sqlite v1.61.1
 License: BSD
 --------------------------------------------------------------------------------
 
@@ -5732,18 +5740,18 @@ and license texts it points at are the ones you have to carry with you.
 
 | Component | Version | License | Reached via | Text |
 | --- | --- | --- | --- | --- |
-| [github.com/dustin/go-humanize](https://pkg.go.dev/github.com/dustin/go-humanize) | v1.0.1 | MIT | modernc.org/libc, `go.mod` | [L1](#L1) |
+| [github.com/dustin/go-humanize](https://pkg.go.dev/github.com/dustin/go-humanize) | v1.1.0 | MIT | modernc.org/libc, `go.mod` | [L1](#L1) |
 | [github.com/google/uuid](https://pkg.go.dev/github.com/google/uuid) | v1.6.0 | BSD-3-Clause | modernc.org/libc, `go.mod` | [L2](#L2) |
 | [github.com/remyoudompheng/bigfft](https://pkg.go.dev/github.com/remyoudompheng/bigfft) | v0.0.0-20230129092748-24d4a6f8daec | BSD-3-Clause | modernc.org/fileutil, modernc.org/libc, modernc.org/mathutil, modernc.org/memory, `go.mod` | [L2](#L2) |
 | [Go](https://github.com/golang/go) | -- | BSD-3-Clause | modernc.org/libc | [N1](#N1) |
 | [go-netdb](https://github.com/dominikh/go-netdb) | -- | MIT | modernc.org/libc | [N1](#N1) |
-| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | v0.48.0 | BSD-3-Clause | github.com/google/pprof, github.com/mattn/go-isatty, modernc.org/libc, modernc.org/memory, `go.mod` | [L3](#L3) |
-| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.77.1 | BSD-3-Clause | `go.mod` | [L4](#L4) |
+| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | v0.49.0 | BSD-3-Clause | github.com/google/pprof, github.com/mattn/go-isatty, modernc.org/libc, modernc.org/memory, `go.mod` | [L3](#L3) |
+| [modernc.org/libc](https://pkg.go.dev/modernc.org/libc) | v1.79.0 | BSD-3-Clause | `go.mod` | [L4](#L4) |
 | [modernc.org/mathutil](https://pkg.go.dev/modernc.org/mathutil) | v1.7.1 | BSD-3-Clause | modernc.org/fileutil, modernc.org/libc, modernc.org/memory, `go.mod` | [L4](#L4) |
 | [modernc.org/memory](https://pkg.go.dev/modernc.org/memory) | v1.12.1 | BSD-3-Clause, attribution reference | modernc.org/libc, `go.mod` | [L4](#L4), [L2](#L2), [L5](#L5), [L6](#L6) |
 | [musl libc](https://musl.libc.org/) | -- | MIT | modernc.org/libc | [N1](#N1) |
 | [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs) | -- | MIT | modernc.org/libc | [N1](#N1) |
-| [SQLite](https://sqlite.org/) | 3.53.4 | public domain | transpiled into `lib/` | [L7](#L7) |
+| [SQLite](https://sqlite.org/) | 3.54.1 | public domain | transpiled into `lib/` | [L7](#L7) |
 | [sqlite-vec](https://github.com/asg017/sqlite-vec) | v0.1.9 | MIT | transpiled into `vec/` | [L8](#L8) |
 | [SQLite `test_demovfs.c`](https://www.sqlite.org/src/doc/trunk/src/test_demovfs.c) | -- | public domain | `vfs/c/vfs.c`, transpiled into `vfs/` | [L7](#L7) |
 
@@ -5758,7 +5766,7 @@ not reach a program that imports `modernc.org/sqlite`.
 
 | Component | Version | License | Reached via | Text |
 | --- | --- | --- | --- | --- |
-| [github.com/google/pprof](https://pkg.go.dev/github.com/google/pprof) | v0.0.0-20260802141513-ef3492d7dac3 | Apache-2.0, BSD-3-Clause | `go.mod` | [L9](#L9), [L10](#L10) |
+| [github.com/google/pprof](https://pkg.go.dev/github.com/google/pprof) | v0.0.0-20261016150608-1facf8f91b50 | Apache-2.0, BSD-3-Clause | `go.mod` | [L9](#L9), [L10](#L10) |
 | [modernc.org/fileutil](https://pkg.go.dev/modernc.org/fileutil) | v1.4.0 | BSD-3-Clause | modernc.org/libc, `go.mod` | [L4](#L4), [L11](#L11) |
 
 ## 3. Components in the module graph, not compiled into anything
@@ -5779,14 +5787,14 @@ this one.
 | [github.com/hashicorp/golang-lru/v2](https://pkg.go.dev/github.com/hashicorp/golang-lru/v2) | v2.0.7 | MPL-2.0, BSD-3-Clause | modernc.org/libc | [L13](#L13), [L14](#L14) |
 | [github.com/ianlancetaylor/demangle](https://pkg.go.dev/github.com/ianlancetaylor/demangle) | v0.0.0-20250417193237-f615e6bd150b | BSD-3-Clause | github.com/google/pprof | [L2](#L2) |
 | [github.com/mattn/go-isatty](https://pkg.go.dev/github.com/mattn/go-isatty) | v0.0.24 | MIT | modernc.org/libc, `go.mod` | [L15](#L15) |
-| [github.com/ncruces/go-strftime](https://pkg.go.dev/github.com/ncruces/go-strftime) | v1.0.0 | MIT | modernc.org/libc, `go.mod` | [L8](#L8) |
-| [golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod) | v0.41.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) | v0.23.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) | v0.50.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
-| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.29.7 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
-| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.36.1 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [github.com/ncruces/go-strftime](https://pkg.go.dev/github.com/ncruces/go-strftime) | v1.1.0 | MIT | modernc.org/libc, `go.mod` | [L8](#L8) |
+| [golang.org/x/mod](https://pkg.go.dev/golang.org/x/mod) | v0.42.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [golang.org/x/sync](https://pkg.go.dev/golang.org/x/sync) | v0.24.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [golang.org/x/tools](https://pkg.go.dev/golang.org/x/tools) | v0.52.0 | BSD-3-Clause | modernc.org/libc | [L3](#L3) |
+| [modernc.org/cc/v4](https://pkg.go.dev/modernc.org/cc/v4) | v4.30.3 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
+| [modernc.org/ccgo/v4](https://pkg.go.dev/modernc.org/ccgo/v4) | v4.37.0 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
 | [modernc.org/gc/v2](https://pkg.go.dev/modernc.org/gc/v2) | v2.6.5 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
-| [modernc.org/gc/v3](https://pkg.go.dev/modernc.org/gc/v3) | v3.1.5 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
+| [modernc.org/gc/v3](https://pkg.go.dev/modernc.org/gc/v3) | v3.2.0 | BSD-3-Clause | modernc.org/libc | [L16](#L16) |
 | [modernc.org/goabi0](https://pkg.go.dev/modernc.org/goabi0) | v0.2.0 | BSD-3-Clause | modernc.org/libc | [L17](#L17) |
 | [modernc.org/opt](https://pkg.go.dev/modernc.org/opt) | v0.2.0 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
 | [modernc.org/sortutil](https://pkg.go.dev/modernc.org/sortutil) | v1.2.1 | BSD-3-Clause | modernc.org/libc | [L4](#L4) |
@@ -6045,7 +6053,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Applies to:
 
-- SQLite 3.53.4 (`LICENSE-SQLITE`)
+- SQLite 3.54.1 (`LICENSE-SQLITE`)
 - SQLite `test_demovfs.c`
 - SQLite test suite (`testdata/`)
 
@@ -7357,7 +7365,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@codemirror/autocomplete 6.20.3
+@codemirror/autocomplete 6.20.4
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -7627,7 +7635,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-@codemirror/view 6.43.14
+@codemirror/view 6.43.15
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -7654,7 +7662,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-@dagrejs/dagre 3.1.1
+@dagrejs/dagre 3.1.3
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -7679,7 +7687,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-@dagrejs/graphlib 4.0.5
+@dagrejs/graphlib 4.0.6
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8286,7 +8294,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ================================================================================
-@mapbox/tiny-sdf 2.2.0
+@mapbox/tiny-sdf 2.3.0
 License: BSD-2-Clause
 --------------------------------------------------------------------------------
 
@@ -8368,7 +8376,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-@maplibre/geojson-vt 6.1.2
+@maplibre/geojson-vt 6.3.0
 License: ISC
 --------------------------------------------------------------------------------
 
@@ -8772,7 +8780,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 ================================================================================
-@maplibre/vt-pbf 4.3.2
+@maplibre/vt-pbf 4.3.3
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -8995,7 +9003,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-context-menu 2.4.0
+@radix-ui/react-context-menu 2.4.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9022,7 +9030,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dialog 1.3.0
+@radix-ui/react-dialog 1.3.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9076,7 +9084,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dismissable-layer 1.2.0
+@radix-ui/react-dismissable-layer 1.2.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9103,7 +9111,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-dropdown-menu 2.2.0
+@radix-ui/react-dropdown-menu 2.2.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9157,7 +9165,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-focus-scope 1.3.0
+@radix-ui/react-focus-scope 1.3.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9211,7 +9219,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-menu 2.2.0
+@radix-ui/react-menu 2.2.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9238,7 +9246,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-popover 1.3.0
+@radix-ui/react-popover 1.3.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9373,7 +9381,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-roving-focus 1.2.0
+@radix-ui/react-roving-focus 1.2.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9427,7 +9435,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@radix-ui/react-tooltip 1.4.0
+@radix-ui/react-tooltip 1.4.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9697,7 +9705,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/query-core 5.104.2
+@tanstack/query-core 5.105.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9724,7 +9732,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@tanstack/react-query 5.104.2
+@tanstack/react-query 5.105.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -9994,7 +10002,7 @@ MIT License
     SOFTWARE
 
 ================================================================================
-@xyflow/react 12.12.0
+@xyflow/react 12.12.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -10021,7 +10029,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-@xyflow/system 0.0.83
+@xyflow/system 0.0.84
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -10842,7 +10850,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 
 ================================================================================
-lucide-react 1.55.0
+lucide-react 1.66.0
 License: ISC
 --------------------------------------------------------------------------------
 
@@ -10891,7 +10899,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-maplibre-gl 6.14.0
+maplibre-gl 6.16.0
 License: BSD-3-Clause
 --------------------------------------------------------------------------------
 
@@ -11247,7 +11255,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ================================================================================
-react 19.3.0
+react 19.3.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -11274,7 +11282,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ================================================================================
-react-dom 19.3.0
+react-dom 19.3.1
 License: MIT
 --------------------------------------------------------------------------------
 
@@ -11701,7 +11709,7 @@ License: Unlicense
 The package declares the Unlicense license and includes no license file.
 
 ================================================================================
-zustand 5.0.15
+zustand 5.0.16
 License: MIT
 --------------------------------------------------------------------------------
 
